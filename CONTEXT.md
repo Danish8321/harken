@@ -2,11 +2,20 @@
 
 Glossary for the Harken project. Terms only. No implementation details.
 
+## User
+A person with an account in Harken. Owns Sessions. Users are isolated from one
+another: a User can never read another User's Sessions, Transcripts, or Summaries.
+
+## Owner
+The User a Session belongs to — established when the Session is created, from the
+authenticated identity, and never reassigned. Transcript Segments inherit ownership
+through their Session.
+
 ## Session
-A single continuous capture from one client, from start to stop. Owns an ordered
-sequence of Transcript Segments. Has a start time, end time, and a source (mic or
-system audio). One Session maps to exactly one live audio stream and one recognizer
-lifetime.
+A single continuous capture from one client, from start to stop. Belongs to exactly
+one Owner. Owns an ordered sequence of Transcript Segments. Has a start time, end
+time, and a source (mic or system audio). One Session maps to exactly one live audio
+stream and one recognizer lifetime.
 
 ## Transcript Segment
 A timestamped piece of recognized text belonging to a Session. Emitted as final
@@ -38,5 +47,6 @@ one Agent: Summarize. Runs on-demand against a stored Transcript, not live.
 The output of the Summarize Agent over a Transcript.
 
 ## Source
-Where a Session's audio comes from. Phase 1: mic (console). Later: system/tab audio
-(browser extension), device mic (mobile).
+Where a Session's audio comes from — declared by the client when the Session starts,
+not assumed by the server. Mic (console, mobile) or system/tab audio (browser
+extension).

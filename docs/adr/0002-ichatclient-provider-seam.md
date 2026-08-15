@@ -15,6 +15,10 @@ abstraction. Ollama (local), OpenAI, and Azure Foundry all converge on
 `ChatClientAgent` through that same interface (verified against Agent Framework .NET
 docs and the official `Agent_With_Ollama` sample).
 
+Correction to the docs' naming: the installed `Microsoft.Agents.AI` package exposes
+the `IChatClient` → agent factory as **`AsAIAgent`**, not `CreateAIAgent` as the
+published samples call it. The seam is the same; only the method name differs.
+
 ## Decision
 Treat `IChatClient` as the provider seam. Phase 1 binds it to a **local Ollama**
 model (Gemma). Later phases rebind the same keyed client to **Azure Foundry** with no

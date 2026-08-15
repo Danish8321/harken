@@ -6,6 +6,13 @@ service. Reuses `Harken.Core` contracts and the backend from slice one unchanged
 
 **Not in scope:** iOS, session-history screen, cloud deployment, auth.
 
+> **Superseded in part by slice 03.** This slice's "no authentication, no ownership"
+> state is no longer how Harken works. Per ADR-0004, the mobile app now opens on a
+> login page, stores its token in `SecureStorage`, and sends it with the hub connection
+> and every HTTP call; sessions belong to the account that recorded them. See
+> `docs/plans/slice-03-identity-and-ownership.md` and the README for the current setup.
+> The task history below is left as recorded.
+
 **Decisions locked:** ADR-0003 (foreground service). Android-only. LAN + editable
 base-URL setting. See `CONTEXT.md`, ADR-0001..0003.
 

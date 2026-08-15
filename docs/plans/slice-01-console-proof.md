@@ -6,6 +6,12 @@ saved to SQLite → Summarize agent (local Ollama/Gemma) runs on the stored tran
 
 **Not in scope:** mobile, browser extension, custom prompts, auth, multi-user, UI polish.
 
+> **Superseded in part by slice 03.** This slice's "no authentication, no ownership"
+> state is no longer how Harken works. Per ADR-0004, every session now has an owner and
+> every endpoint except `GET /health` requires a bearer token; the console client logs
+> in before connecting. See `docs/plans/slice-03-identity-and-ownership.md` and the
+> README for the current setup. The task history below is left as recorded.
+
 **Stack:** .NET 10 (JIT), ASP.NET Core + SignalR, Azure.CognitiveServices.Speech,
 EF Core + SQLite, Microsoft Agent Framework over `IChatClient` (Ollama phase 1),
 NAudio console mic capture.
