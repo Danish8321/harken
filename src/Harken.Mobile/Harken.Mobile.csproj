@@ -22,7 +22,7 @@
 		<MauiXamlInflator>SourceGen</MauiXamlInflator>
 
 		<!-- Display name -->
-		<ApplicationTitle>Harken.Mobile</ApplicationTitle>
+		<ApplicationTitle>Harken</ApplicationTitle>
 
 		<!-- App Identifier -->
 		<ApplicationId>com.companyname.harken.mobile</ApplicationId>
