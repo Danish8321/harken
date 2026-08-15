@@ -79,7 +79,7 @@ az cognitiveservices account show --name harken-speech --resource-group harken-r
 ### Free tier limits
 
 F0 allows roughly **5 audio hours per month** of standard speech-to-text and **one
-concurrent request**. That one-concurrent-request limit matters: two people captioning
+concurrent request** (Microsoft documents this limit as not adjustable). That one-concurrent-request limit matters: two people captioning
 at the same time will fail on F0. Fine for proving the thing works, not fine for family
 use — move to S0 (pay-as-you-go, billed per audio hour) before more than one person
 relies on it. One Azure subscription allows only one F0 Speech resource.
@@ -232,6 +232,9 @@ verification frontier. Everything before them is covered by automated tests.
 | SQLite `ORDER BY` errors on new queries | SQLite cannot translate `ORDER BY` on `TimeSpan`/`DateTimeOffset` — materialize first, sort client-side (ADR-0005) |
 
 ## Cost
+
+**See [`cost-model.md`](cost-model.md)** for what Harken costs by usage level, and why
+one forgotten session can cost more than a month of real use.
 
 - **Azure Speech** — the only meter. F0 is free within its monthly audio-hour limit;
   S0 bills per audio hour of streaming.
