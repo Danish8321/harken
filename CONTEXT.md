@@ -46,6 +46,22 @@ one Agent: Summarize. Runs on-demand against a stored Transcript, not live.
 ## Summary
 The output of the Summarize Agent over a Transcript.
 
+## Silence Timeout
+The period without any Final Result after which a Session ends on its own. Measured
+from the last Final Result, not from the last audio: audio keeps arriving from a
+silent room. Configurable per Session.
+
+## Session Cap
+The maximum duration a Session may run, chosen by the User before it starts. Independent
+of Silence Timeout — it bounds a Session that keeps producing Final Results from
+background noise, which Silence Timeout never ends. May be declined, in which case only
+Silence Timeout applies.
+
+## Auto-stop
+A Session ending because a Silence Timeout or Session Cap was reached, rather than
+because the User stopped it. Always attributed: a Session that ended states which of
+the three it was, so an Auto-stop is never mistaken for a lost connection.
+
 ## Source
 Where a Session's audio comes from — declared by the client when the Session starts,
 not assumed by the server. Mic (console, mobile) or system/tab audio (browser

@@ -22,3 +22,11 @@ runtime permission plus a notification channel for the ongoing-recording notice.
   service declaration) that a screen-only prototype wouldn't need.
 - User always sees a persistent "recording" notification while a session is live —
   intentional, not a bug: mic-capture apps must not record silently in the background.
+- **Backgrounding the app was the only natural stop signal, and this decision removes
+  it.** Session duration becomes unbounded: a forgotten Session on a locked phone streams
+  until the battery dies. On a per-audio-hour meter that is unbounded cost, so this
+  decision is what makes server-side session limits necessary rather than nice to have.
+  Addressed in ADR-0006.
+- The notification is the only surface visible or actionable while the screen is locked,
+  so it is where the stop control and elapsed-time display belong — not just a passive
+  notice (ADR-0006).
