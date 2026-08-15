@@ -9,6 +9,7 @@ using OllamaSharp;
 using Harken.Api.Agents;
 using Harken.Api.Auth;
 using Harken.Api.Data;
+using Harken.Api.Speech;
 using Harken.Core.Contracts;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -72,6 +73,16 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+
+// Transcription provider seam (ADR-0008): MVP 1 registers local Whisper only. MVP 2
+// adds Azure batch as a second registration; whichever reports IsAvailable is what the
+// backend can actually offer.
+var whisperSection = builder.Configuration.GetSection("Whisper");
+var whisperOptions = new WhisperOptions(
+    whisperSection["ModelPath"] ?? "",
+    whisperSection["Language"] ?? "en");
+builder.Services.AddSingleton(whisperOptions);
+builder.Services.AddSingleton<ITranscriptionProvider, WhisperTranscriptionProvider>();
 
 // Provider seam: only this registration changes when swapping to Azure Foundry.
 var ollamaEndpoint = builder.Configuration["Ollama:Endpoint"]
