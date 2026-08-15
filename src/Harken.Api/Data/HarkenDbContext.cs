@@ -18,6 +18,8 @@ public class HarkenDbContext : IdentityDbContext<IdentityUser>
 
     public DbSet<StoredSummary> StoredSummaries => Set<StoredSummary>();
 
+    public DbSet<Recording> Recordings => Set<Recording>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         // Identity configures its own entities first; ours layer on top.
@@ -34,6 +36,9 @@ public class HarkenDbContext : IdentityDbContext<IdentityUser>
                 .WithOne()
                 .HasForeignKey(t => t.SessionId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(s => s.TranscriptionStatus).HasConversion<string>();
+            // No HasMaxLength: a real failure reason (e.g. a Whisper exception message)
+            // can be long, and this column is diagnostic, not queried.
         });
 
         builder.Entity<TranscriptSegment>(entity =>
@@ -49,6 +54,17 @@ public class HarkenDbContext : IdentityDbContext<IdentityUser>
             entity.HasOne<Session>()
                 .WithOne()
                 .HasForeignKey<StoredSummary>(s => s.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Recording>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+            // One Recording per Session; a Session that is re-recorded is a new Session.
+            entity.HasIndex(r => r.SessionId).IsUnique();
+            entity.HasOne<Session>()
+                .WithOne(s => s.Recording)
+                .HasForeignKey<Recording>(r => r.SessionId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
