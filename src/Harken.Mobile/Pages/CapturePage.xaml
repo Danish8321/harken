@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Harken.Mobile.Pages.CapturePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Capture">
+
+    <Grid Padding="20" RowSpacing="12" RowDefinitions="Auto,Auto,*,Auto,*">
+
+        <HorizontalStackLayout Grid.Row="0" Spacing="12">
+            <Button x:Name="StartButton" Text="Start" Clicked="OnStartClicked" />
+            <Button x:Name="StopButton" Text="Stop" Clicked="OnStopClicked" IsEnabled="False" />
+            <Button x:Name="SummarizeButton" Text="Summarize" Clicked="OnSummarizeClicked" IsEnabled="False" />
+        </HorizontalStackLayout>
+
+        <Label x:Name="StatusLabel" Grid.Row="1" Text="Idle" />
+
+        <ScrollView Grid.Row="2">
+            <Label x:Name="CaptionLabel" Text="" LineBreakMode="WordWrap" />
+        </ScrollView>
+
+        <Label Grid.Row="3" Text="Summary" FontAttributes="Bold" />
+
+        <ScrollView Grid.Row="4">
+            <Editor x:Name="SummaryEditor" IsReadOnly="True" AutoSize="TextChanges" />
+        </ScrollView>
+
+    </Grid>
+
+</ContentPage>

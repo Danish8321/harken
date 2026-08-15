@@ -1,0 +1,12 @@
+# Build output
+bin/
+obj/
+
+# SQLite databases
+*.db
+
+# Local appsettings
+appsettings.*.json
+
+# User-specific files
+*.user
