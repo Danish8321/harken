@@ -1,11 +1,11 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Threading.Channels;
-using Microsoft.AspNetCore.SignalR.Client;
-using NAudio.Wave;
-using Harken.Core;
 using Harken.Core.Contracts;
+
+// Recording lives in slice 04 Task 7: capture to a WAV file, upload, poll, read the
+// transcript. Until then this client covers what the API actually offers — signing in,
+// listing the sessions you own, and summarizing one.
 
 const string BaseUrl = "http://localhost:5057";
 
@@ -44,95 +44,69 @@ if (auth is null)
 // The password is out of scope from here on: only the token is held, and neither is
 // written to disk or logged.
 password = "";
-var token = auth.Token;
-
-http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.Token);
 
 Console.WriteLine($"Signed in as {email}.");
 
-Guid? sessionId = null;
-
-var connection = new HubConnectionBuilder()
-    .WithUrl($"{BaseUrl}/hub/captions", options =>
-    {
-        // AccessTokenProvider, not a raw header: WebSocket transports cannot set an
-        // Authorization header, so SignalR appends the token as the `access_token`
-        // query param — which is the only form the server accepts on /hub paths.
-        options.AccessTokenProvider = () => Task.FromResult<string?>(token);
-    })
-    .Build();
-
-connection.On<Guid>("SessionStarted", id =>
+// --- Sessions ---
+List<SessionListItem>? sessions;
+using (var response = await http.GetAsync($"{BaseUrl}/sessions"))
 {
-    sessionId = id;
-});
-
-connection.On<CaptionUpdate>("ReceiveCaption", update =>
-{
-    if (!update.IsFinal)
+    if (response.StatusCode == HttpStatusCode.Unauthorized)
     {
-        Console.Write($"\r{update.Text}".PadRight(Console.WindowWidth > 0 ? Console.WindowWidth - 1 : 80));
+        Console.WriteLine("Session expired — sign in again.");
+        return 1;
     }
-    else
-    {
-        Console.WriteLine($"\r{update.Text}".PadRight(Console.WindowWidth > 0 ? Console.WindowWidth - 1 : 80));
-    }
-});
 
-await connection.StartAsync();
-Console.WriteLine("Connected to captions hub.");
-
-var channel = Channel.CreateUnbounded<byte[]>();
-
-using var waveIn = new WaveInEvent
-{
-    WaveFormat = new WaveFormat(16000, 16, 1),
-};
-
-waveIn.DataAvailable += (_, e) =>
-{
-    var buffer = new byte[e.BytesRecorded];
-    Array.Copy(e.Buffer, buffer, e.BytesRecorded);
-    channel.Writer.TryWrite(buffer);
-};
-
-using var cts = new CancellationTokenSource();
-
-Console.WriteLine("Recording... press ENTER to stop.");
-waveIn.StartRecording();
-
-var streamTask = connection.InvokeAsync("StreamAudio", channel.Reader.ReadAllAsync(cts.Token), AudioSource.Microphone, cts.Token);
-
-Console.ReadLine();
-
-waveIn.StopRecording();
-channel.Writer.Complete();
-
-await streamTask;
-
-Console.WriteLine("Streaming complete.");
-
-if (sessionId is { } id)
-{
-    Console.Write("Summarize? (y/n) ");
-    var answer = Console.ReadLine();
-    if (string.Equals(answer, "y", StringComparison.OrdinalIgnoreCase))
-    {
-        using var response = await http.PostAsync($"{BaseUrl}/sessions/{id}/summary", null);
-        if (response.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            Console.WriteLine("Session expired — sign in again.");
-            await connection.StopAsync();
-            return 1;
-        }
-
-        response.EnsureSuccessStatusCode();
-        var summary = await response.Content.ReadFromJsonAsync<SessionSummary>();
-        Console.WriteLine(summary?.Summary);
-    }
+    response.EnsureSuccessStatusCode();
+    sessions = await response.Content.ReadFromJsonAsync<List<SessionListItem>>();
 }
 
-await connection.StopAsync();
+if (sessions is null || sessions.Count == 0)
+{
+    Console.WriteLine("No sessions yet. Recording arrives with slice 04 Task 7.");
+    return 0;
+}
+
+Console.WriteLine();
+for (var i = 0; i < sessions.Count; i++)
+{
+    var s = sessions[i];
+    var summarized = s.HasSummary ? "summarized" : "no summary";
+    Console.WriteLine($"[{i + 1}] {s.StartedAt:yyyy-MM-dd HH:mm}  {s.Source}  {s.SegmentCount} segments  ({summarized})");
+}
+
+Console.WriteLine();
+Console.Write("Summarize which? (number, or ENTER to quit) ");
+if (!int.TryParse(Console.ReadLine(), out var choice) || choice < 1 || choice > sessions.Count)
+{
+    return 0;
+}
+
+var sessionId = sessions[choice - 1].Id;
+
+using (var response = await http.PostAsync($"{BaseUrl}/sessions/{sessionId}/summary", null))
+{
+    if (response.StatusCode == HttpStatusCode.Unauthorized)
+    {
+        Console.WriteLine("Session expired — sign in again.");
+        return 1;
+    }
+
+    if (response.StatusCode == HttpStatusCode.BadGateway)
+    {
+        // The summarize agent talks to Ollama; a 502 means the model host is the problem,
+        // not the transcript.
+        Console.WriteLine("Summarize failed: the model host is unreachable. Is Ollama running?");
+        return 1;
+    }
+
+    response.EnsureSuccessStatusCode();
+    var summary = await response.Content.ReadFromJsonAsync<SessionSummary>();
+    Console.WriteLine();
+    Console.WriteLine(summary?.Summary);
+}
+
 return 0;
 
 // Reads a password without echoing it, so it never appears on screen or in a

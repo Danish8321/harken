@@ -6,15 +6,12 @@ token (ADR-0004, `docs/plans/slice-03-identity-and-ownership.md`).
 See `docs/plans/` for slice scope, `CONTEXT.md` for glossary, `docs/adr/` for the
 decisions behind the shape of this thing.
 
-> **The design changed; the code has not caught up yet.**
-> [ADR-0007](docs/adr/0007-record-then-transcribe.md) replaces live captioning with
-> record-then-transcribe, and [ADR-0008](docs/adr/0008-local-whisper-first.md) makes local
-> Whisper the only MVP 1 transcription provider — no Azure, no cloud, no cost.
-> **Everything below this banner describes what the code does today**: live captions over
-> SignalR with Azure Speech. That path is deleted in
-> [slice 04](docs/plans/slice-04-record-then-transcribe.md), after which Azure becomes
-> optional and MVP 2. If you are setting up a machine now, read
-> [`docs/setup.md`](docs/setup.md) — it is already written for the new design.
+> **Recording is temporarily missing.** The live captioning path was deleted in
+> [ADR-0007](docs/adr/0007-record-then-transcribe.md) Task 1, and record-then-transcribe
+> is being built in its place ([slice 04](docs/plans/slice-04-record-then-transcribe.md)).
+> Right now the clients can sign in, read sessions, and summarize them — but nothing can
+> create a new session until Task 7 lands. Transcription will run on local Whisper
+> ([ADR-0008](docs/adr/0008-local-whisper-first.md)): no Azure, no cloud account, no cost.
 
 ## Prerequisites
 
@@ -24,8 +21,6 @@ piece works before you run anything. This section is the short list; that doc is
 go-to.
 
 - .NET 10 SDK (10.0.302 — pinned in `global.json`).
-- **Azure Speech resource** (any region) — key + region. Real-time streaming STT.
-  Required by the code as it stands today; dropped in slice 04.
 - **Ollama** running locally, with a Gemma model pulled:
   ```
   ollama pull gemma3:4b
@@ -35,15 +30,16 @@ go-to.
 
 ## Configure secrets
 
-Never commit real keys. Three settings are **required** — the API throws at startup
-and refuses to serve if any is missing, rather than failing opaquely mid-session.
-Set them via user-secrets on the API project (already `user-secrets init`'d):
+Never commit real keys. One setting is **required** — the API throws at startup and
+refuses to serve without it, rather than failing opaquely later. Set it via user-secrets
+on the API project (already `user-secrets init`'d):
 
 ```
-dotnet user-secrets set "AzureSpeech:Key" "<your-azure-speech-key>" --project src/Harken.Api
-dotnet user-secrets set "AzureSpeech:Region" "<your-azure-speech-region>" --project src/Harken.Api
 dotnet user-secrets set "Jwt:Key" "<32+ byte random value>" --project src/Harken.Api
 ```
+
+There are no cloud credentials to configure: MVP 1 transcribes with a local Whisper model
+and summarizes with a local Gemma model (ADR-0008).
 
 `Jwt:Key` signs the login tokens. Generate a fresh random value per machine — never
 reuse a value from any doc, and never commit one. `Jwt:Issuer`/`Jwt:Audience` default
@@ -82,9 +78,8 @@ Terminal 2 — console client:
 dotnet run --project src/Harken.Console
 ```
 
-It prompts for email and password (password echo suppressed), logs in, and attaches
-the token to both the hub connection and its HTTP calls. Then: speak, watch live
-captions, press ENTER to stop, answer `y` to summarize.
+It prompts for email and password (password echo suppressed), logs in, lists the
+sessions you own, and offers to summarize one. Recording arrives with slice 04 Task 7.
 
 ## API
 
@@ -100,7 +95,6 @@ id it doesn't own exists.
 | `GET /sessions` | bearer | caller's sessions, newest first, metadata only |
 | `GET /sessions/{id}` | bearer | one session + its ordered transcript segments |
 | `POST /sessions/{id}/summary` | bearer | generate (or re-read) the stored summary |
-| `/hub/captions` | bearer | SignalR hub — audio in, live captions out |
 
 Get a token:
 
@@ -112,19 +106,9 @@ curl -X POST http://localhost:5057/auth/login \
 
 then `curl http://localhost:5057/sessions -H "Authorization: Bearer <token>"`.
 
-### Authenticating to the hub
-
-A WebSocket handshake can't carry an `Authorization` header, so SignalR clients pass
-the token as an `access_token` query parameter. The server honours that query
-parameter **only on `/hub`** — tokens in query strings leak into logs and referrers,
-so the REST endpoints still require the header. In a .NET client, set
-`HttpConnectionOptions.AccessTokenProvider` and the transport handles it:
-
-```csharp
-new HubConnectionBuilder()
-    .WithUrl($"{baseUrl}/hub/captions", o => o.AccessTokenProvider = () => Task.FromResult(token)!)
-    .Build();
-```
+Every endpoint takes the token in the `Authorization` header. The `access_token`
+query-string exception existed only for the SignalR hub and was removed with it —
+tokens in query strings leak into logs and referrers, so nothing accepts one now.
 
 A 401 from any endpoint means the token expired — log in again.
 
@@ -173,7 +157,7 @@ dotnet build src/Harken.Mobile -t:Run -f net10.0-android
 or deploy from Visual Studio with the phone selected as the target device.
 
 On first launch, grant the microphone permission prompt (and notification permission
-on Android 13+) — both are required for captioning to work.
+on Android 13+) — both are required once recording returns in slice 05.
 
 ### Use
 
@@ -182,8 +166,10 @@ a token. Use the account you registered above (register via `curl` — the app h
 sign-up screen). The token is kept in Android `SecureStorage`; a 401 clears it and
 returns you to Login.
 
-Then: **Capture** tab → Start → speak → live captions appear → Stop → Summarize
-(needs Ollama running on the backend host, same as the console flow).
+Then: **Sessions** tab → Refresh → pick a session → Summarize (needs Ollama running on
+the backend host, same as the console flow). On-device recording and upload land in
+slice 05; ADR-0007 keeps all transcription on the backend, so the phone never runs a
+model itself.
 
 ### Note on the persistent notification
 

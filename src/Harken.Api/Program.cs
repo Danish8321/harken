@@ -9,8 +9,6 @@ using OllamaSharp;
 using Harken.Api.Agents;
 using Harken.Api.Auth;
 using Harken.Api.Data;
-using Harken.Api.Hubs;
-using Harken.Api.Speech;
 using Harken.Core.Contracts;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -67,50 +65,13 @@ builder.Services
             ClockSkew = TimeSpan.FromMinutes(1),
         };
 
-        // WebSocket handshakes can't carry an Authorization header, so SignalR's
-        // convention is an access_token query parameter. Scoped to /hub/ only: tokens
-        // in query strings leak into logs and referrers, so ordinary REST endpoints
-        // must keep requiring the header.
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                var accessToken = context.Request.Query["access_token"];
-                var path = context.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(accessToken)
-                    && path.StartsWithSegments("/hub"))
-                {
-                    context.Token = accessToken;
-                }
-
-                return Task.CompletedTask;
-            },
-        };
+        // The access_token query-string exception was here for the SignalR hub, which a
+        // WebSocket handshake cannot give an Authorization header. ADR-0007 removed the
+        // hub, so it is gone with it: tokens in query strings leak into logs and
+        // referrers, and every remaining endpoint is plain HTTP that can carry a header.
     });
 
 builder.Services.AddAuthorization();
-
-var speechSection = builder.Configuration.GetSection("AzureSpeech");
-var speechKey = speechSection["Key"];
-var speechRegion = speechSection["Region"];
-if (string.IsNullOrWhiteSpace(speechKey) || string.IsNullOrWhiteSpace(speechRegion))
-{
-    // Fail fast: an empty key/region used to surface only when the user pressed Start,
-    // as an opaque mid-session recognizer failure. Misconfiguration should stop the
-    // host, not the recording.
-    throw new InvalidOperationException(
-        "AzureSpeech:Key and AzureSpeech:Region are not both configured. Set them with: " +
-        "dotnet user-secrets set \"AzureSpeech:Key\" \"<key>\" --project src/Harken.Api and " +
-        "dotnet user-secrets set \"AzureSpeech:Region\" \"<region>\" --project src/Harken.Api");
-}
-
-var speechOptions = new AzureSpeechOptions(speechKey, speechRegion);
-builder.Services.AddSingleton(speechOptions);
-
-// One recognizer lifetime per Session — transient.
-builder.Services.AddTransient<ISpeechTranscriber, AzureSpeechTranscriber>();
-
-builder.Services.AddSignalR();
 
 // Provider seam: only this registration changes when swapping to Azure Foundry.
 var ollamaEndpoint = builder.Configuration["Ollama:Endpoint"]
@@ -165,8 +126,6 @@ app.MapPost("/auth/login", async (
 
     return Results.Ok(tokens.CreateToken(user));
 }).AllowAnonymous();
-
-app.MapHub<CaptionHub>("/hub/captions");
 
 app.MapGet("/sessions", async (
     ClaimsPrincipal user,

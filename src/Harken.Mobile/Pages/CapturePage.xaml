@@ -3,20 +3,32 @@
     x:Class="Harken.Mobile.Pages.CapturePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    Title="Capture">
+    Title="Sessions">
 
     <Grid Padding="20" RowSpacing="12" RowDefinitions="Auto,Auto,*,Auto,*">
 
         <HorizontalStackLayout Grid.Row="0" Spacing="12">
-            <Button x:Name="StartButton" Text="Start" Clicked="OnStartClicked" />
-            <Button x:Name="StopButton" Text="Stop" Clicked="OnStopClicked" IsEnabled="False" />
+            <Button x:Name="RefreshButton" Text="Refresh" Clicked="OnRefreshClicked" />
             <Button x:Name="SummarizeButton" Text="Summarize" Clicked="OnSummarizeClicked" IsEnabled="False" />
         </HorizontalStackLayout>
 
         <Label x:Name="StatusLabel" Grid.Row="1" Text="Idle" />
 
         <ScrollView Grid.Row="2">
-            <Label x:Name="CaptionLabel" Text="" LineBreakMode="WordWrap" />
+            <VerticalStackLayout>
+                <!-- Recording moves here in slice 05: capture to a local file, then upload. -->
+                <Label
+                    Text="Recording is not available in this build. Sessions recorded elsewhere can be read and summarized here."
+                    LineBreakMode="WordWrap"
+                    FontSize="12" />
+                <CollectionView x:Name="SessionsView" SelectionMode="Single" SelectionChanged="OnSessionSelected">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Label Padding="0,8" Text="{Binding Display}" LineBreakMode="TailTruncation" />
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
         </ScrollView>
 
         <Label Grid.Row="3" Text="Summary" FontAttributes="Bold" />

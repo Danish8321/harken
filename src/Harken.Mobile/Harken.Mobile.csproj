@@ -58,7 +58,6 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Maui.Controls" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" />
-		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
 	</ItemGroup>
 
 	<ItemGroup>

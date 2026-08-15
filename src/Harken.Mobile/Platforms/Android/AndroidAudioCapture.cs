@@ -6,7 +6,7 @@ namespace Harken.Mobile;
 /// <summary>
 /// Wraps <see cref="AudioRecord"/> to capture microphone audio at 16kHz/16-bit/mono
 /// PCM — matching the backend's expected format exactly (same as the console client's
-/// NAudio capture and AzureSpeechTranscriber's expected format).
+/// NAudio capture, and what Whisper expects).
 /// </summary>
 public class AndroidAudioCapture : IAudioCapture, IDisposable
 {

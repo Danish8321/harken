@@ -25,11 +25,12 @@ public class StartupConfigurationTests
         }
     }
 
+    // Jwt:Key is the only required setting since ADR-0007 removed live captioning:
+    // transcription runs on a local model, so the host no longer needs cloud credentials
+    // to start.
     private static readonly Dictionary<string, string> Complete = new()
     {
         ["Jwt:Key"] = "harken-integration-test-signing-key-not-a-secret-0123456789",
-        ["AzureSpeech:Key"] = "integration-test-speech-key",
-        ["AzureSpeech:Region"] = "westeurope",
     };
 
     private static Dictionary<string, string> Without(string missing)
@@ -43,8 +44,6 @@ public class StartupConfigurationTests
 
     [Theory]
     [InlineData("Jwt:Key")]
-    [InlineData("AzureSpeech:Key")]
-    [InlineData("AzureSpeech:Region")]
     public void StartupThrowsWhenRequiredConfigurationIsAbsent(string missing)
     {
         using var factory = new ConfiguredFactory(Without(missing));
@@ -52,5 +51,17 @@ public class StartupConfigurationTests
         var ex = Assert.Throws<InvalidOperationException>(() => factory.CreateClient());
 
         Assert.Contains(missing, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StartupSucceedsWithoutAzureCredentials()
+    {
+        // Guards the ADR-0007 promise that MVP 1 needs no cloud account at all: a host
+        // that still demanded an Azure key would make the local-only path a fiction.
+        using var factory = new ConfiguredFactory(Complete);
+
+        using var client = factory.CreateClient();
+
+        Assert.NotNull(client);
     }
 }

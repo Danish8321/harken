@@ -22,11 +22,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Issuer", "Harken");
         builder.UseSetting("Jwt:Audience", "Harken");
 
-        // Likewise for Speech: the host fails fast without a key/region. Nothing in the
-        // integration suite actually calls Azure, so placeholders are enough to boot.
-        builder.UseSetting("AzureSpeech:Key", "integration-test-speech-key");
-        builder.UseSetting("AzureSpeech:Region", "westeurope");
-
         builder.ConfigureServices(services =>
         {
             var descriptor = services.SingleOrDefault(
