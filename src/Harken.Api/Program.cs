@@ -10,9 +10,19 @@ using Harken.Api.Agents;
 using Harken.Api.Auth;
 using Harken.Api.Data;
 using Harken.Api.Speech;
+using Harken.Api.Storage;
+using Harken.Core;
 using Harken.Core.Contracts;
 
+// 500 MB: comfortably above a multi-hour WAV recording (~115 MB/hour, decision 1 in
+// slice-04-record-then-transcribe.md) with headroom, while still bounding a runaway or
+// malicious upload rather than accepting an unbounded body. Kestrel's own default
+// (~28.6 MB) is well under a real recording, so it has to move too — checking file.Length
+// in the handler alone would never even run for anything real.
+const long MaxUploadBytes = 500L * 1024 * 1024;
+
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = MaxUploadBytes);
 
 var connectionString = builder.Configuration.GetConnectionString("Harken")
     ?? "Data Source=harken.db";
@@ -96,6 +106,10 @@ builder.Services.AddKeyedSingleton<IChatClient>("chat-model", (_, _) =>
 
 builder.Services.AddScoped<SummarizeAgent>();
 
+var recordingsPath = builder.Configuration["Storage:RecordingsPath"] ?? "recordings";
+builder.Services.AddSingleton(new RecordingStorage(
+    Path.IsPathRooted(recordingsPath) ? recordingsPath : Path.Combine(builder.Environment.ContentRootPath, recordingsPath)));
+
 var app = builder.Build();
 
 app.UseAuthentication();
@@ -137,6 +151,95 @@ app.MapPost("/auth/login", async (
 
     return Results.Ok(tokens.CreateToken(user));
 }).AllowAnonymous();
+
+app.MapPost("/sessions", async (
+    HttpRequest request,
+    ClaimsPrincipal user,
+    HarkenDbContext db,
+    RecordingStorage storage,
+    CancellationToken ct) =>
+{
+    var ownerId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (string.IsNullOrEmpty(ownerId))
+    {
+        return Results.Unauthorized();
+    }
+
+    if (!request.HasFormContentType)
+    {
+        return Results.BadRequest("Expected multipart/form-data with an audio file.");
+    }
+
+    var form = await request.ReadFormAsync(ct);
+    var file = form.Files["audio"];
+    if (file is null || file.Length == 0)
+    {
+        return Results.BadRequest("No audio file provided (expected form field 'audio').");
+    }
+
+    // WAV only (slice-04 decision 1: what the console records, what Whisper wants
+    // natively). Not a client-supplied filename check — that never reaches the
+    // filesystem — this is purely "did we get audio we can transcribe".
+    if (!string.Equals(file.ContentType, "audio/wav", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(file.ContentType, "audio/x-wav", StringComparison.OrdinalIgnoreCase))
+    {
+        return Results.BadRequest($"Unsupported content type '{file.ContentType}'. Expected audio/wav.");
+    }
+
+    if (file.Length > MaxUploadBytes)
+    {
+        return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+    }
+
+    var sourceValue = form["source"].ToString();
+    if (!Enum.TryParse<AudioSource>(sourceValue, ignoreCase: true, out var source)
+        || !Enum.IsDefined(source))
+    {
+        return Results.BadRequest($"Missing or invalid 'source' (expected one of: {string.Join(", ", Enum.GetNames<AudioSource>())}).");
+    }
+
+    var session = new Session
+    {
+        Id = Guid.NewGuid(),
+        OwnerId = ownerId,
+        StartedAt = DateTimeOffset.UtcNow,
+        EndedAt = DateTimeOffset.UtcNow,
+        Source = source,
+    };
+
+    // The stored filename comes from the Session's own server-generated id, never from
+    // the client — RecordingStorage does not accept one.
+    await using (var stream = file.OpenReadStream())
+    {
+        var storedPath = await storage.SaveAsync(session.Id, stream, ct);
+
+        session.Recording = new Recording
+        {
+            Id = Guid.NewGuid(),
+            SessionId = session.Id,
+            StoredPath = storedPath,
+            ByteLength = file.Length,
+            ContentType = file.ContentType,
+            UploadedAt = DateTimeOffset.UtcNow,
+            // Duration isn't read from the WAV header here — Task 6 (or a later pass)
+            // can derive it from the file itself. Zero, not a guess.
+            Duration = TimeSpan.Zero,
+        };
+    }
+
+    session.TranscriptionStatus = Harken.Core.TranscriptionStatus.Pending;
+
+    db.Sessions.Add(session);
+    await db.SaveChangesAsync(ct);
+
+    return Results.Created($"/sessions/{session.Id}", new SessionListItem(
+        session.Id,
+        session.StartedAt,
+        session.EndedAt,
+        session.Source,
+        SegmentCount: 0,
+        HasSummary: false));
+}).RequireAuthorization();
 
 app.MapGet("/sessions", async (
     ClaimsPrincipal user,

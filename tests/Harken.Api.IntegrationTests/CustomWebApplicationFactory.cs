@@ -12,6 +12,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
 
+    // Unique per factory instance so parallel test runs never share (or race on
+    // cleaning up) the same directory.
+    private readonly string _recordingsPath =
+        Path.Combine(Path.GetTempPath(), "harken-test-recordings-" + Guid.NewGuid().ToString("N"));
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         _connection.Open();
@@ -21,6 +26,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Key", "harken-integration-test-signing-key-not-a-secret-0123456789");
         builder.UseSetting("Jwt:Issuer", "Harken");
         builder.UseSetting("Jwt:Audience", "Harken");
+        builder.UseSetting("Storage:RecordingsPath", _recordingsPath);
 
         builder.ConfigureServices(services =>
         {
@@ -45,6 +51,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         if (disposing)
         {
             _connection.Dispose();
+
+            if (Directory.Exists(_recordingsPath))
+            {
+                Directory.Delete(_recordingsPath, recursive: true);
+            }
         }
     }
 }

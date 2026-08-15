@@ -10,3 +10,4 @@ appsettings.*.json
 
 # User-specific files
 *.user
+src/Harken.Api/recordings/
