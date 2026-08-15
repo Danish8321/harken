@@ -1,5 +1,19 @@
 # Plan — Slice 04: Session limits, cost control, and the recording notification
 
+> **Superseded, never implemented.** [ADR-0007](../adr/0007-record-then-transcribe.md)
+> replaced live captioning with record-then-transcribe, which removes the per-audio-hour
+> meter this plan existed to defend against. Replaced by
+> [`slice-04-record-then-transcribe.md`](slice-04-record-then-transcribe.md).
+>
+> What carries over: Task 1 (explicit recognition language), Task 6 (notification with
+> Stop and elapsed time) and Task 7 (`Sticky` → `NotSticky`) are still valid and appear in
+> the replacement plan. Tasks 2–5 and 8 assumed server-side enforcement of a cost limit
+> and are dropped — the limits move to the client and shrink, since the server holds
+> nothing open during a recording.
+>
+> Kept unimplemented for the reasoning, not the task list.
+
+
 **Goal:** Bound what a Session can cost. Server-enforced Silence Timeout and Session Cap,
 a hub contract that keeps the client in sync, and a recording notification that shows
 elapsed time and can actually stop the recording.
