@@ -8,6 +8,11 @@ decisions behind the shape of this thing.
 
 ## Prerequisites
 
+**Setting up a machine from scratch? Start at [`docs/setup.md`](docs/setup.md)** — it
+covers creating the Azure Speech resource, installing Ollama, generating and storing the
+secrets, and proving each piece works before you run anything. This section is the short
+list; that doc is the go-to.
+
 - .NET 10 SDK (10.0.302 — pinned in `global.json`).
 - **Azure Speech resource** (any region) — key + region. Real-time streaming STT.
 - **Ollama** running locally, with a Gemma model pulled:
