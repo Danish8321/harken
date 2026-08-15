@@ -12,6 +12,14 @@ service. Reuses `Harken.Core` contracts and the backend from slice one unchanged
 > and every HTTP call; sessions belong to the account that recorded them. See
 > `docs/plans/slice-03-identity-and-ownership.md` and the README for the current setup.
 > The task history below is left as recorded.
+>
+> **Superseded in part by ADR-0007.** Live captions over a SignalR hub connection are
+> gone from `CapturePage` — deleted in [slice 04](slice-04-record-then-transcribe.md)
+> Task 1. The Capture tab currently lists and summarizes sessions only; it cannot create
+> one. On-device recording returns in slice 05, recording to a local file and uploading
+> it rather than streaming. The foreground service and mic-capture code from this slice
+> (`RecordingForegroundService`, `AndroidAudioCapture`) are kept unreferenced today and
+> get wired back in by slice 05 rather than rebuilt.
 
 **Decisions locked:** ADR-0003 (foreground service). Android-only. LAN + editable
 base-URL setting. See `CONTEXT.md`, ADR-0001..0003.

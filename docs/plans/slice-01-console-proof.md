@@ -11,6 +11,13 @@ saved to SQLite → Summarize agent (local Ollama/Gemma) runs on the stored tran
 > every endpoint except `GET /health` requires a bearer token; the console client logs
 > in before connecting. See `docs/plans/slice-03-identity-and-ownership.md` and the
 > README for the current setup. The task history below is left as recorded.
+>
+> **Superseded in part by ADR-0007.** The live pipeline this slice built —
+> stream to backend, Azure Speech live captions — was deleted in
+> [slice 04](slice-04-record-then-transcribe.md) Task 1. Azure Speech, SignalR, and
+> `CaptionHub` are gone from the codebase. What this slice proved that still holds: one
+> C# codebase, mic capture, a stored Transcript, Summarize over it via Ollama/Gemma.
+> Slice 04 re-proves the pipeline end to end with local Whisper and no live streaming.
 
 **Stack:** .NET 10 (JIT), ASP.NET Core + SignalR, Azure.CognitiveServices.Speech,
 EF Core + SQLite, Microsoft Agent Framework over `IChatClient` (Ollama phase 1),
