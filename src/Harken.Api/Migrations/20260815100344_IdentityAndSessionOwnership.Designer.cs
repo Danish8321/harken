@@ -3,6 +3,7 @@ using System;
 using Harken.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Harken.Api.Migrations
 {
     [DbContext(typeof(HarkenDbContext))]
-    partial class HarkenDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260815100344_IdentityAndSessionOwnership")]
+    partial class IdentityAndSessionOwnership
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
@@ -43,30 +46,6 @@ namespace Harken.Api.Migrations
                     b.HasIndex("OwnerId");
 
                     b.ToTable("Sessions");
-                });
-
-            modelBuilder.Entity("Harken.Core.StoredSummary", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("GeneratedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("SessionId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SessionId")
-                        .IsUnique();
-
-                    b.ToTable("StoredSummaries");
                 });
 
             modelBuilder.Entity("Harken.Core.TranscriptSegment", b =>
@@ -285,15 +264,6 @@ namespace Harken.Api.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
-                });
-
-            modelBuilder.Entity("Harken.Core.StoredSummary", b =>
-                {
-                    b.HasOne("Harken.Core.Session", null)
-                        .WithOne()
-                        .HasForeignKey("Harken.Core.StoredSummary", "SessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Harken.Core.TranscriptSegment", b =>

@@ -15,8 +15,8 @@ public class SummaryEndpointTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task SummaryForSessionWithNoTranscriptReturnsEmptyTranscriptMessage()
     {
-        var client = _factory.CreateClient();
-        var sessionId = Guid.NewGuid();
+        var (client, userId) = await _factory.CreateAuthenticatedClientAsync();
+        var sessionId = _factory.SeedSession(userId);
 
         var response = await client.PostAsync($"/sessions/{sessionId}/summary", content: null);
 
@@ -26,11 +26,11 @@ public class SummaryEndpointTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task RootReturnsOk()
+    public async Task HealthReturnsOkWithoutAToken()
     {
         var client = _factory.CreateClient();
 
-        var response = await client.GetAsync("/");
+        var response = await client.GetAsync("/health");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
