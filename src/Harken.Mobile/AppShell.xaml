@@ -8,6 +8,11 @@
     Title="Harken">
 
     <ShellContent
+        Title="Sign in"
+        ContentTemplate="{DataTemplate pages:LoginPage}"
+        Route="LoginPage" />
+
+    <ShellContent
         Title="Capture"
         ContentTemplate="{DataTemplate pages:CapturePage}"
         Route="CapturePage" />

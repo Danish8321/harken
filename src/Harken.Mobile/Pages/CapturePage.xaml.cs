@@ -1,7 +1,10 @@
+using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Threading.Channels;
 using Microsoft.AspNetCore.SignalR.Client;
+using Harken.Core;
 using Harken.Core.Contracts;
 using Harken.Mobile.Services;
 
@@ -12,6 +15,7 @@ public partial class CapturePage : ContentPage, IDisposable
 	private readonly IRecordingService _recordingService;
 	private readonly IAudioCapture _audioCapture;
 	private readonly AppSettings _appSettings;
+	private readonly AuthService _authService;
 	private readonly HttpClient _httpClient = new();
 
 	private readonly StringBuilder _finalText = new();
@@ -25,18 +29,38 @@ public partial class CapturePage : ContentPage, IDisposable
 
 	public Guid? SessionId { get; private set; }
 
-	public CapturePage(IRecordingService recordingService, IAudioCapture audioCapture, AppSettings appSettings)
+	public CapturePage(IRecordingService recordingService, IAudioCapture audioCapture, AppSettings appSettings, AuthService authService)
 	{
 		InitializeComponent();
 		_recordingService = recordingService;
 		_audioCapture = audioCapture;
 		_appSettings = appSettings;
+		_authService = authService;
 	}
 
 	protected override async void OnAppearing()
 	{
 		base.OnAppearing();
+
+		// No token means no session: every path from here needs one.
+		if (await _authService.GetTokenAsync() is null)
+		{
+			await Routes.GoToLoginAsync();
+			return;
+		}
+
 		await RequestRecordingPermissionsAsync();
+	}
+
+	/// <summary>
+	/// Clears the stored token and returns to login. Called whenever the API says 401 —
+	/// the token has expired or been revoked, and nothing else will succeed with it.
+	/// </summary>
+	private async Task HandleUnauthorizedAsync()
+	{
+		_authService.SignOut();
+		StatusLabel.Text = "Session expired. Please sign in again.";
+		await Routes.GoToLoginAsync();
 	}
 
 	private static async Task RequestRecordingPermissionsAsync()
@@ -72,13 +96,26 @@ public partial class CapturePage : ContentPage, IDisposable
 			return;
 		}
 
+		var token = await _authService.GetTokenAsync();
+		if (token is null)
+		{
+			await HandleUnauthorizedAsync();
+			return;
+		}
+
 		_finalText.Clear();
 		_partialText = "";
 		CaptionLabel.Text = "";
 		SessionId = null;
 
 		_connection = new HubConnectionBuilder()
-			.WithUrl($"{_appSettings.BaseUrl}/hub/captions")
+			.WithUrl($"{_appSettings.BaseUrl}/hub/captions", options =>
+			{
+				// AccessTokenProvider, not a header: WebSocket transports can't send
+				// an Authorization header, so SignalR passes the token as the
+				// `access_token` query param the server accepts on /hub paths.
+				options.AccessTokenProvider = () => Task.FromResult<string?>(token);
+			})
 			.Build();
 
 		_connection.On<Guid>("SessionStarted", id =>
@@ -104,7 +141,18 @@ public partial class CapturePage : ContentPage, IDisposable
 			});
 		});
 
-		await _connection.StartAsync();
+		try
+		{
+			await _connection.StartAsync();
+		}
+		catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+		{
+			await _connection.DisposeAsync();
+			_connection = null;
+			await HandleUnauthorizedAsync();
+			return;
+		}
+
 		StatusLabel.Text = "Connected. Recording...";
 
 		_channel = Channel.CreateUnbounded<byte[]>();
@@ -115,7 +163,7 @@ public partial class CapturePage : ContentPage, IDisposable
 
 		_recordingService.StartRecording();
 
-		_streamTask = _connection.InvokeAsync("StreamAudio", _channel.Reader.ReadAllAsync(_streamCts.Token), _streamCts.Token);
+		_streamTask = _connection.InvokeAsync("StreamAudio", _channel.Reader.ReadAllAsync(_streamCts.Token), AudioSource.Microphone, _streamCts.Token);
 
 		StartButton.IsEnabled = false;
 		StopButton.IsEnabled = true;
@@ -168,7 +216,23 @@ public partial class CapturePage : ContentPage, IDisposable
 
 		try
 		{
-			var response = await _httpClient.PostAsync($"{_appSettings.BaseUrl}/sessions/{SessionId}/summary", content: null);
+			var token = await _authService.GetTokenAsync();
+			if (token is null)
+			{
+				await HandleUnauthorizedAsync();
+				return;
+			}
+
+			using var request = new HttpRequestMessage(HttpMethod.Post, $"{_appSettings.BaseUrl}/sessions/{SessionId}/summary");
+			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+			using var response = await _httpClient.SendAsync(request);
+			if (response.StatusCode == HttpStatusCode.Unauthorized)
+			{
+				await HandleUnauthorizedAsync();
+				return;
+			}
+
 			response.EnsureSuccessStatusCode();
 
 			var summary = await response.Content.ReadFromJsonAsync<SessionSummary>();

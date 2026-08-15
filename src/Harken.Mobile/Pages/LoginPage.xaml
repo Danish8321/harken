@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    x:Class="Harken.Mobile.Pages.LoginPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Sign in">
+
+    <VerticalStackLayout Padding="20" Spacing="12">
+        <Label Text="Email" />
+        <Entry x:Name="EmailEntry" Placeholder="you@example.com" Keyboard="Email" />
+        <Label Text="Password" />
+        <Entry x:Name="PasswordEntry" IsPassword="True" />
+        <Button x:Name="SignInButton" Text="Sign in" Clicked="OnSignInClicked" />
+        <Label x:Name="StatusLabel" Text="" LineBreakMode="WordWrap" />
+    </VerticalStackLayout>
+
+</ContentPage>
