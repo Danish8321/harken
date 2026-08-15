@@ -7,7 +7,9 @@ public record SessionDetail(
     DateTimeOffset? EndedAt,
     AudioSource Source,
     IReadOnlyList<TranscriptSegmentView> Segments,
-    SessionSummary? Summary);
+    SessionSummary? Summary,
+    TranscriptionStatus? TranscriptionStatus,
+    string? TranscriptionFailureReason);
 
 /// <summary>A single stored Transcript Segment as returned to a client.</summary>
 public record TranscriptSegmentView(

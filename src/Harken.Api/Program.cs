@@ -11,6 +11,7 @@ using Harken.Api.Auth;
 using Harken.Api.Data;
 using Harken.Api.Speech;
 using Harken.Api.Storage;
+using Harken.Api.Transcription;
 using Harken.Core;
 using Harken.Core.Contracts;
 
@@ -110,6 +111,11 @@ var recordingsPath = builder.Configuration["Storage:RecordingsPath"] ?? "recordi
 builder.Services.AddSingleton(new RecordingStorage(
     Path.IsPathRooted(recordingsPath) ? recordingsPath : Path.Combine(builder.Environment.ContentRootPath, recordingsPath)));
 
+// Task 6: one background reader drains the queue, so exactly one Whisper run happens at
+// a time regardless of how many uploads arrive concurrently.
+builder.Services.AddSingleton<TranscriptionJobChannel>();
+builder.Services.AddHostedService<TranscriptionBackgroundService>();
+
 var app = builder.Build();
 
 app.UseAuthentication();
@@ -157,6 +163,7 @@ app.MapPost("/sessions", async (
     ClaimsPrincipal user,
     HarkenDbContext db,
     RecordingStorage storage,
+    TranscriptionJobChannel jobs,
     CancellationToken ct) =>
 {
     var ownerId = user.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -232,6 +239,10 @@ app.MapPost("/sessions", async (
     db.Sessions.Add(session);
     await db.SaveChangesAsync(ct);
 
+    // Enqueued after the commit: a job reading the id back out of the DB must be able to
+    // find the Session it's for.
+    jobs.Enqueue(session.Id);
+
     return Results.Created($"/sessions/{session.Id}", new SessionListItem(
         session.Id,
         session.StartedAt,
@@ -288,7 +299,7 @@ app.MapGet("/sessions/{id:guid}", async (
     // same 404 — a 403 would confirm the id exists and allow enumeration.
     var session = await db.Sessions
         .Where(s => s.Id == id && s.OwnerId == ownerId)
-        .Select(s => new { s.Id, s.StartedAt, s.EndedAt, s.Source })
+        .Select(s => new { s.Id, s.StartedAt, s.EndedAt, s.Source, s.TranscriptionStatus, s.TranscriptionFailureReason })
         .FirstOrDefaultAsync(ct);
 
     if (session is null)
@@ -317,7 +328,9 @@ app.MapGet("/sessions/{id:guid}", async (
         session.EndedAt,
         session.Source,
         segments,
-        stored));
+        stored,
+        session.TranscriptionStatus,
+        session.TranscriptionFailureReason));
 }).RequireAuthorization();
 
 app.MapPost("/sessions/{id:guid}/summary", async (
