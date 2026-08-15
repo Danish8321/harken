@@ -1,12 +1,18 @@
 # Environment setup
 
-The go-to doc for getting a machine ready to run Harken. The README covers *running*
-the app once this is done; this covers the accounts, services, and secrets it depends
-on, and how to prove each one works before blaming the app.
+The go-to doc for getting a machine ready to run Harken. The README covers *running* the
+app once this is done; this covers what it depends on and how to prove each piece works
+before blaming the app.
 
-Harken needs three external things: the **.NET 10 SDK**, an **Azure Speech resource**
-(real-time speech-to-text), and **Ollama** with a Gemma model (the summarize agent).
-It needs no cloud database — storage is a local SQLite file (ADR-0005).
+**MVP 1 needs no cloud account of any kind.** Transcription runs on a local Whisper model
+and summaries on a local Gemma model, both on your own hardware
+([ADR-0007](adr/0007-record-then-transcribe.md),
+[ADR-0008](adr/0008-local-whisper-first.md)). Storage is a local SQLite file
+([ADR-0005](adr/0005-sqlite-for-family-scope.md)).
+
+So there are three required pieces — the **.NET 10 SDK**, a **Whisper model**, and
+**Ollama with Gemma** — and one optional one, **Azure Speech**, which is MVP 2 and can be
+skipped entirely today.
 
 ---
 
@@ -21,8 +27,8 @@ dotnet --version
 
 If that prints something older, install the .NET 10 SDK from
 <https://dotnet.microsoft.com/download/dotnet/10.0>. On a machine with several SDKs,
-`dotnet --list-sdks` shows what is actually available; `global.json` decides which is
-used inside this repo.
+`dotnet --list-sdks` shows what is available; `global.json` decides which is used inside
+this repo.
 
 For the Android client only:
 
@@ -30,95 +36,62 @@ For the Android client only:
 dotnet workload install maui-android
 ```
 
-Several GB. Skip it if you are only running the backend and console client.
+Several GB. Skip it if you are only running the backend and console client — which is the
+right way to start (ADR-0008: the console proves the transcription pipeline before any
+mobile work).
 
 ---
 
-## 2. Azure Speech resource
+## 2. Whisper model
 
-This is the only paid service, and the only one that needs an Azure account.
+Transcription uses [Whisper.net](https://www.nuget.org/packages/Whisper.net) over
+whisper.cpp. The NuGet packages come with the build; the **model file does not** — it is
+~1.5 GB, versioned outside git, and downloaded once.
 
-### Create it
+### Which model
 
-**Portal:** <https://portal.azure.com> → *Create a resource* → search **Speech** →
-*Create*.
+| Model | Size | Notes |
+| --- | --- | --- |
+| `base` | ~150 MB | fast, noticeably less accurate — fine for a first smoke test |
+| `small` | ~500 MB | reasonable balance |
+| `medium` | ~1.5 GB | the accuracy worth having; ~2.5 GB VRAM in use |
 
-| Field | What to pick |
-| --- | --- |
-| Subscription | any |
-| Resource group | e.g. `harken-rg` (create new) |
-| Region | one close to you — latency is per-audio-chunk and you will hear it |
-| Name | e.g. `harken-speech` |
-| Pricing tier | **F0 (free)** to start — see limits below |
+Start with `base` to prove the pipeline runs at all, then move up. The model path is
+configuration, not a code change, so switching is an app setting and a restart.
 
-**Or CLI**, if you have the Azure CLI installed and `az login` done:
+### Download
 
-```
-az group create --name harken-rg --location westeurope
-az cognitiveservices account create \
-  --name harken-speech \
-  --resource-group harken-rg \
-  --kind SpeechServices \
-  --sku F0 \
-  --location westeurope \
-  --yes
-```
+Models are published as GGML files by the whisper.cpp project on Hugging Face
+(`ggerganov/whisper.cpp`). Whisper.net can also download on first use. Put the file
+somewhere outside the repo and point config at it — do not commit it.
 
-### Get the key and region
+### GPU
 
-Portal: the resource → *Keys and Endpoint* → copy **KEY 1** and the **Location/Region**
-value (the short form, e.g. `westeurope` — not the display name "West Europe").
+`Whisper.net.Runtime.Cuda.Windows` uses an NVIDIA GPU where present and falls back to CPU
+otherwise. CPU works and is slower. Published runtimes cover Windows, Linux, macOS,
+Metal, CoreML, CUDA, Vulkan, OpenVINO and Wasm — **there is no Android runtime**, which is
+one reason the phone never transcribes (ADR-0007).
 
-CLI:
+### VRAM contention
 
-```
-az cognitiveservices account keys list --name harken-speech --resource-group harken-rg
-az cognitiveservices account show --name harken-speech --resource-group harken-rg --query location -o tsv
-```
-
-### Free tier limits
-
-F0 allows roughly **5 audio hours per month** of standard speech-to-text and **one
-concurrent request** (Microsoft documents this limit as not adjustable). That one-concurrent-request limit matters: two people captioning
-at the same time will fail on F0. Fine for proving the thing works, not fine for family
-use — move to S0 (pay-as-you-go, billed per audio hour) before more than one person
-relies on it. One Azure subscription allows only one F0 Speech resource.
-
-### Recognition language
-
-The transcriber does not set a language, so the Speech SDK default (**en-US**) applies.
-If you need another language, that is a code change in
-`src/Harken.Api/Speech/AzureSpeechTranscriber.cs` (`SpeechConfig.SpeechRecognitionLanguage`),
-not a config setting — it has never been exercised.
-
-### Verify the key before running Harken
-
-Worth doing: it separates "my key is wrong" from "the app is broken".
+On a 4 GB card, Gemma 3:4b (~3 GB resident) and Whisper `medium` (~2.5 GB) do not both
+fit. Transcription and summarization run at different times, so a short keep-alive lets
+Gemma unload between uses:
 
 ```
-curl -X POST \
-  "https://<region>.api.cognitive.microsoft.com/sts/v1.0/issueToken" \
-  -H "Ocp-Apim-Subscription-Key: <your-key>" \
-  -H "Content-Length: 0"
+setx OLLAMA_KEEP_ALIVE 30s
 ```
 
-A long JWT string back means the key and region are good. `401` means the key is wrong;
-`404`/DNS failure usually means the region is wrong.
-
-### Keys are secrets
-
-Never commit one, never paste one into `appsettings.json` (its `AzureSpeech` values are
-deliberately empty placeholders), never put one in a screenshot or an issue. If a key
-leaks, rotate it: *Keys and Endpoint* → *Regenerate Key 1*, then update user-secrets.
-Both keys are equivalent — regenerating one lets you roll over without downtime.
+If that proves fragile, drop to a smaller Whisper model rather than fighting it.
 
 ---
 
 ## 3. Ollama + Gemma
 
-The summarize agent runs against a local model, so no cloud AI account is needed and
-transcripts never leave the machine (ADR-0002 keeps `IChatClient` as the seam, so Azure
-AI Foundry can replace this later without touching the agent).
+The Summarize agent runs against a local model, so no cloud AI account is needed and
+transcripts never leave the machine ([ADR-0002](adr/0002-ichatclient-provider-seam.md)
+keeps `IChatClient` as the seam, so a hosted model can replace this later without
+touching the agent).
 
 Install from <https://ollama.com/download>, then:
 
@@ -132,31 +105,96 @@ Verify it is serving and the model is present:
 curl http://localhost:11434/api/tags
 ```
 
-`gemma3:4b` should appear in the list. ~3 GB download; it runs on CPU but is markedly
-faster with a GPU. A smaller box can use `gemma3:1b` — set `Ollama:Model` to match.
+`gemma3:4b` should appear. ~3 GB download. A smaller box can use `gemma3:1b` — set
+`Ollama:Model` to match.
 
-Ollama must be running whenever you use **Summarize**. Live captioning does not need it;
-only the summary step does, and that step is what returns `502` if Ollama is unreachable.
+Ollama must be running whenever you use **Summarize**. Transcription does not need it.
 
 ---
 
-## 4. Secrets
+## 4. Azure Speech — MVP 2 only, skip for now
 
-Three settings are required. The API **throws at startup** if any is missing — that is
-deliberate, so a misconfiguration is loud at boot instead of silent until someone presses
-Start.
+Not required. The backend declares which transcription Providers are available, and with
+no Azure credentials configured it simply offers local Whisper (ADR-0008). Come back here
+when you want the second provider.
+
+### Create it
+
+**Portal:** <https://portal.azure.com> → *Create a resource* → search **Speech** →
+*Create*.
+
+| Field | What to pick |
+| --- | --- |
+| Subscription | any — a Visual Studio Enterprise subscription's $150/month credit covers this comfortably |
+| Resource group | e.g. `harken-rg` (create new) |
+| Region | one close to you |
+| Name | e.g. `harken-speech` |
+| Pricing tier | **S0** — batch transcription is not available on F0 |
+
+**Or CLI**, with the Azure CLI installed and `az login` done:
 
 ```
-dotnet user-secrets set "AzureSpeech:Key" "<key from step 2>" --project src/Harken.Api
-dotnet user-secrets set "AzureSpeech:Region" "<region from step 2>" --project src/Harken.Api
+az group create --name harken-rg --location westeurope
+az cognitiveservices account create \
+  --name harken-speech \
+  --resource-group harken-rg \
+  --kind SpeechServices \
+  --sku S0 \
+  --location westeurope \
+  --yes
+```
+
+### Get the key and region
+
+Portal: the resource → *Keys and Endpoint* → copy **KEY 1** and the **Location/Region**
+short form (e.g. `westeurope`, not "West Europe").
+
+```
+az cognitiveservices account keys list --name harken-speech --resource-group harken-rg
+az cognitiveservices account show --name harken-speech --resource-group harken-rg --query location -o tsv
+```
+
+### Verify the key before running Harken
+
+Separates "my key is wrong" from "the app is broken":
+
+```
+curl -X POST \
+  "https://<region>.api.cognitive.microsoft.com/sts/v1.0/issueToken" \
+  -H "Ocp-Apim-Subscription-Key: <your-key>" \
+  -H "Content-Length: 0"
+```
+
+A long JWT back means key and region are good. `401` means the key is wrong; `404` or a
+DNS failure usually means the region is wrong.
+
+### Cost and budget alert
+
+Batch transcription bills ~$0.18 per audio hour of submitted content — see
+[`cost-model.md`](cost-model.md). Set a budget alert (Cost Management → Budgets) the day
+you first submit anything.
+
+### Keys are secrets
+
+Never commit one, never paste one into `appsettings.json` (its `AzureSpeech` values are
+deliberately empty placeholders), never put one in a screenshot or an issue. If a key
+leaks, rotate it: *Keys and Endpoint* → *Regenerate Key 1*, then update user-secrets. Both
+keys are equivalent, so regenerating one lets you roll over without downtime.
+
+---
+
+## 5. Secrets
+
+`Jwt:Key` is required — the API **throws at startup** without it, deliberately, so a
+misconfiguration is loud at boot instead of silent until someone tries to log in.
+
+```
 dotnet user-secrets set "Jwt:Key" "<32+ byte random value>" --project src/Harken.Api
 ```
 
-`Jwt:Key` signs login tokens. Anyone holding it can mint a valid token for any account,
-so generate a fresh random value per machine and never reuse one from any document —
+`Jwt:Key` signs login tokens. Anyone holding it can mint a valid token for any account, so
+generate a fresh random value per machine and never reuse one from any document —
 including this one, which is why no example value appears here.
-
-Generate one:
 
 ```
 # PowerShell
@@ -166,6 +204,13 @@ Generate one:
 openssl rand -base64 48
 ```
 
+Azure keys are only needed for MVP 2:
+
+```
+dotnet user-secrets set "AzureSpeech:Key" "<key from step 4>" --project src/Harken.Api
+dotnet user-secrets set "AzureSpeech:Region" "<region from step 4>" --project src/Harken.Api
+```
+
 User-secrets live outside the repo (`%APPDATA%\Microsoft\UserSecrets\` on Windows), so
 they cannot be committed by accident. Check what is set:
 
@@ -173,12 +218,11 @@ they cannot be committed by accident. Check what is set:
 dotnet user-secrets list --project src/Harken.Api
 ```
 
-`Jwt:Issuer` and `Jwt:Audience` default to `Harken` and only need setting if you want
-something else.
+`Jwt:Issuer` and `Jwt:Audience` default to `Harken` and only need setting to change them.
 
 ---
 
-## 5. Database
+## 6. Database
 
 SQLite, one file, created by migrations — no server to install. If
 `src/Harken.Api/harken.db` does not exist:
@@ -190,27 +234,46 @@ dotnet ef database update --project src/Harken.Api
 If `dotnet ef` is missing: `dotnet tool install --global dotnet-ef`.
 
 The file is gitignored. Deleting it and re-running the command gives a clean slate —
-acceptable now precisely because there is no real recorded data yet (ADR-0004). Once
-family members have transcripts, that stops being true.
+acceptable now precisely because there is no real recorded data yet
+([ADR-0004](adr/0004-identity-and-ownership.md)). Once anyone has transcripts they care
+about, that stops being true.
 
 ---
 
-## 6. Prove the environment works
+## 7. Disk space
+
+Record-then-transcribe means audio lives on disk on both sides. Budget for it:
+
+- ~1.5 GB for a `medium` Whisper model, once.
+- ~3 GB for Gemma 3:4b, once.
+- Per recorded hour: ~115 MB as WAV (what the console records), or ~10 MB as Opus.
+
+**Recordings are kept after transcription**, so backend disk grows with every hour ever
+recorded — not with a backlog. That is deliberate: audio cannot be recreated, and
+re-transcribing with a better model needs it. Roughly 23 GB per 200 recorded hours as WAV.
+There is no automatic cleanup, so this is worth glancing at occasionally rather than
+discovering.
+
+---
+
+## 8. Prove the environment works
 
 In order, so a failure points at one thing:
 
 1. **Build and test** — `bash .claude/scripts/check.sh` then
-   `bash .claude/scripts/test-fast.sh`. These touch no external service; if they fail,
-   the problem is the code or the SDK, not Azure.
+   `bash .claude/scripts/test-fast.sh`. These touch no external service; a failure here is
+   the code or the SDK.
 2. **Backend boots** — `dotnet run --project src/Harken.Api`. Reaching "Now listening on"
-   means all three required secrets were present. Then
-   `curl http://localhost:5057/health` → `{"status":"ok"}`.
+   means the required secrets were present. Then `curl http://localhost:5057/health` →
+   `{"status":"ok"}`.
 3. **Account** — register and log in per the README. A token back means Identity and
-   `Jwt:Key` are working.
-4. **Speech** — run the console client and speak. Live captions mean Azure Speech is
-   wired correctly. This is the first step that costs money.
-5. **Summary** — answer `y` at the summarize prompt. Text back means Ollama is reachable
-   and the agent works.
+   `Jwt:Key` work.
+4. **Transcription** — run the console client, record a short clip, and let it transcribe.
+   Text back means Whisper, the model file, and the runtime are all wired correctly. Note
+   how long it takes relative to the clip length: that ratio is the number ADR-0008 says
+   must be measured before building the phone client.
+5. **Summary** — summarize the transcript. Text back means Ollama is reachable and the
+   agent works.
 
 Steps 4 and 5 have never been run in this project's history — they are the real
 verification frontier. Everything before them is covered by automated tests.
@@ -221,26 +284,20 @@ verification frontier. Everything before them is covered by automated tests.
 
 | Symptom | Likely cause |
 | --- | --- |
-| Startup throws naming `Jwt:Key` or `AzureSpeech:*` | secret not set — `dotnet user-secrets list` |
+| Startup throws naming `Jwt:Key` | secret not set — `dotnet user-secrets list` |
 | `401` from `/auth/login` | wrong email/password. The message is deliberately generic so it cannot be used to discover which accounts exist |
 | Registration rejected | password rules: 12+ chars, upper, lower, digit, non-alphanumeric |
 | `401` on every authenticated call | token expired (7-day lifetime) — log in again |
-| Hub connects, no captions | Azure key/region — verify with the `issueToken` curl above |
-| Captions work, `502` on summarize | Ollama not running or model not pulled — `curl http://localhost:11434/api/tags` |
+| Transcription fails immediately | model file missing or path wrong — check the configured path exists |
+| Transcription very slow | running on CPU. Confirm the CUDA runtime package is referenced and the GPU is visible |
+| Transcription starts then dies | out of VRAM — Gemma still resident. Shorten `OLLAMA_KEEP_ALIVE` or use a smaller model |
+| Transcript is nonsense or repeats a phrase | Whisper hallucinating on silence or noise. Try a larger model; check the audio is actually 16 kHz mono |
+| `502` on summarize | Ollama not running or model not pulled — `curl http://localhost:11434/api/tags` |
 | `404` on a session id you believe exists | it belongs to another account. By design: the API never confirms an id it does not own |
-| Phone can't reach the backend | use the PC's LAN IP, not `localhost`; same Wi-Fi; Windows Firewall may need to allow the port |
+| Upload fails from the phone | use the PC's LAN IP, not `localhost`; same Wi-Fi; Windows Firewall may need to allow the port. The recording is safe on the device — retry |
 | SQLite `ORDER BY` errors on new queries | SQLite cannot translate `ORDER BY` on `TimeSpan`/`DateTimeOffset` — materialize first, sort client-side (ADR-0005) |
 
 ## Cost
 
-**See [`cost-model.md`](cost-model.md)** for what Harken costs by usage level, and why
-one forgotten session can cost more than a month of real use.
-
-- **Azure Speech** — the only meter. F0 is free within its monthly audio-hour limit;
-  S0 bills per audio hour of streaming.
-- **Ollama** — free, local, no account.
-- **SQLite** — a file.
-
-Set a budget alert on the Azure subscription if you move off F0. Live captioning streams
-continuously while a session is open, so cost tracks wall-clock recording time, not the
-number of requests.
+**MVP 1 costs nothing to run.** See [`cost-model.md`](cost-model.md) for MVP 2 and the
+storage arithmetic that replaces the old per-audio-hour meter.

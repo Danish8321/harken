@@ -3,7 +3,15 @@
 Date: 2026-08-14
 
 ## Status
-Accepted
+Accepted, partially superseded by [ADR-0007](0007-record-then-transcribe.md).
+
+**What still holds:** backend-centric. Clients stay thin, keys stay server-side, and one
+codebase owns transcription and Agents. That was the load-bearing decision and ADR-0007
+depends on it.
+
+**What no longer holds:** the streaming mechanism. Clients no longer stream live audio
+chunks over SignalR to an open recognizer. They record to a file and upload it. The
+resource-leak risk noted below disappears with the long-lived recognizer that caused it.
 
 ## Context
 Clients (console now; mobile + browser extension later) must turn live audio into

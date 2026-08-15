@@ -1,20 +1,31 @@
 # Harken
 
-Live caption → transcript → AI summary. Multi-user: every session belongs to the
+Record → transcript → AI summary. Multi-user: every session belongs to the
 account that recorded it, and all endpoints except `GET /health` require a bearer
 token (ADR-0004, `docs/plans/slice-03-identity-and-ownership.md`).
 See `docs/plans/` for slice scope, `CONTEXT.md` for glossary, `docs/adr/` for the
 decisions behind the shape of this thing.
 
+> **The design changed; the code has not caught up yet.**
+> [ADR-0007](docs/adr/0007-record-then-transcribe.md) replaces live captioning with
+> record-then-transcribe, and [ADR-0008](docs/adr/0008-local-whisper-first.md) makes local
+> Whisper the only MVP 1 transcription provider — no Azure, no cloud, no cost.
+> **Everything below this banner describes what the code does today**: live captions over
+> SignalR with Azure Speech. That path is deleted in
+> [slice 04](docs/plans/slice-04-record-then-transcribe.md), after which Azure becomes
+> optional and MVP 2. If you are setting up a machine now, read
+> [`docs/setup.md`](docs/setup.md) — it is already written for the new design.
+
 ## Prerequisites
 
 **Setting up a machine from scratch? Start at [`docs/setup.md`](docs/setup.md)** — it
-covers creating the Azure Speech resource, installing Ollama, generating and storing the
-secrets, and proving each piece works before you run anything. This section is the short
-list; that doc is the go-to.
+covers the Whisper model, Ollama, generating and storing the secrets, and proving each
+piece works before you run anything. This section is the short list; that doc is the
+go-to.
 
 - .NET 10 SDK (10.0.302 — pinned in `global.json`).
 - **Azure Speech resource** (any region) — key + region. Real-time streaming STT.
+  Required by the code as it stands today; dropped in slice 04.
 - **Ollama** running locally, with a Gemma model pulled:
   ```
   ollama pull gemma3:4b

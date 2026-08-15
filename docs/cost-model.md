@@ -1,126 +1,126 @@
 # Cost model
 
-What Harken costs to run, by how much it is actually used. Written to make the
-session-limit decisions in ADR-0006 concrete: the limits exist because of the numbers
-below, not because bounded is tidier than unbounded.
+What Harken costs to run. Rewritten for [ADR-0007](adr/0007-record-then-transcribe.md)
+and [ADR-0008](adr/0008-local-whisper-first.md) — the record-then-transcribe design
+changes not just the amount but the *shape* of the cost.
 
 > **Verify before budgeting.** Rates are region-specific and change. The authoritative
 > source is the [Azure Speech pricing page](https://azure.microsoft.com/pricing/details/speech/).
-> The quota figures here are from Microsoft's
+> Quota figures come from Microsoft's
 > [quotas and limits doc](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-services-quotas-and-limits)
-> (checked 2026-08-15). The scenario arithmetic is mine — recompute it against your own
-> region's rate.
+> (checked 2026-08-15). The arithmetic is mine — recompute against your own region.
 
 ---
 
-## What actually costs money
+## MVP 1: zero
 
-| Component | Cost | Why |
-| --- | --- | --- |
-| **Azure Speech, real-time STT** | **~$1.00 per audio hour** (S0) | The only meter |
-| Ollama + Gemma (summaries) | $0 | Runs locally |
-| SQLite | $0 | A file on disk |
-| Hosting | $0 today | Runs on your own machine (ADR-0001, ADR-0005) |
-
-**The billable unit is an audio hour — wall-clock time a recognizer stays open.** Not
-requests, not words, not transcript length. A silent hour with the microphone open costs
-the same as an hour of dense speech. This single fact drives everything below.
-
-## Tiers
-
-| | Free (F0) | Standard (S0) |
-| --- | --- | --- |
-| Included | ~5 audio hours/month | none — pay per hour |
-| Rate beyond that | n/a (blocked) | ~$1.00/audio hour |
-| **Concurrent requests** | **1 — not adjustable** | 100 default, adjustable |
-| Resources per subscription | 1 F0 | many |
-
-The concurrency row is the one that matters for Harken's scope. **F0 permits exactly one
-recognizer at a time.** Two family members captioning simultaneously is not a
-rare edge case — it is a Tuesday evening. On F0 the second person's session fails, and it
-fails mid-attempt rather than with a clear "you are over quota". That is why ADR-0006
-moves to S0 before family rollout, not because of the 5-hour allowance.
-
----
-
-## Usage scenarios
-
-At **$1.00/audio hour**. Adjust proportionally for your region.
-
-| Scenario | Recording | Hours/month | Cost/month |
-| --- | --- | --- | --- |
-| **Proving it works** — a few test sessions | 15 min × 8 | 2 h | **$0** (within F0) |
-| **Solo learner** — 2 lectures/week, 90 min each | 3 h/week | ~13 h | **~$13** |
-| **Solo daily driver** — 1 h of meetings each workday | 1 h × 22 | 22 h | **~$22** |
-| **Family, light** — 4 people × 5 h each | — | 20 h | **~$20** |
-| **Family, heavy** — 4 people × 15 h each | — | 60 h | **~$60** |
-
-Nothing here is alarming. The alarming numbers are the accidents.
-
-## The accident, which is the real reason for limits
-
-ADR-0003 keeps the microphone alive with the screen locked, because captioning a lecture
-from a pocketed phone is the daily-driver case. The cost of that decision: **backgrounding
-the app was the only natural stop signal, and it is gone.** A Session ends when someone
-remembers to end it.
-
-One forgotten session, phone in a pocket until the battery dies:
-
-| Guardrail | Session runs for | Cost of that one incident |
-| --- | --- | --- |
-| **None** (today) | ~8 h | **~$8.00** |
-| Session Cap 2 h | 2 h | ~$2.00 |
-| **Silence Timeout 5 min** | 5 min | **~$0.08** |
-
-A hundredfold difference on a single mistake, from a timer. And mistakes repeat: one
-forgotten session a week, unguarded, is **~$32/month of silence** — more than the family-light
-scenario spends on actual use.
-
-**Why both limits, not one:**
-
-- **Silence Timeout alone** misses a noisy room. Background chatter keeps producing Final
-  Results, so the silence timer keeps resetting and never fires. The session runs on.
-- **Session Cap alone** lets a pocketed phone bill for the full cap — 2 hours, ~$2.00 —
-  before it trips. The silence timer would have caught it in 5 minutes for ~$0.08.
-
-Each covers the other's blind spot. That is the whole argument for two timers instead of
-one, and it is why the cap is a backstop rather than the primary control.
-
-## Choosing a Session Cap
-
-The cap the user picks before starting bounds the worst case for that session:
-
-| Cap | Worst-case cost of one forgotten session |
+| Component | Cost |
 | --- | --- |
-| 1 h | ~$1.00 |
-| 2 h (default) | ~$2.00 |
-| 4 h | ~$4.00 |
-| none | bounded only by Silence Timeout — or by the battery, in a noisy room |
+| Whisper transcription | $0 — local, on the GPU you own |
+| Ollama + Gemma summaries | $0 — local |
+| SQLite | $0 — a file |
+| Hosting | $0 — your own machine |
 
-`none` exists so a genuine all-day recording is not truncated. It is the one path where a
-session can still run up a real bill, which is why it is a deliberate choice and not the
-default.
+**Nothing meters.** No account, no key, no quota, no budget alert, no forgotten-session
+risk. Recording all day costs a flat battery and some disk.
 
----
+The real costs of MVP 1 are not billed:
+
+- **Electricity and wear** on your own machine. Small, but not literally zero.
+- **Time.** Transcription takes minutes per recording hour on a 3050 (unmeasured — see
+  ADR-0008; measuring it is a gate on the phone client).
+- **Disk.** Recordings plus a ~1.5 GB model file. See storage below.
+
+## MVP 2: Azure, and why batch changes everything
+
+| | Real-time (old design) | Batch (ADR-0007) |
+| --- | --- | --- |
+| Rate | ~$1.00/audio hour | **~$0.18/audio hour** |
+| Billed for | wall-clock time the recognizer is open | audio content submitted |
+| A silent hour costs | the same as a busy one | the same — but you never submit one |
+| A forgotten session costs | hours of billing | one upload you can delete first |
+
+The rate is about a fifth. The bigger change is the second row. Under real-time, the
+meter ran on wall-clock time you were not in control of, which is why ADR-0006 needed two
+timers, server-side enforcement, and a sync contract just to bound the damage. Under
+batch, you hold a finished file and decide whether to submit it. **The runaway case stops
+existing**, and with it the machinery that guarded against it.
+
+### What MVP 2 actually costs
+
+At ~$0.18/audio hour, and only for recordings you choose to send to Azure rather than
+transcribe locally:
+
+| Usage | Hours/month | Cost/month |
+| --- | --- | --- |
+| Solo learner — 2 lectures/week, 90 min | ~13 h | **~$2.34** |
+| Solo daily driver — 1 h each workday | 22 h | **~$3.96** |
+| Heavy — 3 h/day, every day | 90 h | **~$16.20** |
+
+Compare the old design: the same solo-daily-driver case was ~$22/month, and one forgotten
+session could add ~$8 on its own.
+
+### The Visual Studio Enterprise credit
+
+$150/month. At $0.18/audio hour that is ~830 audio hours — far more than one person can
+generate. Azure is effectively free for a single user.
+
+Read the terms before relying on it: **individual dev/test use by the subscriber only, no
+rollover, no SLA, and instances suspend after 120 hours of continuous running.** It
+cannot legitimately fund family or public use. It is runway, not a funding model
+(ADR-0008).
+
+## Storage, which is now the real budget
+
+Cost moved from a meter to your disk. Encoding is the lever:
+
+| Encoding | Per hour of audio | 100 hours |
+| --- | --- | --- |
+| Raw PCM, 16 kHz mono 16-bit | ~115 MB | ~11 GB |
+| Opus, speech bitrate | ~10 MB | ~1 GB |
+
+Roughly a tenfold difference, and it lands twice — on the phone before upload, and on the
+backend after. On a phone that is the difference between a recording you can hold for a
+week and one you must upload immediately.
+
+**Decided so far:** the console slice records **WAV** (16 kHz mono PCM), because it is
+what Whisper wants and needs no encoder, and ~115 MB/hour is irrelevant on a PC. Opus is
+an open question for the phone slice, where it stops being irrelevant.
+
+**Recordings are kept after transcription**, not deleted. Audio is the only artifact that
+cannot be recreated, and re-transcribing with a better model or a different Provider needs
+it. So backend disk grows with total hours ever recorded, not with hours pending:
+
+| Total recorded | WAV on the backend | Opus on the backend |
+| --- | --- | --- |
+| 50 h | ~5.8 GB | ~500 MB |
+| 200 h | ~23 GB | ~2 GB |
+| 500 h | ~58 GB | ~5 GB |
+
+At which point retention becomes a real policy rather than a default. It is not one yet.
+
+Plus a ~1.5 GB Whisper model and ~3 GB of Gemma on the backend, once each.
+
+## What the limits are for now
+
+Silence Timeout and Session Cap survive from ADR-0006 with the cost rationale removed.
+They now bound **battery and device storage**:
+
+| Guardrail | A forgotten recording costs |
+| --- | --- |
+| None | a flat battery, and hours of audio on disk |
+| Session Cap 2 h | ~2 h of file |
+| Silence Timeout 5 min | ~5 min of file |
+
+Worth having. Not urgent, and no longer needing server-side enforcement — the backend
+holds nothing open while a phone is recording.
 
 ## Keeping an eye on it
 
-1. **Set an Azure budget alert** on the subscription — Cost Management → Budgets. Free,
-   two minutes, and it is the only thing that tells you about a problem you did not
-   predict. Do this when you move to S0.
-2. **Watch the notification.** Live elapsed time on the recording notification (ADR-0006)
-   is the per-session view, on the surface the user actually sees when the screen is
-   locked.
-3. **Check Azure's own metrics** — the Speech resource's *Metrics* blade shows audio hours
-   consumed. Azure's numbers are the billing truth; anything Harken reports is a
-   convenience.
-
-## Not applicable today, worth knowing
-
-**Batch transcription costs roughly $0.18/audio hour** — about a fifth of real-time. It
-does not fit Harken: batch uploads a finished file and returns a transcript later, and
-Harken's product is the live caption. But if a "transcribe this recording I already have"
-feature ever appears, it should not go through the real-time meter.
+- **MVP 1** — nothing to watch. Check free disk space occasionally.
+- **MVP 2** — set an Azure budget alert (Cost Management → Budgets) when you first send
+  anything to Azure. Free, two minutes. The Speech resource's *Metrics* blade shows audio
+  hours consumed; Azure's numbers are the billing truth.
 
 ---
 

@@ -12,57 +12,80 @@ authenticated identity, and never reassigned. Transcript Segments inherit owners
 through their Session.
 
 ## Session
-A single continuous capture from one client, from start to stop. Belongs to exactly
-one Owner. Owns an ordered sequence of Transcript Segments. Has a start time, end
-time, and a source (mic or system audio). One Session maps to exactly one live audio
-stream and one recognizer lifetime.
+One captured recording and everything derived from it. Belongs to exactly one Owner.
+Has a start time, an end time, a Source, and a Recording. Gains a Transcript once
+transcribed, and may gain a Summary. A Session exists on the client from the moment
+capture starts, before it has an Owner.
+
+## Recording
+The captured audio of a Session, as a file. Created on the client, held there until
+Uploaded, and the only artifact that cannot be recreated — a lost Recording is a lost
+Session. Capture never requires the User to be authenticated or online. Retained after
+Transcription rather than discarded, so a Session can be re-transcribed by a different
+Provider or a better model.
+
+## Upload
+Moving a Recording from the client to the backend. The first point at which a Session
+acquires an Owner, and therefore the point where authentication is required. May be
+retried; a Recording that has been Uploaded is not deleted from the client until the
+backend confirms it holds it.
+
+## Transcription
+Turning a Recording into a Transcript. Happens on the backend after Upload, never on
+the client and never during capture. Takes real time and reports progress, so a Session
+is always in one of a known set of states rather than merely "not done yet". May be run
+again over a retained Recording.
+
+## Provider
+The engine that performs Transcription. Interchangeable: local Whisper, or a cloud
+service. Which Providers exist is declared by the backend; the User selects among
+those, and can never select one the backend has no credentials for.
 
 ## Transcript Segment
-A timestamped piece of recognized text belonging to a Session. Emitted as final
-(not partial) recognition. Ordered within its Session by start offset.
-
-## Partial Result
-An in-progress, not-yet-finalized recognition shown live to the user as it forms.
-Flickers/changes as more audio arrives. NOT persisted — only Final Results become
-Transcript Segments.
-
-## Final Result
-A stabilized recognition the engine will not revise. Persisted as a Transcript
-Segment.
-
-## Caption
-What the user sees live on screen: the rolling display of Partial and Final Results
-as they arrive. The capture-time experience, distinct from the stored Transcript.
+A timestamped piece of recognized text belonging to a Session. Ordered within its
+Session by start offset.
 
 ## Transcript
 The full stored text of a Session — its ordered Transcript Segments joined. The
-durable artifact the user owns and runs Agents over. The product's hero, not the
-live Caption.
+durable artifact the User owns and runs Agents over. The product's hero.
 
 ## Agent
 An AI worker that consumes a Transcript and produces a derived output. Phase 1 has
-one Agent: Summarize. Runs on-demand against a stored Transcript, not live.
+one Agent: Summarize. Runs on demand against a stored Transcript.
 
 ## Summary
 The output of the Summarize Agent over a Transcript.
 
 ## Silence Timeout
-The period without any Final Result after which a Session ends on its own. Measured
-from the last Final Result, not from the last audio: audio keeps arriving from a
-silent room. Configurable per Session.
+The period without detected speech after which capture stops on its own. Bounds
+battery and device storage, not cost. Enforced on the client, since capture happens
+there. Configurable per Session.
 
 ## Session Cap
-The maximum duration a Session may run, chosen by the User before it starts. Independent
-of Silence Timeout — it bounds a Session that keeps producing Final Results from
-background noise, which Silence Timeout never ends. May be declined, in which case only
-Silence Timeout applies.
+The maximum duration capture may run, chosen by the User before it starts. Independent
+of Silence Timeout — it bounds capture in a room with constant background noise, which
+Silence Timeout never ends. May be declined, in which case only Silence Timeout applies.
 
 ## Auto-stop
-A Session ending because a Silence Timeout or Session Cap was reached, rather than
-because the User stopped it. Always attributed: a Session that ended states which of
-the three it was, so an Auto-stop is never mistaken for a lost connection.
+Capture ending because a Silence Timeout or Session Cap was reached, rather than
+because the User stopped it. Always attributed: a Session states which of the three it
+was, so an Auto-stop is never mistaken for a crash.
 
 ## Source
-Where a Session's audio comes from — declared by the client when the Session starts,
-not assumed by the server. Mic (console, mobile) or system/tab audio (browser
-extension).
+Where a Session's audio comes from — declared by the client when capture starts, not
+assumed by the backend. Mic (console, mobile) or system/tab audio (browser extension).
+
+---
+
+## Deferred terms
+
+Not part of the current model. Listed so they are not reintroduced by accident, and
+because they will return if live captioning does (ADR-0007).
+
+- **Caption** — live on-screen text as it forms during capture.
+- **Partial Result** — an in-progress recognition, revised as more audio arrives.
+- **Final Result** — a stabilized recognition the engine will not revise.
+
+All three are live-recognition concepts. Under record-then-transcribe there is no live
+recognition: a Recording produces Transcript Segments directly, and nothing the User
+sees is ever provisional.

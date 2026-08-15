@@ -3,7 +3,32 @@
 Date: 2026-08-15
 
 ## Status
-Accepted
+Superseded by [ADR-0007](0007-record-then-transcribe.md) before implementation. None of
+this shipped.
+
+The premise below — that an open recognizer bills per wall-clock hour — stops being true
+once the MVP records first and transcribes afterwards. Local Whisper has no meter at all,
+and Azure batch bills per audio hour of *content*, so a silent recording costs almost
+nothing and a forgotten one costs nothing extra.
+
+**Silence Timeout and Session Cap survive, reduced.** They now bound phone battery and
+device storage rather than spend, which changes what they are:
+
+- Enforcement moves **server-side to client-side**. The server holds nothing open during
+  a recording, so it has nothing to enforce.
+- The sync contract, the absolute UTC deadlines, `SessionEnded(reason)` and the three new
+  hub messages are all unnecessary. They existed so a client could not run up a bill the
+  server was paying.
+- Urgency drops from "required before rollout" to "worth having". A runaway recording is
+  now a flat battery, not an invoice.
+
+The tier decision (move to S0 before rollout) applies only if and when real-time
+recognition returns. Batch has different quotas.
+
+The recognition-language decision — set it explicitly rather than inherit the SDK default
+— **still stands** and carries over to whichever provider is in use.
+
+Retained in full below as the reasoning behind those surviving limits.
 
 ## Context
 Azure Speech bills per audio hour of streaming recognition. The meter tracks how long a
