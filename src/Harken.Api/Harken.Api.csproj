@@ -15,6 +15,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="OllamaSharp" />
     <PackageReference Include="Whisper.net" />
+    <PackageReference Include="Whisper.net.Runtime" />
     <PackageReference Include="Whisper.net.Runtime.Cuda.Windows" />
   </ItemGroup>
 
