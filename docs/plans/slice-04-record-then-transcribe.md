@@ -137,10 +137,28 @@ by local Whisper and summarized by Gemma, with the time ratio written down. No l
 captioning code remains. Ownership isolation still holds on every new endpoint —
 cross-user access returns `404`, never `403`.
 
+## Measured (2026-08-16, Task 7 manual run)
+Model `ggml-base.en.bin`, CPU (no CUDA toolkit installed on this machine — an RTX 3050 was
+available but unused; `Whisper.net.Runtime` was added as the required CPU fallback after
+the first run failed with "Native Library not found"). Two clips:
+- 5s audio → 3s transcription (~0.6x real-time)
+- 4s audio → 5s transcription (~1.25x real-time)
+
+Both comfortably under 1:1 or close to it — **the slice 05 gate passes**: a one-hour
+recording would not take anywhere near an hour to transcribe at this ratio. Accuracy was
+mixed on a short, quiet clip (one of the two transcripts was garbled relative to what was
+actually said); the other was clean. Small sample, CPU-only, `base.en` — worth re-checking
+with a longer/clearer sample and with the CUDA toolkit installed before treating the ratio
+as final for slice 05 sizing.
+
+Summarize (Gemma via Ollama) was **not exercised** in this run — Ollama wasn't running on
+the machine at the time, so `POST /sessions/{id}/summary` returned its documented 502.
+That endpoint predates this slice and isn't part of Task 7's own gate (transcription),
+but the exit criteria below assumed it — flagging rather than quietly declaring it met.
+
 ## Carried, unresolved
-- Whisper's real speed and accuracy on this hardware are unmeasured until Task 7 runs.
-  **This is a gate on slice 05**, not a curiosity: if a one-hour recording takes an hour to
-  transcribe, the design needs revisiting before any phone work.
+- Accuracy on longer/quieter audio and with the CUDA toolkit installed is still
+  unmeasured — the numbers above are two short clips on CPU.
 - Duplicate uploads after a retry are not handled. Harmless with one user on a LAN,
   necessary before the phone client, where a flaky connection makes retries routine.
 - Silence Timeout and Session Cap are unimplemented. They land in slice 05 with the phone,

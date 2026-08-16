@@ -67,10 +67,15 @@ somewhere outside the repo and point config at it — do not commit it.
 
 ### GPU
 
-`Whisper.net.Runtime.Cuda.Windows` uses an NVIDIA GPU where present and falls back to CPU
-otherwise. CPU works and is slower. Published runtimes cover Windows, Linux, macOS,
-Metal, CoreML, CUDA, Vulkan, OpenVINO and Wasm — **there is no Android runtime**, which is
-one reason the phone never transcribes (ADR-0007).
+Both `Whisper.net.Runtime` (CPU) and `Whisper.net.Runtime.Cuda.Windows` are referenced.
+The CUDA package is necessary but **not sufficient** for GPU use — it needs the NVIDIA
+CUDA toolkit actually installed and discoverable; without it, Whisper.net has no native
+library to fall back to unless the CPU package is also present, and fails outright with
+"Native Library not found in default paths" (confirmed by a real run on this project's
+dev machine, an RTX 3050 without the CUDA toolkit installed — it ran on CPU instead, no
+extra setup). Published runtimes cover Windows, Linux, macOS, Metal, CoreML, CUDA,
+Vulkan, OpenVINO and Wasm — **there is no Android runtime**, which is one reason the
+phone never transcribes (ADR-0007).
 
 ### VRAM contention
 

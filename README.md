@@ -6,12 +6,15 @@ token (ADR-0004, `docs/plans/slice-03-identity-and-ownership.md`).
 See `docs/plans/` for slice scope, `CONTEXT.md` for glossary, `docs/adr/` for the
 decisions behind the shape of this thing.
 
-> **Recording is temporarily missing.** The live captioning path was deleted in
-> [ADR-0007](docs/adr/0007-record-then-transcribe.md) Task 1, and record-then-transcribe
-> is being built in its place ([slice 04](docs/plans/slice-04-record-then-transcribe.md)).
-> Right now the clients can sign in, read sessions, and summarize them — but nothing can
-> create a new session until Task 7 lands. Transcription will run on local Whisper
-> ([ADR-0008](docs/adr/0008-local-whisper-first.md)): no Azure, no cloud account, no cost.
+> **Record-then-transcribe, not live captions.** The live captioning path was deleted in
+> [ADR-0007](docs/adr/0007-record-then-transcribe.md); Harken now records to a file,
+> uploads it, and transcribes it in the background — there is no word-by-word caption
+> stream. Transcription runs on local Whisper ([ADR-0008](docs/adr/0008-local-whisper-first.md)):
+> no Azure, no cloud account, no cost. Measured on this project's dev machine (RTX 3050
+> 4 GB, CPU fallback — no CUDA toolkit installed) with the `ggml-base.en.bin` model:
+> a 4–5 second clip transcribed in 3–5 seconds, roughly real-time. That ratio is what
+> gates slice 05 (mobile) — see `docs/plans/slice-04-record-then-transcribe.md`, "Carried,
+> unresolved".
 
 ## Prerequisites
 
@@ -21,11 +24,16 @@ piece works before you run anything. This section is the short list; that doc is
 go-to.
 
 - .NET 10 SDK (10.0.302 — pinned in `global.json`).
+- A Whisper GGML model file (e.g. `ggml-base.en.bin` from
+  https://huggingface.co/ggerganov/whisper.cpp/tree/main), and its path set via
+  `Whisper:ModelPath` (see Configure secrets, below). Without it the API starts fine but
+  every transcription fails with "Whisper model not found".
 - **Ollama** running locally, with a Gemma model pulled:
   ```
   ollama pull gemma3:4b
   ```
-  Phase 1 summarize agent talks to Ollama, not Azure — see ADR-0002.
+  Phase 1 summarize agent talks to Ollama, not Azure — see ADR-0002. Summarize is
+  optional — recording and transcription work without it.
 - A working microphone.
 
 ## Configure secrets
@@ -40,6 +48,10 @@ dotnet user-secrets set "Jwt:Key" "<32+ byte random value>" --project src/Harken
 
 There are no cloud credentials to configure: MVP 1 transcribes with a local Whisper model
 and summarizes with a local Gemma model (ADR-0008).
+
+```
+dotnet user-secrets set "Whisper:ModelPath" "<path to ggml-base.en.bin>" --project src/Harken.Api
+```
 
 `Jwt:Key` signs the login tokens. Generate a fresh random value per machine — never
 reuse a value from any doc, and never commit one. `Jwt:Issuer`/`Jwt:Audience` default
@@ -78,8 +90,16 @@ Terminal 2 — console client:
 dotnet run --project src/Harken.Console
 ```
 
-It prompts for email and password (password echo suppressed), logs in, lists the
-sessions you own, and offers to summarize one. Recording arrives with slice 04 Task 7.
+It prompts for email and password (password echo suppressed), logs in, then offers:
+
+- **R** — record from the mic (ENTER to stop), upload, poll until transcribed, print the
+  transcript, offer to summarize.
+- **L** — list your sessions and summarize one.
+- **Q** — quit.
+
+Recording itself needs no valid token — only the upload step does. An expired token
+during upload prompts a re-login without discarding the recording; the WAV stays on disk
+at the path printed, in case you need to retry manually.
 
 ## API
 
@@ -92,8 +112,9 @@ id it doesn't own exists.
 | `GET /health` | anonymous | liveness — `{"status":"ok"}` |
 | `POST /auth/register` | anonymous | create an account (`email`, `password`) |
 | `POST /auth/login` | anonymous | returns a JWT for the bearer header |
+| `POST /sessions` | bearer | upload a WAV recording (`audio` file, `source` field); starts transcription in the background |
 | `GET /sessions` | bearer | caller's sessions, newest first, metadata only |
-| `GET /sessions/{id}` | bearer | one session + its ordered transcript segments |
+| `GET /sessions/{id}` | bearer | one session + its ordered transcript segments + `TranscriptionStatus` (poll this) |
 | `POST /sessions/{id}/summary` | bearer | generate (or re-read) the stored summary |
 
 Get a token:
