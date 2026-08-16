@@ -157,6 +157,12 @@ That endpoint predates this slice and isn't part of Task 7's own gate (transcrip
 but the exit criteria below assumed it — flagging rather than quietly declaring it met.
 
 ## Carried, unresolved
+- **Exit criteria's "summarized by Gemma" is unverified.** Ollama wasn't running during
+  the Task 7 manual run, so `POST /sessions/{id}/summary` was never exercised end to end
+  on a real transcript. Check later: start Ollama, run the console client, `L` an existing
+  transcribed session, summarize it, confirm text comes back. Not blocking slice 05 — the
+  summarize endpoint predates this slice and mobile's own summarize path (already wired)
+  will exercise it anyway.
 - Accuracy on longer/quieter audio and with the CUDA toolkit installed is still
   unmeasured — the numbers above are two short clips on CPU.
 - Duplicate uploads after a retry are not handled. Harmless with one user on a LAN,
