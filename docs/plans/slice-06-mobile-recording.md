@@ -164,7 +164,13 @@ path to run.
 - **Task 7 — Idempotent upload (client recording id):** done and **verified** by
   `test-fast.sh` (27 integration tests, 5 new). Migration read before applying; additive,
   no data loss. One gap named below.
-- **Task 8:** not started.
+- **Task 8 — Docs:** done. README's mobile section rewritten (record/stop flow, the
+  limits-and-storage table, the notification's Stop control, the `0.0.0.0` bind the phone
+  needs); `recordingId` documented on the API table; `docs/setup.md` gained a phone
+  end-to-end verification step, four troubleshooting rows, and the on-device WAV cost;
+  slice-02's superseded note now says its parked capture code is wired in here. Also fixed
+  the stale "slice 05 = Android" numbering in slices 02 and 04 — the mobile client shipped
+  as slice 06.
 
 Notes taken while implementing:
 - Upload has exactly one trigger: `RecordingState.Completed`. The Stop button only asks the

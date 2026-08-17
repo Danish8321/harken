@@ -232,7 +232,12 @@ Record-then-transcribe means audio lives on disk on both sides. Budget for it:
 
 - ~1.5 GB for a `medium` Whisper model, once.
 - ~3 GB for Gemma 3:4b, once.
-- Per recorded hour: ~115 MB as WAV (what the console records), or ~10 MB as Opus.
+- Per recorded hour: ~115 MB as WAV (what both the console and the phone record), or
+  ~10 MB as Opus. Slice 06 deliberately kept WAV on the phone too: Whisper wants it
+  natively, the backend accepts nothing else, and an encoder is a dependency and a failure
+  mode the slice did not need. Phone recordings are deleted locally once the upload
+  succeeds, so the device cost is per-recording, not cumulative — but a 3-hour recording
+  is ~345 MB on the phone until it lands.
 
 **Recordings are kept after transcription**, so backend disk grows with every hour ever
 recorded — not with a backlog. That is deliberate: audio cannot be recreated, and
@@ -257,8 +262,12 @@ In order, so a failure points at one thing:
    must be measured before building the phone client.
 4. **Summary** — summarize the transcript. Text back means Ollama is reachable and the
    agent works.
+5. **Phone end-to-end** — with the API bound to `0.0.0.0` (see Troubleshooting), record on
+   the Android app, lock the screen mid-recording, stop from the notification, and read the
+   transcript back. Then check the failure path: stop the backend, record, and confirm the
+   app keeps the file and names its path.
 
-Steps 3 and 4 have never been run in this project's history — they are the real
+Steps 3, 4 and 5 have never been run in this project's history — they are the real
 verification frontier. Everything before them is covered by automated tests.
 
 ---
@@ -273,7 +282,10 @@ verification frontier. Everything before them is covered by automated tests.
 | Transcript is nonsense or repeats a phrase | Whisper hallucinating on silence or noise. Try a larger model; check the audio is actually 16 kHz mono |
 | `502` on summarize | Ollama not running or model not pulled — `curl http://localhost:11434/api/tags` |
 | `404` on a session id | the id does not exist — sessions are never deleted, so double-check it |
-| Upload fails from the phone | use the PC's LAN IP, not `localhost`; same Wi-Fi; Windows Firewall may need to allow the port. The recording is safe on the device — retry |
+| Upload fails from the phone | use the PC's LAN IP, not `localhost`; same Wi-Fi; Windows Firewall may need to allow the port. The recording is kept on the device and its path shown — retry is safe, `recordingId` makes it idempotent |
+| Phone cannot reach the backend at all | `launchSettings.json` binds `localhost` only. Start it as `dotnet run --project src/Harken.Api --urls http://0.0.0.0:5057` |
+| Recording stops on its own | by design — 5 minutes of silence or the 3-hour Session Cap. Both upload what was captured |
+| No Stop button on the notification | notification permission denied (Android 13+). Recording still works; grant it in Settings → Apps → Harken → Notifications |
 | SQLite `ORDER BY` errors on new queries | SQLite cannot translate `ORDER BY` on `TimeSpan`/`DateTimeOffset` — materialize first, sort client-side (ADR-0005) |
 
 ## Cost

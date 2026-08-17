@@ -8,6 +8,11 @@ No live captioning anywhere in the path.
 clients capture, never infer) and [ADR-0008](../adr/0008-local-whisper-first.md) (local
 Whisper is the only MVP 1 Provider, behind a seam).
 
+> **Numbering note:** "slice 05" throughout this document means the Android client, which
+> actually shipped as [slice 06](slice-06-mobile-recording.md). Slice 05 became the auth
+> removal (ADR-0009) after this was written. The carried items below — Silence Timeout,
+> Session Cap, and duplicate uploads — were all picked up there.
+
 **Why console first:** the pipeline's real unknown is whether local Whisper is accurate
 and fast enough on a 3050. The console can answer that with a fraction of the work of the
 phone client, and if the answer is bad the mobile work would have been built on sand.

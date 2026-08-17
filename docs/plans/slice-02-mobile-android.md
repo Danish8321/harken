@@ -16,10 +16,19 @@ service. Reuses `Harken.Core` contracts and the backend from slice one unchanged
 > **Superseded in part by ADR-0007.** Live captions over a SignalR hub connection are
 > gone from `CapturePage` — deleted in [slice 04](slice-04-record-then-transcribe.md)
 > Task 1. The Capture tab currently lists and summarizes sessions only; it cannot create
-> one. On-device recording returns in slice 05, recording to a local file and uploading
+> one. On-device recording returns in slice 06 (written here as slice 05 before the
+> numbering shifted — slice 05 became the auth removal), recording to a local file and uploading
 > it rather than streaming. The foreground service and mic-capture code from this slice
-> (`RecordingForegroundService`, `AndroidAudioCapture`) are kept unreferenced today and
-> get wired back in by slice 05 rather than rebuilt.
+> (`RecordingForegroundService`, `AndroidAudioCapture`) were kept unreferenced rather than
+> deleted.
+>
+> **Parked capture code is now wired in — [slice 06](slice-06-mobile-recording.md).**
+> `RecordingForegroundService` and `AndroidAudioCapture` were reused, not rebuilt: the
+> service now writes 16 kHz/16-bit/mono WAV via `Harken.Core.Audio.WavWriter`, applies a
+> 5-minute Silence Timeout and 3-hour Session Cap, and its notification carries a live
+> elapsed counter and a Stop control (ADR-0003's actual requirement, not just a notice).
+> `CapturePage` records, uploads, polls, and shows the transcript. Note that slice 06's
+> device verification has not been run — the same gap this slice's own note records below.
 
 **Decisions locked:** ADR-0003 (foreground service). Android-only. LAN + editable
 base-URL setting. See `CONTEXT.md`, ADR-0001..0003.

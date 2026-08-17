@@ -12,9 +12,9 @@ decisions behind the shape of this thing.
 > stream. Transcription runs on local Whisper ([ADR-0008](docs/adr/0008-local-whisper-first.md)):
 > no Azure, no cloud account, no cost. Measured on this project's dev machine (RTX 3050
 > 4 GB, CPU fallback — no CUDA toolkit installed) with the `ggml-base.en.bin` model:
-> a 4–5 second clip transcribed in 3–5 seconds, roughly real-time. That ratio is what
-> gates slice 05 (mobile) — see `docs/plans/slice-04-record-then-transcribe.md`, "Carried,
-> unresolved".
+> a 4–5 second clip transcribed in 3–5 seconds, roughly real-time. Accuracy on longer or
+> quieter audio is still unmeasured — see `docs/plans/slice-04-record-then-transcribe.md`,
+> "Carried, unresolved".
 
 ## Prerequisites
 
@@ -83,7 +83,7 @@ nothing to authenticate.
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /health` | liveness — `{"status":"ok"}` |
-| `POST /sessions` | upload a WAV recording (`audio` file, `source` field); starts transcription in the background |
+| `POST /sessions` | upload a WAV recording (`audio` file, `source` field, optional `recordingId`); starts transcription in the background |
 | `GET /sessions` | sessions, newest first, metadata only |
 | `GET /sessions/{id}` | one session + its ordered transcript segments + `TranscriptionStatus` (poll this) |
 | `POST /sessions/{id}/summary` | generate (or re-read) the stored summary |
@@ -91,6 +91,11 @@ nothing to authenticate.
 ```
 curl http://localhost:5057/sessions
 ```
+
+`recordingId` is optional and makes upload idempotent: a client that generates one at
+record-start can re-send a recording after a dropped connection and get **200** with the
+session that already exists, rather than **201** and a duplicate. Clients that omit it
+(the console) are unaffected. A malformed value is a 400.
 
 ## Fresh database
 
@@ -108,10 +113,16 @@ dotnet ef database update --project src/Harken.Api
 
 ---
 
-## Mobile (Android) — Slice 02
+## Mobile (Android)
 
-See `docs/plans/slice-02-mobile-android.md` for scope, `docs/adr/0003-mobile-foreground-service.md`
-for why recording runs as a foreground service.
+The phone is a capture device: record → upload → poll → transcript, the console's flow on
+Android. See `docs/plans/slice-06-mobile-recording.md` for scope,
+`docs/adr/0003-mobile-foreground-service.md` for why recording runs as a foreground
+service, and `docs/plans/slice-02-mobile-android.md` for the earlier shell it replaced.
+
+> **Not yet verified on hardware.** Slice 06's capture, upload, and notification tasks
+> build and their pure logic is unit-tested, but the end-to-end run on a real phone has
+> not happened. Treat this section as what the code intends to do.
 
 ### Prerequisites
 
@@ -120,8 +131,15 @@ for why recording runs as a foreground service.
   (Settings → About phone → tap Build number ×7 → Developer options → USB debugging),
   or an emulator via Android Studio's Device Manager / Visual Studio's
   ".NET Multi-platform App UI development" workload.
-- Backend running and reachable on the same Wi-Fi/LAN as the phone (see Run, above) —
-  note your PC's LAN IP (`ipconfig`), not `localhost`.
+- Backend running and reachable on the same Wi-Fi/LAN as the phone — note your PC's LAN IP
+  (`ipconfig`), not `localhost`. `launchSettings.json` binds to `localhost` only, which the
+  phone cannot reach, so start the API bound to all interfaces:
+
+  ```
+  dotnet run --project src/Harken.Api --urls http://0.0.0.0:5057
+  ```
+
+  Allow the Windows Firewall prompt on the private network the first time.
 
 ### Configure
 
@@ -136,20 +154,41 @@ dotnet build src/Harken.Mobile -t:Run -f net10.0-android
 
 or deploy from Visual Studio with the phone selected as the target device.
 
-On first launch, grant the microphone permission prompt (and notification permission
-on Android 13+) — both are required once recording returns in slice 05.
+Permissions are requested at the point of first **Record**, not at launch — a prompt means
+something to someone who just tapped Record and nothing to someone who just opened the app.
+Denying the microphone is handled: the app says what is blocked and where to grant it,
+rather than failing silently. Notification permission (Android 13+) is asked for too but
+never blocks recording.
 
 ### Use
 
-No sign-in step (ADR-0009) — the app opens straight on **Sessions**. Refresh → pick a
-session → Summarize (needs Ollama running on
-the backend host, same as the console flow). On-device recording and upload land in
-slice 05; ADR-0007 keeps all transcription on the backend, so the phone never runs a
-model itself.
+No sign-in step (ADR-0009) — the app opens straight on **Sessions**.
 
-### Note on the persistent notification
+- **Record → Stop.** Audio is captured to a WAV file in the app's private storage, then
+  uploaded on stop; the page polls until transcription finishes and shows the transcript.
+  ADR-0007 keeps all transcription on the backend, so the phone never runs a model itself.
+- **Refresh** lists sessions; picking one and hitting **Summarize** needs Ollama running on
+  the backend host, same as the console flow.
+- If the upload fails, the recording is **kept** and the page names its path. A recording
+  that never reached the backend is not deleted.
 
-While recording, you'll see an ongoing "Harken — recording…" notification. This is
-intentional (ADR-0003) — required by Android to keep the microphone alive with the
-screen locked, and a deliberate signal that the app isn't recording silently in the
-background.
+### Recording limits and storage cost
+
+| | Value | Why |
+| --- | --- | --- |
+| Format | 16 kHz / 16-bit / mono WAV | What Whisper wants natively and the only format the backend accepts. No encoder dependency. |
+| Storage | **~115 MB per hour** | The cost of uncompressed WAV. Opus would be ~10 MB/hour; revisit when device storage actually hurts. |
+| Silence Timeout | **5 minutes** | Below an amplitude threshold for that long ends the recording. |
+| Session Cap | **3 hours** | Hard bound on any one recording. |
+
+Both limits end the recording **and upload it** — a forgotten recording ends up on the
+backend, not sitting on the device waiting to be noticed. ADR-0007 moved these from the
+server to the client, where they bound battery and storage rather than spend.
+
+### The recording notification
+
+While recording you'll see an ongoing "Harken — Recording…" notification carrying a live
+elapsed counter and a **Stop** button. Per ADR-0003 this is not decoration: with the screen
+locked it is the only surface you can see or act on, which is the whole scenario the
+foreground service exists for. Android also requires it to keep the microphone alive in the
+background, and it is a deliberate signal that the app isn't recording silently.
