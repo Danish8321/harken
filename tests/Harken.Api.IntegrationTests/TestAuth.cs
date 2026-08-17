@@ -1,48 +1,16 @@
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Harken.Api.Data;
 using Harken.Core;
 
 namespace Harken.Api.IntegrationTests;
 
-/// <summary>Test helpers: register+login a user, and seed an owned Session.</summary>
+/// <summary>Test helpers: seed a Session/Segment directly. ADR-0009: MVP 1 has no
+/// ownership model, so there is no per-user client or token to set up anymore.</summary>
 public static class TestAuth
 {
-    private const string Password = "Str0ng!Passw0rd!";
-
-    private sealed record TokenResponse(string Token, DateTimeOffset ExpiresAt);
-
-    /// <summary>Registers a fresh user and returns an HttpClient carrying their bearer token.</summary>
-    public static async Task<(HttpClient Client, string UserId)> CreateAuthenticatedClientAsync(
-        this CustomWebApplicationFactory factory)
-    {
-        var email = $"user-{Guid.NewGuid():N}@harken.test";
-        var client = factory.CreateClient();
-
-        var register = await client.PostAsJsonAsync("/auth/register", new { Email = email, Password });
-        register.EnsureSuccessStatusCode();
-
-        var login = await client.PostAsJsonAsync("/auth/login", new { Email = email, Password });
-        login.EnsureSuccessStatusCode();
-
-        var token = await login.Content.ReadFromJsonAsync<TokenResponse>()
-            ?? throw new InvalidOperationException("Login returned no token.");
-
-        client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", token.Token);
-
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<HarkenDbContext>();
-        var userId = db.Users.Single(u => u.Email == email).Id;
-
-        return (client, userId);
-    }
-
-    /// <summary>Inserts a Session owned by <paramref name="ownerId"/> and returns its id.</summary>
+    /// <summary>Inserts a Session and returns its id.</summary>
     public static Guid SeedSession(
         this CustomWebApplicationFactory factory,
-        string ownerId,
         DateTimeOffset? startedAt = null)
     {
         using var scope = factory.Services.CreateScope();
@@ -51,7 +19,6 @@ public static class TestAuth
         var session = new Session
         {
             Id = Guid.NewGuid(),
-            OwnerId = ownerId,
             StartedAt = startedAt ?? DateTimeOffset.UtcNow,
             Source = AudioSource.Microphone,
         };

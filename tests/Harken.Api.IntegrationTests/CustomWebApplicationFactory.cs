@@ -28,11 +28,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // The app fails fast without a signing key; supply a test-only one so the
-        // host boots without depending on developer user-secrets.
-        builder.UseSetting("Jwt:Key", "harken-integration-test-signing-key-not-a-secret-0123456789");
-        builder.UseSetting("Jwt:Issuer", "Harken");
-        builder.UseSetting("Jwt:Audience", "Harken");
         builder.UseSetting("Storage:RecordingsPath", _recordingsPath);
 
         builder.ConfigureServices(services =>

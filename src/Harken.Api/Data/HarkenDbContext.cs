@@ -1,11 +1,9 @@
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Harken.Core;
 
 namespace Harken.Api.Data;
 
-public class HarkenDbContext : IdentityDbContext<IdentityUser>
+public class HarkenDbContext : DbContext
 {
     public HarkenDbContext(DbContextOptions<HarkenDbContext> options)
         : base(options)
@@ -20,18 +18,14 @@ public class HarkenDbContext : IdentityDbContext<IdentityUser>
 
     public DbSet<Recording> Recordings => Set<Recording>();
 
-    protected override void OnModelCreating(ModelBuilder builder)
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Identity configures its own entities first; ours layer on top.
-        base.OnModelCreating(builder);
+        base.OnModelCreating(modelBuilder);
 
-        builder.Entity<Session>(entity =>
+        modelBuilder.Entity<Session>(entity =>
         {
             entity.HasKey(s => s.Id);
             entity.Property(s => s.Source).HasConversion<string>();
-            // 450 matches the Identity user id key length.
-            entity.Property(s => s.OwnerId).IsRequired().HasMaxLength(450);
-            entity.HasIndex(s => s.OwnerId);
             entity.HasMany(s => s.Segments)
                 .WithOne()
                 .HasForeignKey(t => t.SessionId)
@@ -41,12 +35,12 @@ public class HarkenDbContext : IdentityDbContext<IdentityUser>
             // can be long, and this column is diagnostic, not queried.
         });
 
-        builder.Entity<TranscriptSegment>(entity =>
+        modelBuilder.Entity<TranscriptSegment>(entity =>
         {
             entity.HasKey(t => t.Id);
         });
 
-        builder.Entity<StoredSummary>(entity =>
+        modelBuilder.Entity<StoredSummary>(entity =>
         {
             entity.HasKey(s => s.Id);
             // One Summary per Session; regenerating overwrites the existing row.
@@ -57,7 +51,7 @@ public class HarkenDbContext : IdentityDbContext<IdentityUser>
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        builder.Entity<Recording>(entity =>
+        modelBuilder.Entity<Recording>(entity =>
         {
             entity.HasKey(r => r.Id);
             // One Recording per Session; a Session that is re-recorded is a new Session.

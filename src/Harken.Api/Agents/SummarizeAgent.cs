@@ -30,15 +30,13 @@ public class SummarizeAgent
     }
 
     /// <summary>
-    /// Summarizes a Session owned by <paramref name="ownerId"/>.
-    /// Returns null when the Session does not exist OR belongs to another user — the two
-    /// cases are deliberately indistinguishable so the caller cannot enumerate session ids.
+    /// Summarizes a Session. Returns null when the Session does not exist — MVP 1 has no
+    /// ownership model (ADR-0009), so this is just an existence check.
     /// </summary>
-    public async Task<SessionSummary?> SummarizeAsync(Guid sessionId, string ownerId, CancellationToken ct)
+    public async Task<SessionSummary?> SummarizeAsync(Guid sessionId, CancellationToken ct)
     {
-        var owned = await _db.Sessions
-            .AnyAsync(s => s.Id == sessionId && s.OwnerId == ownerId, ct);
-        if (!owned)
+        var exists = await _db.Sessions.AnyAsync(s => s.Id == sessionId, ct);
+        if (!exists)
         {
             return null;
         }
@@ -46,8 +44,7 @@ public class SummarizeAgent
         // Ordered client-side: SQLite can't translate ORDER BY on a TimeSpan column,
         // and a Session's segment count is small enough this is cheap.
         var segments = (await _db.TranscriptSegments
-            .Where(t => t.SessionId == sessionId
-                && _db.Sessions.Any(s => s.Id == t.SessionId && s.OwnerId == ownerId))
+            .Where(t => t.SessionId == sessionId)
             .Select(t => new { t.Offset, t.Text })
             .ToListAsync(ct))
             .OrderBy(s => s.Offset)

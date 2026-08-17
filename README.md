@@ -1,8 +1,8 @@
 # Harken
 
-Record → transcript → AI summary. Multi-user: every session belongs to the
-account that recorded it, and all endpoints except `GET /health` require a bearer
-token (ADR-0004, `docs/plans/slice-03-identity-and-ownership.md`).
+Record → transcript → AI summary. MVP 1 is single-user and unauthenticated: one
+implicit user, no accounts, no login, every endpoint open on the LAN
+([ADR-0009](docs/adr/0009-remove-auth-for-mvp1.md), which supersedes ADR-0004).
 See `docs/plans/` for slice scope, `CONTEXT.md` for glossary, `docs/adr/` for the
 decisions behind the shape of this thing.
 
@@ -38,24 +38,13 @@ go-to.
 
 ## Configure secrets
 
-Never commit real keys. One setting is **required** — the API throws at startup and
-refuses to serve without it, rather than failing opaquely later. Set it via user-secrets
-on the API project (already `user-secrets init`'d):
-
-```
-dotnet user-secrets set "Jwt:Key" "<32+ byte random value>" --project src/Harken.Api
-```
-
-There are no cloud credentials to configure: MVP 1 transcribes with a local Whisper model
-and summarizes with a local Gemma model (ADR-0008).
+Never commit real keys. There are no required secrets — MVP 1 has no cloud
+credentials and no signing key (ADR-0009): everything runs on local Whisper and a
+local Gemma model (ADR-0008).
 
 ```
 dotnet user-secrets set "Whisper:ModelPath" "<path to ggml-base.en.bin>" --project src/Harken.Api
 ```
-
-`Jwt:Key` signs the login tokens. Generate a fresh random value per machine — never
-reuse a value from any doc, and never commit one. `Jwt:Issuer`/`Jwt:Audience` default
-to `Harken` and only need setting if you want something else.
 
 Ollama endpoint/model default to `http://localhost:11434` / `gemma3:4b`
 (`src/Harken.Api/appsettings.json`, section `Ollama`) — override there or via
@@ -73,65 +62,35 @@ dotnet run --project src/Harken.Api
 Note the port printed (see `src/Harken.Api/Properties/launchSettings.json`,
 currently `http://localhost:5057`).
 
-Create an account (once per user — there is no seeded account):
-
-```
-curl -X POST http://localhost:5057/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"you@example.com","password":"<your-password>"}'
-```
-
-Passwords must be at least 12 characters with upper, lower, digit, and non-alphanumeric.
-A rejected registration comes back as a validation problem listing what failed.
-
 Terminal 2 — console client:
 
 ```
 dotnet run --project src/Harken.Console
 ```
 
-It prompts for email and password (password echo suppressed), logs in, then offers:
+No sign-in step — offers straight away:
 
 - **R** — record from the mic (ENTER to stop), upload, poll until transcribed, print the
   transcript, offer to summarize.
-- **L** — list your sessions and summarize one.
+- **L** — list sessions and summarize one.
 - **Q** — quit.
-
-Recording itself needs no valid token — only the upload step does. An expired token
-during upload prompts a re-login without discarding the recording; the WAV stays on disk
-at the path printed, in case you need to retry manually.
 
 ## API
 
-All endpoints except `GET /health` require `Authorization: Bearer <token>`.
-Another user's session id returns **404, not 403** — the API never confirms that an
-id it doesn't own exists.
+Every endpoint is anonymous (ADR-0009) — MVP 1 has one implicit user, so there is
+nothing to authenticate.
 
-| Endpoint | Auth | Purpose |
-| --- | --- | --- |
-| `GET /health` | anonymous | liveness — `{"status":"ok"}` |
-| `POST /auth/register` | anonymous | create an account (`email`, `password`) |
-| `POST /auth/login` | anonymous | returns a JWT for the bearer header |
-| `POST /sessions` | bearer | upload a WAV recording (`audio` file, `source` field); starts transcription in the background |
-| `GET /sessions` | bearer | caller's sessions, newest first, metadata only |
-| `GET /sessions/{id}` | bearer | one session + its ordered transcript segments + `TranscriptionStatus` (poll this) |
-| `POST /sessions/{id}/summary` | bearer | generate (or re-read) the stored summary |
-
-Get a token:
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health` | liveness — `{"status":"ok"}` |
+| `POST /sessions` | upload a WAV recording (`audio` file, `source` field); starts transcription in the background |
+| `GET /sessions` | sessions, newest first, metadata only |
+| `GET /sessions/{id}` | one session + its ordered transcript segments + `TranscriptionStatus` (poll this) |
+| `POST /sessions/{id}/summary` | generate (or re-read) the stored summary |
 
 ```
-curl -X POST http://localhost:5057/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"you@example.com","password":"<your-password>"}'
+curl http://localhost:5057/sessions
 ```
-
-then `curl http://localhost:5057/sessions -H "Authorization: Bearer <token>"`.
-
-Every endpoint takes the token in the `Authorization` header. The `access_token`
-query-string exception existed only for the SignalR hub and was removed with it —
-tokens in query strings leak into logs and referrers, so nothing accepts one now.
-
-A 401 from any endpoint means the token expired — log in again.
 
 ## Fresh database
 
@@ -182,12 +141,8 @@ on Android 13+) — both are required once recording returns in slice 05.
 
 ### Use
 
-Sign in first: the app opens on a **Login** page and won't reach the backend without
-a token. Use the account you registered above (register via `curl` — the app has no
-sign-up screen). The token is kept in Android `SecureStorage`; a 401 clears it and
-returns you to Login.
-
-Then: **Sessions** tab → Refresh → pick a session → Summarize (needs Ollama running on
+No sign-in step (ADR-0009) — the app opens straight on **Sessions**. Refresh → pick a
+session → Summarize (needs Ollama running on
 the backend host, same as the console flow). On-device recording and upload land in
 slice 05; ADR-0007 keeps all transcription on the backend, so the phone never runs a
 model itself.

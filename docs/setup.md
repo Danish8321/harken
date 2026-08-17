@@ -190,24 +190,8 @@ keys are equivalent, so regenerating one lets you roll over without downtime.
 
 ## 5. Secrets
 
-`Jwt:Key` is required — the API **throws at startup** without it, deliberately, so a
-misconfiguration is loud at boot instead of silent until someone tries to log in.
-
-```
-dotnet user-secrets set "Jwt:Key" "<32+ byte random value>" --project src/Harken.Api
-```
-
-`Jwt:Key` signs login tokens. Anyone holding it can mint a valid token for any account, so
-generate a fresh random value per machine and never reuse one from any document —
-including this one, which is why no example value appears here.
-
-```
-# PowerShell
-[Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Max 256 } | ForEach-Object { [byte]$_ }))
-
-# bash
-openssl rand -base64 48
-```
+No secrets are required to run MVP 1 — there is no signing key, and no cloud
+credentials (ADR-0009, ADR-0008).
 
 Azure keys are only needed for MVP 2:
 
@@ -223,8 +207,6 @@ they cannot be committed by accident. Check what is set:
 dotnet user-secrets list --project src/Harken.Api
 ```
 
-`Jwt:Issuer` and `Jwt:Audience` default to `Harken` and only need setting to change them.
-
 ---
 
 ## 6. Database
@@ -239,9 +221,8 @@ dotnet ef database update --project src/Harken.Api
 If `dotnet ef` is missing: `dotnet tool install --global dotnet-ef`.
 
 The file is gitignored. Deleting it and re-running the command gives a clean slate —
-acceptable now precisely because there is no real recorded data yet
-([ADR-0004](adr/0004-identity-and-ownership.md)). Once anyone has transcripts they care
-about, that stops being true.
+acceptable now precisely because there is no real recorded data yet. Once anyone has
+transcripts they care about, that stops being true.
 
 ---
 
@@ -268,19 +249,16 @@ In order, so a failure points at one thing:
 1. **Build and test** — `bash .claude/scripts/check.sh` then
    `bash .claude/scripts/test-fast.sh`. These touch no external service; a failure here is
    the code or the SDK.
-2. **Backend boots** — `dotnet run --project src/Harken.Api`. Reaching "Now listening on"
-   means the required secrets were present. Then `curl http://localhost:5057/health` →
-   `{"status":"ok"}`.
-3. **Account** — register and log in per the README. A token back means Identity and
-   `Jwt:Key` work.
-4. **Transcription** — run the console client, record a short clip, and let it transcribe.
+2. **Backend boots** — `dotnet run --project src/Harken.Api`. Then
+   `curl http://localhost:5057/health` → `{"status":"ok"}`.
+3. **Transcription** — run the console client, record a short clip, and let it transcribe.
    Text back means Whisper, the model file, and the runtime are all wired correctly. Note
    how long it takes relative to the clip length: that ratio is the number ADR-0008 says
    must be measured before building the phone client.
-5. **Summary** — summarize the transcript. Text back means Ollama is reachable and the
+4. **Summary** — summarize the transcript. Text back means Ollama is reachable and the
    agent works.
 
-Steps 4 and 5 have never been run in this project's history — they are the real
+Steps 3 and 4 have never been run in this project's history — they are the real
 verification frontier. Everything before them is covered by automated tests.
 
 ---
@@ -289,16 +267,12 @@ verification frontier. Everything before them is covered by automated tests.
 
 | Symptom | Likely cause |
 | --- | --- |
-| Startup throws naming `Jwt:Key` | secret not set — `dotnet user-secrets list` |
-| `401` from `/auth/login` | wrong email/password. The message is deliberately generic so it cannot be used to discover which accounts exist |
-| Registration rejected | password rules: 12+ chars, upper, lower, digit, non-alphanumeric |
-| `401` on every authenticated call | token expired (7-day lifetime) — log in again |
 | Transcription fails immediately | model file missing or path wrong — check the configured path exists |
 | Transcription very slow | running on CPU. Confirm the CUDA runtime package is referenced and the GPU is visible |
 | Transcription starts then dies | out of VRAM — Gemma still resident. Shorten `OLLAMA_KEEP_ALIVE` or use a smaller model |
 | Transcript is nonsense or repeats a phrase | Whisper hallucinating on silence or noise. Try a larger model; check the audio is actually 16 kHz mono |
 | `502` on summarize | Ollama not running or model not pulled — `curl http://localhost:11434/api/tags` |
-| `404` on a session id you believe exists | it belongs to another account. By design: the API never confirms an id it does not own |
+| `404` on a session id | the id does not exist — sessions are never deleted, so double-check it |
 | Upload fails from the phone | use the PC's LAN IP, not `localhost`; same Wi-Fi; Windows Firewall may need to allow the port. The recording is safe on the device — retry |
 | SQLite `ORDER BY` errors on new queries | SQLite cannot translate `ORDER BY` on `TimeSpan`/`DateTimeOffset` — materialize first, sort client-side (ADR-0005) |
 

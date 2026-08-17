@@ -1,10 +1,12 @@
-using System.Net;
 using System.Net.Http.Json;
 using Harken.Core.Contracts;
 using Xunit;
 
 namespace Harken.Api.IntegrationTests;
 
+// ADR-0009: MVP 1 has no ownership model — one implicit user, so the cross-user
+// isolation and unauthenticated-rejection cases this file used to cover no longer
+// apply. What remains is that list/detail return correctly for the sessions that exist.
 public class SessionReadEndpointTests : IClassFixture<CustomWebApplicationFactory>
 {
     private static readonly string[] ExpectedTranscript = ["first", "second"];
@@ -17,20 +19,17 @@ public class SessionReadEndpointTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
-    public async Task ListReturnsOnlyTheCallersSessionsNewestFirst()
+    public async Task ListReturnsSessionsNewestFirst()
     {
-        var (client, userId) = await _factory.CreateAuthenticatedClientAsync();
-        var (_, otherUserId) = await _factory.CreateAuthenticatedClientAsync();
+        var client = _factory.CreateClient();
 
-        var older = _factory.SeedSession(userId, DateTimeOffset.UtcNow.AddHours(-2));
-        var newer = _factory.SeedSession(userId, DateTimeOffset.UtcNow);
-        var foreign = _factory.SeedSession(otherUserId);
+        var older = _factory.SeedSession(DateTimeOffset.UtcNow.AddHours(-2));
+        var newer = _factory.SeedSession(DateTimeOffset.UtcNow);
 
         var sessions = await client.GetFromJsonAsync<List<SessionListItem>>("/sessions");
 
         Assert.NotNull(sessions);
         var ids = sessions!.Select(s => s.Id).ToList();
-        Assert.DoesNotContain(foreign, ids);
         Assert.Contains(older, ids);
         Assert.Contains(newer, ids);
         Assert.True(ids.IndexOf(newer) < ids.IndexOf(older), "Sessions must be newest first.");
@@ -39,8 +38,8 @@ public class SessionReadEndpointTests : IClassFixture<CustomWebApplicationFactor
     [Fact]
     public async Task DetailRoundTripsStoredTranscriptInOffsetOrder()
     {
-        var (client, userId) = await _factory.CreateAuthenticatedClientAsync();
-        var sessionId = _factory.SeedSession(userId);
+        var client = _factory.CreateClient();
+        var sessionId = _factory.SeedSession();
 
         // Inserted out of order on purpose: the endpoint must order by Offset.
         _factory.SeedSegment(sessionId, TimeSpan.FromSeconds(30), "second");
@@ -57,8 +56,8 @@ public class SessionReadEndpointTests : IClassFixture<CustomWebApplicationFactor
     [Fact]
     public async Task DetailExposesStoredSummaryAfterItIsGenerated()
     {
-        var (client, userId) = await _factory.CreateAuthenticatedClientAsync();
-        var sessionId = _factory.SeedSession(userId);
+        var client = _factory.CreateClient();
+        var sessionId = _factory.SeedSession();
 
         var generated = await client.PostAsync($"/sessions/{sessionId}/summary", content: null);
         generated.EnsureSuccessStatusCode();
@@ -71,40 +70,12 @@ public class SessionReadEndpointTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
-    public async Task AnotherUsersSessionReturnsNotFoundFromDetail()
-    {
-        var (client, _) = await _factory.CreateAuthenticatedClientAsync();
-        var (_, otherUserId) = await _factory.CreateAuthenticatedClientAsync();
-        var foreign = _factory.SeedSession(otherUserId);
-
-        var response = await client.GetAsync($"/sessions/{foreign}");
-
-        // 404, never 403 — a 403 would confirm the session id exists.
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task AnotherUsersSessionIsAbsentFromTheList()
-    {
-        var (client, _) = await _factory.CreateAuthenticatedClientAsync();
-        var (_, otherUserId) = await _factory.CreateAuthenticatedClientAsync();
-        var foreign = _factory.SeedSession(otherUserId);
-
-        var sessions = await client.GetFromJsonAsync<List<SessionListItem>>("/sessions");
-
-        Assert.NotNull(sessions);
-        Assert.DoesNotContain(foreign, sessions!.Select(s => s.Id));
-    }
-
-    [Fact]
-    public async Task ReadEndpointsRejectUnauthenticatedCallers()
+    public async Task UnknownSessionReturnsNotFoundFromDetail()
     {
         var client = _factory.CreateClient();
 
-        var list = await client.GetAsync("/sessions");
-        var detail = await client.GetAsync($"/sessions/{Guid.NewGuid()}");
+        var response = await client.GetAsync($"/sessions/{Guid.NewGuid()}");
 
-        Assert.Equal(HttpStatusCode.Unauthorized, list.StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, detail.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, response.StatusCode);
     }
 }

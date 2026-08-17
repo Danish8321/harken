@@ -41,25 +41,6 @@ public class TranscriptionJobTests
             services.AddSingleton(provider);
         }));
 
-    private static async Task<HttpClient> AuthenticatedClientAsync(WebApplicationFactory<Program> factory)
-    {
-        const string password = "Str0ng!Passw0rd!";
-        var email = $"user-{Guid.NewGuid():N}@harken.test";
-        var client = factory.CreateClient();
-
-        (await client.PostAsJsonAsync("/auth/register", new { Email = email, Password = password }))
-            .EnsureSuccessStatusCode();
-        var login = await client.PostAsJsonAsync("/auth/login", new { Email = email, Password = password });
-        login.EnsureSuccessStatusCode();
-
-        var token = await login.Content.ReadFromJsonAsync<TokenResponse>()
-            ?? throw new InvalidOperationException("Login returned no token.");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
-        return client;
-    }
-
-    private sealed record TokenResponse(string Token, DateTimeOffset ExpiresAt);
-
     private static MultipartFormDataContent BuildUpload(byte[] audioBytes)
     {
         var content = new MultipartFormDataContent();
@@ -99,7 +80,7 @@ public class TranscriptionJobTests
             new(TimeSpan.FromSeconds(3), "world"),
         };
         using var factory = WithProvider(new FakeProvider(segments, failure: null));
-        var client = await AuthenticatedClientAsync(factory);
+        var client = factory.CreateClient();
 
         var upload = await client.PostAsync("/sessions", BuildUpload([1, 2, 3]));
         upload.EnsureSuccessStatusCode();
@@ -120,7 +101,7 @@ public class TranscriptionJobTests
     public async Task ThrowingProviderYieldsFailedWithReasonAndNoPartialTranscript()
     {
         using var factory = WithProvider(new FakeProvider(segments: null, failure: new InvalidOperationException("model exploded")));
-        var client = await AuthenticatedClientAsync(factory);
+        var client = factory.CreateClient();
 
         var upload = await client.PostAsync("/sessions", BuildUpload([1, 2, 3]));
         upload.EnsureSuccessStatusCode();
@@ -135,20 +116,12 @@ public class TranscriptionJobTests
     }
 
     [Fact]
-    public async Task SecondUserPollingAnotherUsersSessionGetsNotFoundNotStatus()
+    public async Task PollingAnUnknownSessionGetsNotFound()
     {
         using var factory = WithProvider(new FakeProvider(segments: [], failure: null));
-        var owner = await AuthenticatedClientAsync(factory);
-        var stranger = await AuthenticatedClientAsync(factory);
+        var client = factory.CreateClient();
 
-        var upload = await owner.PostAsync("/sessions", BuildUpload([1, 2, 3]));
-        upload.EnsureSuccessStatusCode();
-        var created = await upload.Content.ReadFromJsonAsync<SessionListItem>();
-        Assert.NotNull(created);
-
-        // No need to wait for a terminal status — ownership is checked before status
-        // ever matters to this request.
-        var response = await stranger.GetAsync($"/sessions/{created!.Id}");
+        var response = await client.GetAsync($"/sessions/{Guid.NewGuid()}");
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.True(response.StatusCode == System.Net.HttpStatusCode.NotFound, $"Status {(int)response.StatusCode}: {body}");

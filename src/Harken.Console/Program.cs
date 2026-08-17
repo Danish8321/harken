@@ -5,37 +5,14 @@ using NAudio.Wave;
 using Harken.Core;
 using Harken.Core.Contracts;
 
-// Slice 04 Task 7: record from the mic, upload, poll for the transcript, print it, offer
-// Summarize. Recording itself needs no token (WaveIn writes to a local file); only the
-// upload step does, so an expired token means "log in again and retry the upload", never
-// a lost recording.
+// Slice 04 Task 7 + slice 05: record from the mic, upload, poll for the transcript,
+// print it, offer Summarize. ADR-0009: MVP 1 has no authentication, so there is no
+// sign-in step and nothing to retry on a 401 anymore.
 
 const string BaseUrl = "http://localhost:5057";
 const int SampleRateHz = 16_000; // Whisper's native rate — recording at it skips a resample.
 
 using var http = new HttpClient();
-
-// --- Sign in ---
-Console.Write("Email: ");
-var email = Console.ReadLine();
-var password = ReadPassword();
-
-if (string.IsNullOrWhiteSpace(email) || string.IsNullOrEmpty(password))
-{
-    Console.WriteLine("Email and password are required.");
-    return 1;
-}
-
-if (!await SignInAsync(email, password))
-{
-    return 1;
-}
-
-// The password is out of scope from here on: only the token is held, and neither is
-// written to disk or logged.
-password = "";
-
-Console.WriteLine($"Signed in as {email}.");
 
 // --- Main menu ---
 while (true)
@@ -99,30 +76,16 @@ async Task RecordAndUploadAsync()
         : TimeSpan.Zero;
     Console.WriteLine($"Recorded {duration:mm\\:ss}.");
 
-    // --- Upload (token required from here on) ---
     Guid sessionId;
-    while (true)
+    try
     {
-        try
-        {
-            sessionId = await UploadAsync(wavPath, startedAt);
-            break;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            Console.WriteLine("Session expired. Sign in again to upload this recording.");
-            Console.Write("Email: ");
-            var retryEmail = Console.ReadLine();
-            var retryPassword = ReadPassword();
-            if (string.IsNullOrWhiteSpace(retryEmail) || string.IsNullOrEmpty(retryPassword)
-                || !await SignInAsync(retryEmail, retryPassword))
-            {
-                Console.WriteLine("Login failed. The recording is still on disk at:");
-                Console.WriteLine($"  {wavPath}");
-                return;
-            }
-            retryPassword = "";
-        }
+        sessionId = await UploadAsync(wavPath, startedAt);
+    }
+    catch (HttpRequestException ex)
+    {
+        Console.WriteLine($"Upload failed: {ex.Message}. The recording is still on disk at:");
+        Console.WriteLine($"  {wavPath}");
+        return;
     }
 
     File.Delete(wavPath);
@@ -148,11 +111,6 @@ async Task<Guid> UploadAsync(string wavPath, DateTimeOffset startedAt)
     content.Add(new StringContent(nameof(AudioSource.Microphone)), "source");
 
     using var response = await http.PostAsync($"{BaseUrl}/sessions", content);
-    if (response.StatusCode == HttpStatusCode.Unauthorized)
-    {
-        throw new UnauthorizedAccessException();
-    }
-
     response.EnsureSuccessStatusCode();
     var created = await response.Content.ReadFromJsonAsync<SessionListItem>();
     return created?.Id ?? throw new InvalidOperationException("Upload succeeded but returned no session id.");
@@ -166,9 +124,9 @@ async Task<SessionDetail?> PollForTranscriptAsync(Guid sessionId)
     while (true)
     {
         using var response = await http.GetAsync($"{BaseUrl}/sessions/{sessionId}");
-        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        if (response.StatusCode == HttpStatusCode.NotFound)
         {
-            Console.WriteLine("Session expired — sign in again and check this session from the list.");
+            Console.WriteLine("Session not found.");
             return null;
         }
 
@@ -221,12 +179,6 @@ async Task MaybeSummarizeAsync(Guid sessionId)
     }
 
     using var response = await http.PostAsync($"{BaseUrl}/sessions/{sessionId}/summary", null);
-    if (response.StatusCode == HttpStatusCode.Unauthorized)
-    {
-        Console.WriteLine("Session expired — sign in again.");
-        return;
-    }
-
     if (response.StatusCode == HttpStatusCode.BadGateway)
     {
         Console.WriteLine("Summarize failed: the model host is unreachable. Is Ollama running?");
@@ -245,12 +197,6 @@ async Task ListAndSummarizeAsync()
     List<SessionListItem>? sessions;
     using (var response = await http.GetAsync($"{BaseUrl}/sessions"))
     {
-        if (response.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            Console.WriteLine("Session expired — sign in again.");
-            return;
-        }
-
         response.EnsureSuccessStatusCode();
         sessions = await response.Content.ReadFromJsonAsync<List<SessionListItem>>();
     }
@@ -282,12 +228,6 @@ async Task ListAndSummarizeAsync()
 async Task MaybeSummarizeForcedAsync(Guid sessionId)
 {
     using var response = await http.PostAsync($"{BaseUrl}/sessions/{sessionId}/summary", null);
-    if (response.StatusCode == HttpStatusCode.Unauthorized)
-    {
-        Console.WriteLine("Session expired — sign in again.");
-        return;
-    }
-
     if (response.StatusCode == HttpStatusCode.BadGateway)
     {
         Console.WriteLine("Summarize failed: the model host is unreachable. Is Ollama running?");
@@ -298,66 +238,4 @@ async Task MaybeSummarizeForcedAsync(Guid sessionId)
     var summary = await response.Content.ReadFromJsonAsync<SessionSummary>();
     Console.WriteLine();
     Console.WriteLine(summary?.Summary);
-}
-
-async Task<bool> SignInAsync(string signInEmail, string signInPassword)
-{
-    using var response = await http.PostAsJsonAsync($"{BaseUrl}/auth/login", new LoginRequest(signInEmail, signInPassword));
-    if (response.StatusCode == HttpStatusCode.Unauthorized)
-    {
-        Console.WriteLine("Login failed: invalid email or password.");
-        return false;
-    }
-
-    response.EnsureSuccessStatusCode();
-    var auth = await response.Content.ReadFromJsonAsync<TokenResponse>();
-    if (auth is null)
-    {
-        Console.WriteLine("Login failed: no token returned.");
-        return false;
-    }
-
-    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.Token);
-    return true;
-}
-
-// Reads a password without echoing it, so it never appears on screen or in a
-// scrollback buffer.
-static string ReadPassword()
-{
-    Console.Write("Password: ");
-
-    if (Console.IsInputRedirected)
-    {
-        // No console to suppress echo on (piped input): read the line as-is.
-        var line = Console.ReadLine() ?? "";
-        Console.WriteLine();
-        return line;
-    }
-
-    var builder = new System.Text.StringBuilder();
-    while (true)
-    {
-        var key = Console.ReadKey(intercept: true);
-        if (key.Key == ConsoleKey.Enter)
-        {
-            Console.WriteLine();
-            return builder.ToString();
-        }
-
-        if (key.Key == ConsoleKey.Backspace)
-        {
-            if (builder.Length > 0)
-            {
-                builder.Length--;
-            }
-
-            continue;
-        }
-
-        if (!char.IsControl(key.KeyChar))
-        {
-            builder.Append(key.KeyChar);
-        }
-    }
 }

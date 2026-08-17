@@ -1,8 +1,10 @@
-using System.Net;
 using Xunit;
 
 namespace Harken.Api.IntegrationTests;
 
+// ADR-0009: MVP 1 has no authentication or per-user ownership, so the cross-user
+// isolation scenarios this file used to cover no longer apply. What remains is the
+// plain not-found behavior for unknown sessions.
 public class AuthorizationTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
@@ -13,45 +15,20 @@ public class AuthorizationTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task SummaryWithoutTokenReturnsUnauthorized()
+    public async Task SummaryForUnknownSessionReturnsNotFound()
     {
         var client = _factory.CreateClient();
 
         var response = await client.PostAsync($"/sessions/{Guid.NewGuid()}/summary", content: null);
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
-    public async Task SummaryForAnotherUsersSessionReturnsNotFoundNotForbidden()
+    public async Task SummaryForSessionWithNoTranscriptSucceeds()
     {
-        var (_, userAId) = await _factory.CreateAuthenticatedClientAsync();
-        var sessionOfA = _factory.SeedSession(userAId);
-
-        var (clientB, _) = await _factory.CreateAuthenticatedClientAsync();
-
-        var response = await clientB.PostAsync($"/sessions/{sessionOfA}/summary", content: null);
-
-        // 403 would confirm the session id is real, enabling enumeration.
-        Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task SummaryForUnknownSessionReturnsNotFound()
-    {
-        var (client, _) = await _factory.CreateAuthenticatedClientAsync();
-
-        var response = await client.PostAsync($"/sessions/{Guid.NewGuid()}/summary", content: null);
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task SummaryForOwnSessionWithNoTranscriptSucceeds()
-    {
-        var (client, userId) = await _factory.CreateAuthenticatedClientAsync();
-        var sessionId = _factory.SeedSession(userId);
+        var client = _factory.CreateClient();
+        var sessionId = _factory.SeedSession();
 
         var response = await client.PostAsync($"/sessions/{sessionId}/summary", content: null);
 

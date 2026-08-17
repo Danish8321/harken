@@ -15,8 +15,8 @@ public class SummaryEndpointTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task SummaryForSessionWithNoTranscriptReturnsEmptyTranscriptMessage()
     {
-        var (client, userId) = await _factory.CreateAuthenticatedClientAsync();
-        var sessionId = _factory.SeedSession(userId);
+        var client = _factory.CreateClient();
+        var sessionId = _factory.SeedSession();
 
         var response = await client.PostAsync($"/sessions/{sessionId}/summary", content: null);
 

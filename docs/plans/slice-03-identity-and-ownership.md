@@ -1,5 +1,9 @@
 # Plan — Slice 03: Identity, ownership, and API gaps
 
+> **Superseded by [ADR-0009](../adr/0009-remove-auth-for-mvp1.md) and
+> [slice-05](slice-05-remove-auth.md).** Auth and per-user ownership were removed for
+> MVP 1 — this plan is kept for history only; none of it reflects the current system.
+
 **Goal:** Close the architectural gaps found reviewing slices 01–02. Harken becomes a
 multi-user system with real authentication and per-user data isolation, plus the read
 paths and client-declared audio source the current contract is missing.

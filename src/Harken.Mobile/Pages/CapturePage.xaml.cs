@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Harken.Core.Contracts;
 using Harken.Mobile.Services;
@@ -7,23 +6,22 @@ using Harken.Mobile.Services;
 namespace Harken.Mobile.Pages;
 
 /// <summary>
-/// Reads the sessions this account owns and summarizes one.
-/// Recording returns in slice 05 as capture-to-file plus upload (ADR-0007); until then
+/// Reads the sessions on the backend and summarizes one. ADR-0009: MVP 1 has no
+/// authentication, so every request is anonymous — there is no token to attach.
+/// Recording returns in slice 06 as capture-to-file plus upload (ADR-0007); until then
 /// the page deliberately offers nothing it cannot actually do.
 /// </summary>
 public partial class CapturePage : ContentPage, IDisposable
 {
 	private readonly AppSettings _appSettings;
-	private readonly AuthService _authService;
 	private readonly HttpClient _httpClient = new();
 
 	public Guid? SessionId { get; private set; }
 
-	public CapturePage(AppSettings appSettings, AuthService authService)
+	public CapturePage(AppSettings appSettings)
 	{
 		InitializeComponent();
 		_appSettings = appSettings;
-		_authService = authService;
 	}
 
 	private sealed record SessionRow(Guid Id, string Display);
@@ -31,40 +29,7 @@ public partial class CapturePage : ContentPage, IDisposable
 	protected override async void OnAppearing()
 	{
 		base.OnAppearing();
-
-		// No token means no session: every path from here needs one.
-		if (await _authService.GetTokenAsync() is null)
-		{
-			await Routes.GoToLoginAsync();
-			return;
-		}
-
 		await LoadSessionsAsync();
-	}
-
-	/// <summary>
-	/// Clears the stored token and returns to login. Called whenever the API says 401 —
-	/// the token has expired or been revoked, and nothing else will succeed with it.
-	/// </summary>
-	private async Task HandleUnauthorizedAsync()
-	{
-		_authService.SignOut();
-		StatusLabel.Text = "Session expired. Please sign in again.";
-		await Routes.GoToLoginAsync();
-	}
-
-	private async Task<HttpRequestMessage?> AuthorizedRequestAsync(HttpMethod method, string path)
-	{
-		var token = await _authService.GetTokenAsync();
-		if (token is null)
-		{
-			await HandleUnauthorizedAsync();
-			return null;
-		}
-
-		var request = new HttpRequestMessage(method, $"{_appSettings.BaseUrl}{path}");
-		request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-		return request;
 	}
 
 	private async Task LoadSessionsAsync()
@@ -79,19 +44,7 @@ public partial class CapturePage : ContentPage, IDisposable
 
 		try
 		{
-			using var request = await AuthorizedRequestAsync(HttpMethod.Get, "/sessions");
-			if (request is null)
-			{
-				return;
-			}
-
-			using var response = await _httpClient.SendAsync(request);
-			if (response.StatusCode == HttpStatusCode.Unauthorized)
-			{
-				await HandleUnauthorizedAsync();
-				return;
-			}
-
+			using var response = await _httpClient.GetAsync($"{_appSettings.BaseUrl}/sessions");
 			response.EnsureSuccessStatusCode();
 
 			var sessions = await response.Content.ReadFromJsonAsync<List<SessionListItem>>() ?? [];
@@ -133,19 +86,7 @@ public partial class CapturePage : ContentPage, IDisposable
 
 		try
 		{
-			using var request = await AuthorizedRequestAsync(HttpMethod.Post, $"/sessions/{SessionId}/summary");
-			if (request is null)
-			{
-				return;
-			}
-
-			using var response = await _httpClient.SendAsync(request);
-			if (response.StatusCode == HttpStatusCode.Unauthorized)
-			{
-				await HandleUnauthorizedAsync();
-				return;
-			}
-
+			using var response = await _httpClient.PostAsync($"{_appSettings.BaseUrl}/sessions/{SessionId}/summary", null);
 			if (response.StatusCode == HttpStatusCode.BadGateway)
 			{
 				// The summarize agent talks to Ollama on the backend host; a 502 means the
