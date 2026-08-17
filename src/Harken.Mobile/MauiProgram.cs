@@ -20,6 +20,7 @@ public static class MauiProgram
 		builder.Logging.AddDebug();
 #endif
 
+		builder.Services.AddSingleton<RecordingState>();
 		builder.Services.AddSingleton<IRecordingService, AndroidRecordingService>();
 		builder.Services.AddSingleton<IAudioCapture, AndroidAudioCapture>();
 		builder.Services.AddSingleton<AppSettings>();
