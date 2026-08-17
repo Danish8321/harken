@@ -14,6 +14,13 @@ public class RecordingForegroundService : Service
 	private const string ChannelId = "recording";
 	private const int NotificationId = 1001;
 
+	/// <summary>
+	/// Sent by the notification's Stop button. Routed back to this service rather than to a
+	/// broadcast receiver: the service is already declared and already owns the writer, so a
+	/// receiver would be a second component that only forwards.
+	/// </summary>
+	public const string ActionStop = "harken.action.STOP";
+
 	/// <summary>Guards the writer: chunks arrive on the capture thread while OnDestroy runs
 	/// on the main thread, and a write landing after Dispose would throw out there where
 	/// nothing catches it.</summary>
@@ -36,17 +43,17 @@ public class RecordingForegroundService : Service
 
 	public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
 	{
+		// Checked before anything else: the stop intent carries no file path, and letting it
+		// fall through would run the no-path branch below, which reports the recording
+		// finished while the writer is still open and the header still unpatched.
+		if (intent?.Action == ActionStop)
+		{
+			StopSelf();
+			return StartCommandResult.NotSticky;
+		}
+
 		CreateNotificationChannelIfNeeded();
-
-		var builder = new NotificationCompat.Builder(this, ChannelId);
-		builder.SetContentTitle("Harken");
-		builder.SetContentText("Harken — recording…");
-		builder.SetSmallIcon(global::Android.Resource.Drawable.IcMediaPlay);
-		builder.SetPriority(NotificationCompat.PriorityLow);
-		builder.SetOngoing(true);
-		var notification = builder.Build();
-
-		StartForeground(NotificationId, notification);
+		StartForeground(NotificationId, BuildNotification());
 
 		var services = IPlatformApplication.Current!.Services;
 		var state = services.GetRequiredService<RecordingState>();
@@ -153,6 +160,48 @@ public class RecordingForegroundService : Service
 		}
 
 		base.OnDestroy();
+	}
+
+	/// <summary>
+	/// ADR-0003: with the screen locked this notification is the only surface the user can
+	/// see or act on, which is the scenario the foreground service exists for. So it carries
+	/// a working Stop control and a live elapsed time, not just a passive "recording" notice.
+	/// </summary>
+	private Notification BuildNotification()
+	{
+		var stopIntent = new Intent(this, typeof(RecordingForegroundService));
+		stopIntent.SetAction(ActionStop);
+
+		// Immutable is required from API 31 and wanted everywhere it exists: nothing
+		// downstream should be able to rewrite this intent's target or action. It only
+		// exists from API 23, hence the branch.
+		var flags = PendingIntentFlags.UpdateCurrent;
+		if (OperatingSystem.IsAndroidVersionAtLeast(23))
+		{
+			flags |= PendingIntentFlags.Immutable;
+		}
+
+		var stopPendingIntent = PendingIntent.GetService(this, requestCode: 0, stopIntent, flags);
+
+		var builder = new NotificationCompat.Builder(this, ChannelId);
+		builder.SetContentTitle("Harken");
+		builder.SetContentText("Recording…");
+		builder.SetSmallIcon(global::Android.Resource.Drawable.IcMediaPlay);
+		builder.SetPriority(NotificationCompat.PriorityLow);
+		builder.SetOngoing(true);
+
+		// Android renders and ticks the counter itself from this timestamp. Re-posting the
+		// notification once a second to redraw a clock would cost wakeups all recording long.
+		builder.SetWhen(Java.Lang.JavaSystem.CurrentTimeMillis());
+		builder.SetShowWhen(true);
+		builder.SetUsesChronometer(true);
+
+		builder.AddAction(global::Android.Resource.Drawable.IcMediaPause, "Stop", stopPendingIntent);
+
+		// A foreground service with no notification is killed on the spot, so there is no
+		// degraded mode to fall back to here.
+		return builder.Build()
+			?? throw new InvalidOperationException("Could not build the recording notification.");
 	}
 
 	private void CreateNotificationChannelIfNeeded()

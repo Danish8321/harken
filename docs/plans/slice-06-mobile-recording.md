@@ -157,7 +157,11 @@ path to run.
   ~15 s, confirm it auto-stops *and uploads*, restore 5 minutes. Nobody will sit through
   3 hours to watch the cap fire, so the cap's coverage is the unit test plus the shared
   code path.
-- **Tasks 6–8:** not started.
+- **Task 6 — Stop control in the notification:** written, **not verified**. `check.sh`
+  green. Device check still owed, and it is the one that matters most for ADR-0003: start
+  recording, lock the screen, stop from the notification, confirm the file finalizes and
+  uploads.
+- **Tasks 7–8:** not started.
 
 Notes taken while implementing:
 - Upload has exactly one trigger: `RecordingState.Completed`. The Stop button only asks the
@@ -165,6 +169,13 @@ Notes taken while implementing:
   file twice, and ADR-0007 wants an auto-stop to upload exactly like a manual one.
 - `IRecordingService.CurrentFilePath` / `LastCompletedFilePath` were deleted once the
   completion event superseded them.
+- The notification's Stop button sends a `PendingIntent` back to the service itself, not to
+  a broadcast receiver as this plan guessed. The service is already declared and already
+  owns the writer, so a receiver would have been a second component that only forwards —
+  and no manifest change was needed.
+- Elapsed time in the notification uses `SetUsesChronometer`, so Android ticks the counter.
+  Re-posting the notification once a second to redraw a clock would cost wakeups for the
+  whole recording.
 - `StartCommandResult.Sticky` became `NotSticky`. A sticky restart hands back a null intent
   and there is no half-written WAV to resume into, so the service now ends cleanly rather
   than capturing into a second file nobody polls.
