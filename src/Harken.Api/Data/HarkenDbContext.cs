@@ -31,6 +31,11 @@ public class HarkenDbContext : DbContext
                 .HasForeignKey(t => t.SessionId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.Property(s => s.TranscriptionStatus).HasConversion<string>();
+            // Filtered: uniqueness is what makes a retried upload idempotent, but rows
+            // without a client id (the console's) must not collide with each other on NULL.
+            entity.HasIndex(s => s.ClientRecordingId)
+                .IsUnique()
+                .HasFilter("\"ClientRecordingId\" IS NOT NULL");
             // No HasMaxLength: a real failure reason (e.g. a Whisper exception message)
             // can be long, and this column is diagnostic, not queried.
         });

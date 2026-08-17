@@ -101,9 +101,45 @@ app.MapPost("/sessions", async (
         return Results.BadRequest($"Missing or invalid 'source' (expected one of: {string.Join(", ", Enum.GetNames<AudioSource>())}).");
     }
 
+    // Optional: clients that generate a recording id get idempotent retries, clients that
+    // do not (the console) keep the old behavior. An unparseable value is a client bug
+    // worth reporting rather than silently treating as absent.
+    Guid? clientRecordingId = null;
+    var clientRecordingIdValue = form["recordingId"].ToString();
+    if (!string.IsNullOrEmpty(clientRecordingIdValue))
+    {
+        if (!Guid.TryParse(clientRecordingIdValue, out var parsed))
+        {
+            return Results.BadRequest($"Invalid 'recordingId' — expected a GUID, got '{clientRecordingIdValue}'.");
+        }
+
+        clientRecordingId = parsed;
+
+        // A phone on a flaky connection retries uploads routinely (slice-04 carried this
+        // forward). Returning the Session that already exists is what keeps one recording
+        // from becoming several, and the client cannot tell a lost response from a lost
+        // request, so it has to be safe to just send again.
+        var existing = await db.Sessions
+            .AsNoTracking()
+            .Include(s => s.Segments)
+            .SingleOrDefaultAsync(s => s.ClientRecordingId == parsed, ct);
+
+        if (existing is not null)
+        {
+            return Results.Ok(new SessionListItem(
+                existing.Id,
+                existing.StartedAt,
+                existing.EndedAt,
+                existing.Source,
+                existing.Segments.Count,
+                await db.StoredSummaries.AnyAsync(x => x.SessionId == existing.Id, ct)));
+        }
+    }
+
     var session = new Session
     {
         Id = Guid.NewGuid(),
+        ClientRecordingId = clientRecordingId,
         StartedAt = DateTimeOffset.UtcNow,
         EndedAt = DateTimeOffset.UtcNow,
         Source = source,
@@ -132,7 +168,36 @@ app.MapPost("/sessions", async (
     session.TranscriptionStatus = Harken.Core.TranscriptionStatus.Pending;
 
     db.Sessions.Add(session);
-    await db.SaveChangesAsync(ct);
+
+    try
+    {
+        await db.SaveChangesAsync(ct);
+    }
+    catch (DbUpdateException) when (clientRecordingId is not null)
+    {
+        // Two retries of the same upload can both miss the lookup above and race to insert.
+        // The unique index is what actually enforces one Session per recording; this turns
+        // its error back into the same answer the earlier caller got.
+        db.ChangeTracker.Clear();
+
+        var winner = await db.Sessions
+            .AsNoTracking()
+            .Include(s => s.Segments)
+            .SingleOrDefaultAsync(s => s.ClientRecordingId == clientRecordingId, ct);
+
+        if (winner is null)
+        {
+            throw;
+        }
+
+        return Results.Ok(new SessionListItem(
+            winner.Id,
+            winner.StartedAt,
+            winner.EndedAt,
+            winner.Source,
+            winner.Segments.Count,
+            await db.StoredSummaries.AnyAsync(x => x.SessionId == winner.Id, ct)));
+    }
 
     // Enqueued after the commit: a job reading the id back out of the DB must be able to
     // find the Session it's for.

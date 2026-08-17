@@ -144,7 +144,7 @@ public partial class CapturePage : ContentPage, IDisposable
 				await DisplayAlertAsync("Recording Ended", DescribeStop(completed.StopReason), "OK");
 			}
 
-			await UploadAndTranscribeAsync(completed.FilePath);
+			await UploadAndTranscribeAsync(completed.FilePath, completed.RecordingId);
 		});
 	}
 
@@ -162,7 +162,7 @@ public partial class CapturePage : ContentPage, IDisposable
 	/// reaches a terminal state, show the transcript (ADR-0007 — the backend does all the
 	/// transcribing; the phone only captures and uploads).
 	/// </summary>
-	private async Task UploadAndTranscribeAsync(string path)
+	private async Task UploadAndTranscribeAsync(string path, Guid recordingId)
 	{
 		if (!AppSettings.TryValidate(_appSettings.BaseUrl, out var error))
 		{
@@ -177,7 +177,7 @@ public partial class CapturePage : ContentPage, IDisposable
 		Guid sessionId;
 		try
 		{
-			sessionId = await UploadAsync(path);
+			sessionId = await UploadAsync(path, recordingId);
 		}
 		catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
 		{
@@ -227,7 +227,7 @@ public partial class CapturePage : ContentPage, IDisposable
 		await LoadSessionsAsync();
 	}
 
-	private async Task<Guid> UploadAsync(string path)
+	private async Task<Guid> UploadAsync(string path, Guid recordingId)
 	{
 		using var content = new MultipartFormDataContent();
 		await using var audioStream = File.OpenRead(path);
@@ -235,6 +235,10 @@ public partial class CapturePage : ContentPage, IDisposable
 		audioContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
 		content.Add(audioContent, "audio", "recording.wav");
 		content.Add(new StringContent(nameof(AudioSource.Microphone)), "source");
+
+		// Generated when recording started, so a retry after a dropped connection resolves to
+		// the same session rather than a duplicate. Retries are routine on a phone.
+		content.Add(new StringContent(recordingId.ToString()), "recordingId");
 
 		using var response = await _httpClient.PostAsync($"{_appSettings.BaseUrl}/sessions", content);
 		response.EnsureSuccessStatusCode();

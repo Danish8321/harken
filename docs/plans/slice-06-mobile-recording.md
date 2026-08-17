@@ -161,7 +161,10 @@ path to run.
   green. Device check still owed, and it is the one that matters most for ADR-0003: start
   recording, lock the screen, stop from the notification, confirm the file finalizes and
   uploads.
-- **Tasks 7–8:** not started.
+- **Task 7 — Idempotent upload (client recording id):** done and **verified** by
+  `test-fast.sh` (27 integration tests, 5 new). Migration read before applying; additive,
+  no data loss. One gap named below.
+- **Task 8:** not started.
 
 Notes taken while implementing:
 - Upload has exactly one trigger: `RecordingState.Completed`. The Stop button only asks the
@@ -185,5 +188,13 @@ Notes taken while implementing:
 - Selecting a session clears the transcript box rather than loading that session's
   transcript. Loading it is a small, obvious follow-up, deliberately left out of Task 4's
   stated scope.
+- `recordingId` on upload is optional, so the console client keeps working unchanged and
+  does not send one. A filtered unique index (`WHERE ClientRecordingId IS NOT NULL`) is what
+  lets those rows coexist without colliding on NULL.
+- `ConcurrentRetriesOfTheSameRecordingStillProduceOneSession` asserts the right outcome but
+  cannot guarantee it exercised the `DbUpdateException` catch — the two requests may simply
+  serialize. The catch is reasoned, not proven.
+- `.claude/scripts/schema.sh` does not exist in this repo; the migration was generated with
+  `dotnet ef`, read in full, and shown before being applied.
 - Still open from Task 1: a process death mid-capture leaves intact PCM with zeroed RIFF
   lengths. Recoverable by rewriting the header. Not handled.

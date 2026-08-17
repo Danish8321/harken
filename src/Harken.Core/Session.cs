@@ -4,6 +4,14 @@ public class Session
 {
     public Guid Id { get; set; }
 
+    /// <summary>
+    /// Id the client generated when it started recording, sent with the upload. Unique
+    /// where present, so re-sending the same recording after a dropped connection returns
+    /// the Session that already exists instead of creating a second one. Null for clients
+    /// that do not send it — the console still does not.
+    /// </summary>
+    public Guid? ClientRecordingId { get; set; }
+
     public DateTimeOffset StartedAt { get; set; }
     public DateTimeOffset? EndedAt { get; set; }
     public AudioSource Source { get; set; }

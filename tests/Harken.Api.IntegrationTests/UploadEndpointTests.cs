@@ -18,13 +18,24 @@ public class UploadEndpointTests : IClassFixture<CustomWebApplicationFactory>
         _factory = factory;
     }
 
-    private static MultipartFormDataContent BuildUpload(byte[] audioBytes, string fileName = "recording.wav", string contentType = "audio/wav", string source = "Microphone")
+    private static MultipartFormDataContent BuildUpload(
+        byte[] audioBytes,
+        string fileName = "recording.wav",
+        string contentType = "audio/wav",
+        string source = "Microphone",
+        string? recordingId = null)
     {
         var content = new MultipartFormDataContent();
         var audioContent = new ByteArrayContent(audioBytes);
         audioContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         content.Add(audioContent, "audio", fileName);
         content.Add(new StringContent(source), "source");
+
+        if (recordingId is not null)
+        {
+            content.Add(new StringContent(recordingId), "recordingId");
+        }
+
         return content;
     }
 
@@ -140,6 +151,112 @@ public class UploadEndpointTests : IClassFixture<CustomWebApplicationFactory>
 
         Assert.Contains($"{created.Id:N}.wav", session.Recording!.StoredPath, StringComparison.Ordinal);
         Assert.DoesNotContain("evil", session.Recording.StoredPath, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReUploadingTheSameRecordingIdReturnsTheSameSession()
+    {
+        // Slice-04 carried this forward: "Duplicate uploads after a retry are not handled.
+        // Harmless with one user on a LAN, necessary before the phone client, where a flaky
+        // connection makes retries routine." A client cannot distinguish a lost response
+        // from a lost request, so sending again has to be safe.
+        var client = _factory.CreateClient();
+        var recordingId = Guid.NewGuid().ToString();
+
+        using var first = await client.PostAsync("/sessions", BuildUpload([1, 2, 3, 4, 5], recordingId: recordingId));
+        using var second = await client.PostAsync("/sessions", BuildUpload([1, 2, 3, 4, 5], recordingId: recordingId));
+
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+
+        var firstSession = await first.Content.ReadFromJsonAsync<SessionListItem>();
+        var secondSession = await second.Content.ReadFromJsonAsync<SessionListItem>();
+
+        Assert.NotNull(firstSession);
+        Assert.NotNull(secondSession);
+        Assert.Equal(firstSession!.Id, secondSession!.Id);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<HarkenDbContext>();
+        Assert.Equal(1, await db.Sessions.CountAsync(s => s.ClientRecordingId == Guid.Parse(recordingId)));
+    }
+
+    [Fact]
+    public async Task DifferentRecordingIdsCreateDifferentSessions()
+    {
+        var client = _factory.CreateClient();
+
+        using var first = await client.PostAsync("/sessions", BuildUpload([1, 2, 3], recordingId: Guid.NewGuid().ToString()));
+        using var second = await client.PostAsync("/sessions", BuildUpload([1, 2, 3], recordingId: Guid.NewGuid().ToString()));
+
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+
+        var firstSession = await first.Content.ReadFromJsonAsync<SessionListItem>();
+        var secondSession = await second.Content.ReadFromJsonAsync<SessionListItem>();
+
+        Assert.NotEqual(firstSession!.Id, secondSession!.Id);
+    }
+
+    [Fact]
+    public async Task UploadsWithoutARecordingIdAreNotTreatedAsDuplicates()
+    {
+        // The console does not send one. A filtered unique index is what keeps those rows
+        // from colliding with each other on NULL.
+        var client = _factory.CreateClient();
+
+        using var first = await client.PostAsync("/sessions", BuildUpload([1, 2, 3]));
+        using var second = await client.PostAsync("/sessions", BuildUpload([1, 2, 3]));
+
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+
+        var firstSession = await first.Content.ReadFromJsonAsync<SessionListItem>();
+        var secondSession = await second.Content.ReadFromJsonAsync<SessionListItem>();
+
+        Assert.NotEqual(firstSession!.Id, secondSession!.Id);
+    }
+
+    [Fact]
+    public async Task MalformedRecordingIdIsRejected()
+    {
+        var client = _factory.CreateClient();
+
+        using var response = await client.PostAsync("/sessions", BuildUpload([1, 2, 3], recordingId: "not-a-guid"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ConcurrentRetriesOfTheSameRecordingStillProduceOneSession()
+    {
+        // Both requests can miss the lookup and race to insert; the unique index is what
+        // actually enforces one Session per recording.
+        var client = _factory.CreateClient();
+        var recordingId = Guid.NewGuid().ToString();
+
+        var responses = await Task.WhenAll(
+            client.PostAsync("/sessions", BuildUpload([1, 2, 3], recordingId: recordingId)),
+            client.PostAsync("/sessions", BuildUpload([1, 2, 3], recordingId: recordingId)));
+
+        foreach (var response in responses)
+        {
+            Assert.True(
+                response.StatusCode is HttpStatusCode.Created or HttpStatusCode.OK,
+                $"Expected Created or OK, got {(int)response.StatusCode}");
+        }
+
+        var sessions = await Task.WhenAll(responses.Select(r => r.Content.ReadFromJsonAsync<SessionListItem>()));
+        Assert.Equal(sessions[0]!.Id, sessions[1]!.Id);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<HarkenDbContext>();
+        Assert.Equal(1, await db.Sessions.CountAsync(s => s.ClientRecordingId == Guid.Parse(recordingId)));
+
+        foreach (var response in responses)
+        {
+            response.Dispose();
+        }
     }
 
     [Fact]
