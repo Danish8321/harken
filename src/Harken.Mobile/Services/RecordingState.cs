@@ -1,4 +1,10 @@
+using Harken.Core.Audio;
+
 namespace Harken.Mobile.Services;
+
+/// <summary>A finished recording: the file to upload, and why capture ended.</summary>
+/// <param name="StopReason"><see cref="RecordingStopReason.None"/> for a manual stop.</param>
+public sealed record RecordingCompleted(Guid RecordingId, string FilePath, RecordingStopReason StopReason);
 
 /// <summary>
 /// Shared state for the in-progress (or just-finished) recording. The platform's
@@ -15,7 +21,14 @@ public sealed class RecordingState
 	private Guid? _recordingId;
 	private string? _filePath;
 	private DateTimeOffset? _startedAt;
-	private string? _lastCompletedFilePath;
+
+	/// <summary>
+	/// Raised once per recording, after the writer is closed and the file is complete.
+	/// Every stop routes through here — the Stop button, the silence timeout, and the
+	/// session cap alike — so the upload has exactly one trigger and an auto-stop uploads
+	/// the same way a manual one does (ADR-0007: auto-stop *and upload*, not just stop).
+	/// </summary>
+	public event Action<RecordingCompleted>? Completed;
 
 	/// <summary>Id the file is named for, generated at start so a retried upload is the
 	/// same recording (slice-06 Task 7).</summary>
@@ -27,20 +40,6 @@ public sealed class RecordingState
 	public bool IsRecording
 	{
 		get { lock (_gate) { return _startedAt is not null; } }
-	}
-
-	/// <summary>Path being written to right now; null when not recording.</summary>
-	public string? CurrentFilePath
-	{
-		get { lock (_gate) { return _filePath; } }
-	}
-
-	/// <summary>Path of the last finished recording, whether it stopped by user action,
-	/// silence timeout, or session cap. Survives past the recording so the page can upload
-	/// it after the service is gone.</summary>
-	public string? LastCompletedFilePath
-	{
-		get { lock (_gate) { return _lastCompletedFilePath; } }
 	}
 
 	public TimeSpan Elapsed
@@ -64,20 +63,29 @@ public sealed class RecordingState
 		}
 	}
 
-	public void MarkStopped()
+	public void MarkStopped(RecordingStopReason stopReason = RecordingStopReason.None)
 	{
+		RecordingCompleted? completed = null;
+
 		lock (_gate)
 		{
 			// Only promote a path that was actually being recorded — MarkStopped can arrive
-			// twice (user stop racing an auto-stop), and the second must not clear the first
-			// result or resurrect a stale one.
+			// twice (a Stop tap racing an auto-stop), and the second must not clear the first
+			// result or resurrect a stale one. That same check makes Completed fire once.
 			if (_filePath is not null)
 			{
-				_lastCompletedFilePath = _filePath;
+				completed = new RecordingCompleted(_recordingId!.Value, _filePath, stopReason);
 			}
 
 			_filePath = null;
 			_startedAt = null;
+		}
+
+		// Raised outside the lock: a handler uploads, and holding the lock across that would
+		// block every property read on the UI thread for the length of a network call.
+		if (completed is not null)
+		{
+			Completed?.Invoke(completed);
 		}
 	}
 }

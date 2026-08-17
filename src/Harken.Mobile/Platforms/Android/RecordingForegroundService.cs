@@ -19,9 +19,18 @@ public class RecordingForegroundService : Service
 	/// nothing catches it.</summary>
 	private readonly object _writerGate = new();
 
+	/// <summary>
+	/// ADR-0007 moved both limits from the server to the client. Values locked in the
+	/// slice-06 plan: on a phone these bound battery and storage, not spend.
+	/// </summary>
+	public static readonly TimeSpan SilenceTimeout = TimeSpan.FromMinutes(5);
+	public static readonly TimeSpan SessionCap = TimeSpan.FromHours(3);
+
 	private WavWriter? _writer;
+	private SilenceDetector? _silenceDetector;
 	private IAudioCapture? _audioCapture;
 	private Action<byte[]>? _onChunk;
+	private RecordingStopReason _stopReason = RecordingStopReason.None;
 
 	public override IBinder? OnBind(Intent? intent) => null;
 
@@ -58,6 +67,7 @@ public class RecordingForegroundService : Service
 			lock (_writerGate)
 			{
 				_writer = new WavWriter(File.Create(filePath));
+				_silenceDetector = new SilenceDetector(SilenceTimeout, SessionCap);
 			}
 		}
 		catch (IOException)
@@ -78,10 +88,33 @@ public class RecordingForegroundService : Service
 
 	private void WriteChunk(byte[] chunk)
 	{
+		RecordingStopReason reason;
+
 		lock (_writerGate)
 		{
-			_writer?.Write(chunk);
+			if (_writer is null)
+			{
+				return;
+			}
+
+			_writer.Write(chunk);
+			reason = _silenceDetector?.Add(chunk) ?? RecordingStopReason.None;
+
+			if (reason == RecordingStopReason.None)
+			{
+				return;
+			}
+
+			// Recorded before stopping so OnDestroy can report why. Nulling the detector
+			// makes this fire once even if another chunk is already in flight.
+			_stopReason = reason;
+			_silenceDetector = null;
 		}
+
+		// StopSelf outside the lock: it runs OnDestroy, which takes the same lock to close
+		// the writer, and taking it twice from this thread would be a deadlock waiting to
+		// happen the moment either side stops being reentrant.
+		StopSelf();
 	}
 
 	public override void OnDestroy()
@@ -102,9 +135,11 @@ public class RecordingForegroundService : Service
 		{
 			_writer?.Dispose();
 			_writer = null;
+			_silenceDetector = null;
 		}
 
-		IPlatformApplication.Current!.Services.GetRequiredService<RecordingState>().MarkStopped();
+		// After the writer is closed, so the file the handler uploads has a patched header.
+		IPlatformApplication.Current!.Services.GetRequiredService<RecordingState>().MarkStopped(_stopReason);
 
 		if (OperatingSystem.IsAndroidVersionAtLeast(24))
 		{

@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Harken.Core;
+using Harken.Core.Audio;
 using Harken.Core.Contracts;
 using Harken.Mobile.Services;
 
@@ -42,6 +43,10 @@ public partial class CapturePage : ContentPage, IDisposable
 		_elapsedTimer = Dispatcher.CreateTimer();
 		_elapsedTimer.Interval = TimeSpan.FromSeconds(1);
 		_elapsedTimer.Tick += (_, _) => ElapsedLabel.Text = Format(_recordingService.Elapsed);
+
+		// Subscribed for the page's whole life, not just while it is visible: an auto-stop
+		// can land with the screen locked, and it must still upload (ADR-0003, ADR-0007).
+		_recordingService.Completed += OnRecordingCompleted;
 	}
 
 	private static string Format(TimeSpan elapsed) =>
@@ -108,23 +113,49 @@ public partial class CapturePage : ContentPage, IDisposable
 			return;
 		}
 
+		// Only asks the service to stop. The upload hangs off Completed instead, because a
+		// silence timeout or session cap must upload exactly the same way — and routing both
+		// through one trigger is what keeps a Stop tap racing an auto-stop from uploading the
+		// same file twice.
 		_recordingService.StopRecording();
-		_elapsedTimer.Stop();
-		RecordButton.IsEnabled = true;
-		StopButton.IsEnabled = false;
-
-		// StopService is asynchronous — the writer is not closed, and the path not promoted,
-		// until the service's OnDestroy has run. Wait briefly for it rather than reporting a
-		// file that is still missing its header.
-		var path = await WaitForFinishedRecordingAsync();
-		if (path is null)
-		{
-			StatusLabel.Text = "Recording stopped, but the file did not finalize.";
-			return;
-		}
-
-		await UploadAndTranscribeAsync(path);
+		StatusLabel.Text = "Stopping…";
 	}
+
+	private void OnRecordingCompleted(RecordingCompleted completed)
+	{
+		// Raised from the foreground service's OnDestroy, not on the UI thread.
+		Dispatcher.Dispatch(async () =>
+		{
+			_elapsedTimer.Stop();
+			RecordButton.IsEnabled = true;
+			StopButton.IsEnabled = false;
+			ElapsedLabel.Text = Format(TimeSpan.Zero);
+
+			// A start that failed before capture began still reports completion, leaving
+			// either no file or a bare header. Neither is worth uploading.
+			if (!File.Exists(completed.FilePath) || new FileInfo(completed.FilePath).Length <= WavWriter.HeaderLength)
+			{
+				StatusLabel.Text = "Recording stopped before any audio was captured.";
+				return;
+			}
+
+			if (completed.StopReason != RecordingStopReason.None)
+			{
+				await DisplayAlertAsync("Recording Ended", DescribeStop(completed.StopReason), "OK");
+			}
+
+			await UploadAndTranscribeAsync(completed.FilePath);
+		});
+	}
+
+	private static string DescribeStop(RecordingStopReason reason) => reason switch
+	{
+		RecordingStopReason.SilenceTimeout =>
+			$"Nothing was heard for {RecordingForegroundService.SilenceTimeout.TotalMinutes:0} minutes, so recording stopped. Uploading what was captured.",
+		RecordingStopReason.SessionCap =>
+			$"Recording reached its {RecordingForegroundService.SessionCap.TotalHours:0}-hour limit and stopped. Uploading what was captured.",
+		_ => "Recording stopped.",
+	};
 
 	/// <summary>
 	/// Mirrors <c>Harken.Console</c>'s flow: upload the WAV, poll until transcription
@@ -267,21 +298,6 @@ public partial class CapturePage : ContentPage, IDisposable
 		}
 	}
 
-	private async Task<string?> WaitForFinishedRecordingAsync()
-	{
-		for (var attempt = 0; attempt < 20; attempt++)
-		{
-			var path = _recordingService.LastCompletedFilePath;
-			if (!_recordingService.IsRecording && path is not null && File.Exists(path))
-			{
-				return path;
-			}
-
-			await Task.Delay(100);
-		}
-
-		return null;
-	}
 
 	private sealed record SessionRow(Guid Id, string Display);
 
@@ -409,6 +425,9 @@ public partial class CapturePage : ContentPage, IDisposable
 	public void Dispose()
 	{
 		_elapsedTimer.Stop();
+		// The recording service is a singleton and outlives this page — leaving the handler
+		// attached would keep a dead page alive and upload through it.
+		_recordingService.Completed -= OnRecordingCompleted;
 		_httpClient.Dispose();
 		GC.SuppressFinalize(this);
 	}

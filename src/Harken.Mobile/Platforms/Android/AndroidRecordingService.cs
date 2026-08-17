@@ -17,11 +17,14 @@ public class AndroidRecordingService : IRecordingService
 		_state = state;
 	}
 
+	/// <summary>Forwarded straight from the shared state the foreground service writes.</summary>
+	public event Action<RecordingCompleted>? Completed
+	{
+		add => _state.Completed += value;
+		remove => _state.Completed -= value;
+	}
+
 	public bool IsRecording => _state.IsRecording;
-
-	public string? CurrentFilePath => _state.CurrentFilePath;
-
-	public string? LastCompletedFilePath => _state.LastCompletedFilePath;
 
 	public TimeSpan Elapsed => _state.Elapsed;
 

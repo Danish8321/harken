@@ -6,6 +6,13 @@ namespace Harken.Mobile.Services;
 /// </summary>
 public interface IRecordingService
 {
+	/// <summary>
+	/// Raised when a recording finishes, however it ended — Stop tapped, silence timeout,
+	/// or session cap. The single trigger for uploading, so an auto-stop uploads exactly
+	/// like a manual one.
+	/// </summary>
+	event Action<RecordingCompleted>? Completed;
+
 	/// <summary>Starts capture and returns the recording id the file is named for. The id
 	/// is generated here rather than by the backend so a retried upload is recognisably the
 	/// same recording (slice-06 Task 7).</summary>
@@ -14,13 +21,6 @@ public interface IRecordingService
 	void StopRecording();
 
 	bool IsRecording { get; }
-
-	/// <summary>Path being written right now; null when not recording.</summary>
-	string? CurrentFilePath { get; }
-
-	/// <summary>Path of the last finished recording, whatever ended it. Outlives the
-	/// service so the page can still upload after capture has stopped.</summary>
-	string? LastCompletedFilePath { get; }
 
 	TimeSpan Elapsed { get; }
 }

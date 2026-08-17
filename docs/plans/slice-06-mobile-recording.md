@@ -152,9 +152,19 @@ path to run.
 - **Task 4 — Upload, poll, show transcript:** written, **not verified**. `check.sh` green.
   Device verification against the backend on the same LAN still owed. This closes the
   vertical slice, so Tasks 2–4 are testable in one device run.
-- **Tasks 5–8:** not started.
+- **Task 5 — Silence Timeout and Session Cap:** detector **verified** (`test-fast.sh`, 14
+  new unit tests); wiring **not verified**. Device check still owed: lower the timeout to
+  ~15 s, confirm it auto-stops *and uploads*, restore 5 minutes. Nobody will sit through
+  3 hours to watch the cap fire, so the cap's coverage is the unit test plus the shared
+  code path.
+- **Tasks 6–8:** not started.
 
 Notes taken while implementing:
+- Upload has exactly one trigger: `RecordingState.Completed`. The Stop button only asks the
+  service to stop. Two paths would have let a Stop tap racing an auto-stop upload the same
+  file twice, and ADR-0007 wants an auto-stop to upload exactly like a manual one.
+- `IRecordingService.CurrentFilePath` / `LastCompletedFilePath` were deleted once the
+  completion event superseded them.
 - `StartCommandResult.Sticky` became `NotSticky`. A sticky restart hands back a null intent
   and there is no half-written WAV to resume into, so the service now ends cleanly rather
   than capturing into a second file nobody polls.
