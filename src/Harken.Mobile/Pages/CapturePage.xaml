@@ -5,22 +5,23 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     Title="Sessions">
 
-    <Grid Padding="20" RowSpacing="12" RowDefinitions="Auto,Auto,*,Auto,*">
+    <Grid Padding="20" RowSpacing="12" RowDefinitions="Auto,Auto,Auto,*,Auto,*,Auto,*">
 
         <HorizontalStackLayout Grid.Row="0" Spacing="12">
+            <Button x:Name="RecordButton" Text="Record" Clicked="OnRecordClicked" />
+            <Button x:Name="StopButton" Text="Stop" Clicked="OnStopClicked" IsEnabled="False" />
+            <Label x:Name="ElapsedLabel" Text="00:00" VerticalOptions="Center" FontAttributes="Bold" />
+        </HorizontalStackLayout>
+
+        <HorizontalStackLayout Grid.Row="1" Spacing="12">
             <Button x:Name="RefreshButton" Text="Refresh" Clicked="OnRefreshClicked" />
             <Button x:Name="SummarizeButton" Text="Summarize" Clicked="OnSummarizeClicked" IsEnabled="False" />
         </HorizontalStackLayout>
 
-        <Label x:Name="StatusLabel" Grid.Row="1" Text="Idle" />
+        <Label x:Name="StatusLabel" Grid.Row="2" Text="Idle" />
 
-        <ScrollView Grid.Row="2">
+        <ScrollView Grid.Row="3">
             <VerticalStackLayout>
-                <!-- Recording moves here in slice 05: capture to a local file, then upload. -->
-                <Label
-                    Text="Recording is not available in this build. Sessions recorded elsewhere can be read and summarized here."
-                    LineBreakMode="WordWrap"
-                    FontSize="12" />
                 <CollectionView x:Name="SessionsView" SelectionMode="Single" SelectionChanged="OnSessionSelected">
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
@@ -31,9 +32,15 @@
             </VerticalStackLayout>
         </ScrollView>
 
-        <Label Grid.Row="3" Text="Summary" FontAttributes="Bold" />
+        <Label Grid.Row="4" Text="Transcript" FontAttributes="Bold" />
 
-        <ScrollView Grid.Row="4">
+        <ScrollView Grid.Row="5">
+            <Editor x:Name="TranscriptEditor" IsReadOnly="True" AutoSize="TextChanges" />
+        </ScrollView>
+
+        <Label Grid.Row="6" Text="Summary" FontAttributes="Bold" />
+
+        <ScrollView Grid.Row="7">
             <Editor x:Name="SummaryEditor" IsReadOnly="True" AutoSize="TextChanges" />
         </ScrollView>
 

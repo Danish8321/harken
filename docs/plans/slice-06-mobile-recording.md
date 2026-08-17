@@ -142,4 +142,27 @@ path to run.
 ---
 
 ## Status
-_(not started)_
+
+- **Task 1 — WAV file writer:** done. `test-fast.sh` green, 11 new unit tests over the
+  header bytes and both length fields.
+- **Task 2 — Capture to a file in the foreground service:** written, **not verified**.
+  `check.sh` green. Device verification (`adb pull`, play the file) still owed.
+- **Task 3 — Capture page record/stop + permission:** written, **not verified**.
+  `check.sh` green. Device verification (grant, record, stop; and the deny path) still owed.
+- **Task 4 — Upload, poll, show transcript:** written, **not verified**. `check.sh` green.
+  Device verification against the backend on the same LAN still owed. This closes the
+  vertical slice, so Tasks 2–4 are testable in one device run.
+- **Tasks 5–8:** not started.
+
+Notes taken while implementing:
+- `StartCommandResult.Sticky` became `NotSticky`. A sticky restart hands back a null intent
+  and there is no half-written WAV to resume into, so the service now ends cleanly rather
+  than capturing into a second file nobody polls.
+- Poll gives up watching after 10 minutes; the backend job keeps running and the page says
+  to refresh. The bound is a guess against unmeasured Whisper throughput — revisit once
+  real timings exist.
+- Selecting a session clears the transcript box rather than loading that session's
+  transcript. Loading it is a small, obvious follow-up, deliberately left out of Task 4's
+  stated scope.
+- Still open from Task 1: a process death mid-capture leaves intact PCM with zeroed RIFF
+  lengths. Recoverable by rewriting the header. Not handled.
