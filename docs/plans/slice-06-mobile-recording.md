@@ -207,5 +207,7 @@ Notes taken while implementing:
   serialize. The catch is reasoned, not proven.
 - `.claude/scripts/schema.sh` does not exist in this repo; the migration was generated with
   `dotnet ef`, read in full, and shown before being applied.
-- Still open from Task 1: a process death mid-capture leaves intact PCM with zeroed RIFF
-  lengths. Recoverable by rewriting the header. Not handled.
+- Open from Task 1 (process death mid-capture leaves intact PCM with zeroed RIFF lengths) is
+  now handled: `WavWriter.RepairHeader` patches the lengths from file size, and
+  `CapturePage` runs one orphan scan per app process on first appearance, repairing and
+  uploading anything left behind.

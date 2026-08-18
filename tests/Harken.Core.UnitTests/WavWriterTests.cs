@@ -171,4 +171,86 @@ public class WavWriterTests
     {
         public override bool CanSeek => false;
     }
+
+    [Fact]
+    public void RepairHeader_PatchesLengthsFromFileSize_WhenProcessDiedBeforePatching()
+    {
+        // Simulates what a killed process leaves: a placeholder header (zeroed lengths)
+        // followed by intact PCM that was flushed to disk but never had Dispose run on it.
+        var path = Path.GetTempFileName();
+        try
+        {
+            using (var stream = File.OpenWrite(path))
+            using (var writer = new BinaryWriter(stream))
+            {
+                writer.Write("RIFF"u8);
+                writer.Write(0);
+                writer.Write("WAVE"u8);
+                writer.Write("fmt "u8);
+                writer.Write(16);
+                writer.Write((short)1);
+                writer.Write(WavWriter.Channels);
+                writer.Write(WavWriter.SampleRate);
+                writer.Write(0);
+                writer.Write((short)0);
+                writer.Write(WavWriter.BitsPerSample);
+                writer.Write("data"u8);
+                writer.Write(0); // never patched — the crash scenario
+                writer.Write(new byte[10]); // PCM, intact
+            }
+
+            var repaired = WavWriter.RepairHeader(path);
+
+            Assert.True(repaired);
+            var bytes = File.ReadAllBytes(path);
+            Assert.Equal(36 + 10, Int32At(bytes, 4));
+            Assert.Equal(10, Int32At(bytes, 40));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void RepairHeader_IsANoOp_WhenTheHeaderAlreadyMatchesTheFile()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            using (var stream = File.OpenWrite(path))
+            using (var writer = new WavWriter(stream, leaveOpen: true))
+            {
+                writer.Write(new byte[10]);
+            }
+            var before = File.ReadAllBytes(path);
+
+            var repaired = WavWriter.RepairHeader(path);
+
+            Assert.False(repaired);
+            Assert.Equal(before, File.ReadAllBytes(path));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void RepairHeader_IsANoOp_OnAFileShorterThanTheHeader()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllBytes(path, new byte[10]);
+
+            var repaired = WavWriter.RepairHeader(path);
+
+            Assert.False(repaired);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }

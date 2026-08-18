@@ -7,9 +7,8 @@ namespace Harken.Core.Audio;
 /// The two RIFF length fields cannot be known until the last chunk is written, so a
 /// placeholder header goes down first and is patched on <see cref="Dispose"/>. That means
 /// a recording whose process dies mid-capture leaves a file with zeroed lengths: the PCM
-/// is intact but players see an empty file. Recovering one is a matter of rewriting the
-/// header from the file size, not of re-recording — worth knowing before treating such a
-/// file as lost.
+/// is intact but players see an empty file. <see cref="RepairHeader"/> rewrites the header
+/// from the file size, no re-recording needed.
 /// </summary>
 public sealed class WavWriter : IDisposable
 {
@@ -120,5 +119,48 @@ public sealed class WavWriter : IDisposable
 
         _writer.Flush();
         _stream.Position = resumeAt;
+    }
+
+    /// <summary>
+    /// Patches a WAV file's RIFF/data length fields from its actual size on disk. For a file
+    /// left behind by a process that died mid-capture (Dispose never ran, so the lengths are
+    /// still the zeroed placeholder) the PCM itself is intact — only the header lied about how
+    /// much of it there is. Recomputing the lengths from the file size makes it playable and
+    /// uploadable again, no re-recording needed.
+    ///
+    /// A no-op on a file whose header already agrees with its size (already-clean recordings,
+    /// or a repair running twice), and on anything shorter than <see cref="HeaderLength"/>,
+    /// which is not a WAV file this can do anything with. Returns whether a patch was written.
+    /// </summary>
+    public static bool RepairHeader(string path)
+    {
+        using var stream = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        if (stream.Length < HeaderLength)
+        {
+            return false;
+        }
+
+        var dataLength = checked((int)(stream.Length - HeaderLength));
+
+        Span<byte> field = stackalloc byte[4];
+        stream.Position = 40;
+        stream.ReadExactly(field);
+        if (System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(field) == dataLength)
+        {
+            // Header already matches the file — a clean recording, or a repair re-run.
+            return false;
+        }
+
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(field, 36 + dataLength);
+        stream.Position = 4;
+        stream.Write(field);
+
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(field, dataLength);
+        stream.Position = 40;
+        stream.Write(field);
+
+        stream.Flush();
+        return true;
     }
 }

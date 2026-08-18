@@ -24,6 +24,11 @@ public partial class CapturePage : ContentPage, IDisposable
 	/// </summary>
 	private static readonly TimeSpan TranscriptionPollTimeout = TimeSpan.FromMinutes(10);
 
+	/// <summary>Runs the orphan recovery scan at most once per app process — the pages are
+	/// transient (DI), but the files it looks for only ever appear once per crash, not once
+	/// per navigation.</summary>
+	private static bool s_orphanScanDone;
+
 	private readonly AppSettings _appSettings;
 	private readonly IRecordingService _recordingService;
 	private readonly HttpClient _httpClient = new();
@@ -309,7 +314,66 @@ public partial class CapturePage : ContentPage, IDisposable
 	{
 		base.OnAppearing();
 		SyncRecordingControls();
+		await RecoverOrphanedRecordingsAsync();
 		await LoadSessionsAsync();
+	}
+
+	/// <summary>
+	/// A process killed mid-capture never runs the foreground service's <c>OnDestroy</c>, so
+	/// the WAV it was writing is left behind with a zeroed header and never reaches
+	/// <see cref="OnRecordingCompleted"/> or a Completed event — nothing else finds it.
+	/// One scan per process, on the first page appearance while nothing is actively
+	/// recording, patches each leftover file's header from its size on disk (or leaves it
+	/// alone if the header already matches — a retry of an upload that failed rather than a
+	/// crash) and uploads it exactly like a normal completion.
+	/// </summary>
+	private async Task RecoverOrphanedRecordingsAsync()
+	{
+		if (s_orphanScanDone || _recordingService.IsRecording)
+		{
+			return;
+		}
+		s_orphanScanDone = true;
+
+		string[] candidates;
+		try
+		{
+			candidates = Directory.GetFiles(FileSystem.AppDataDirectory, "*.wav");
+		}
+		catch (IOException)
+		{
+			return;
+		}
+
+		foreach (var path in candidates)
+		{
+			// Recording files are named "{recordingId:N}.wav" (AndroidRecordingService); a
+			// filename that doesn't parse isn't one of ours.
+			if (!Guid.TryParseExact(Path.GetFileNameWithoutExtension(path), "N", out var recordingId))
+			{
+				continue;
+			}
+
+			try
+			{
+				WavWriter.RepairHeader(path);
+			}
+			catch (IOException)
+			{
+				// Still open elsewhere, or gone by the time we got to it — leave it for the
+				// next scan rather than fail the whole recovery pass over one file.
+				continue;
+			}
+
+			if (!File.Exists(path) || new FileInfo(path).Length <= WavWriter.HeaderLength)
+			{
+				TryDelete(path);
+				continue;
+			}
+
+			StatusLabel.Text = "Recovering a recording from before the app closed…";
+			await UploadAndTranscribeAsync(path, recordingId);
+		}
 	}
 
 	/// <summary>
