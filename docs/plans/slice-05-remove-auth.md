@@ -84,3 +84,12 @@ anything in slice 06 (mobile recording itself).
 `Authorization` header. Neither client shows a login prompt. `dotnet ef database
 update` on a fresh DB has no Identity tables and no `Session.UserId`. No doc claims
 authentication exists in MVP 1.
+
+## Status
+
+**Done. Merged to `master`** (folded into the same branch history as
+[slice 06](slice-06-mobile-recording.md), which was built directly on top of this work
+and merged fast-forward on 2026-08-18). All six tasks landed: Identity/JWT dropped from
+schema and API, both clients strip auth, integration tests rewritten for the no-owner
+world, docs updated. `check.sh` and `test-fast.sh` are green on `master` with no
+`Authorization` header anywhere in the stack.

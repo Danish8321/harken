@@ -164,13 +164,15 @@ but the exit criteria below assumed it — flagging rather than quietly declarin
 ## Carried, unresolved
 - **Exit criteria's "summarized by Gemma" is unverified.** Ollama wasn't running during
   the Task 7 manual run, so `POST /sessions/{id}/summary` was never exercised end to end
-  on a real transcript. Check later: start Ollama, run the console client, `L` an existing
-  transcribed session, summarize it, confirm text comes back. Not blocking slice 05 — the
-  summarize endpoint predates this slice and mobile's own summarize path (already wired)
-  will exercise it anyway.
+  on a real transcript. Still true as of slice 06: Ollama has never been running during any
+  of this project's manual runs, on console or mobile. Check later: start Ollama, run the
+  console client, `L` an existing transcribed session, summarize it, confirm text comes
+  back.
 - Accuracy on longer/quieter audio and with the CUDA toolkit installed is still
   unmeasured — the numbers above are two short clips on CPU.
-- Duplicate uploads after a retry are not handled. Harmless with one user on a LAN,
-  necessary before the phone client, where a flaky connection makes retries routine.
-- Silence Timeout and Session Cap are unimplemented. They land in slice 05 with the phone,
-  where battery and device storage make them matter.
+- ~~Duplicate uploads after a retry are not handled.~~ **Resolved in
+  [slice 06](slice-06-mobile-recording.md) Task 7** — a client-generated `recordingId`
+  makes upload idempotent.
+- ~~Silence Timeout and Session Cap are unimplemented.~~ **Resolved in
+  [slice 06](slice-06-mobile-recording.md) Task 5** — 5-minute Silence Timeout, 3-hour
+  Session Cap, both client-side on the phone.

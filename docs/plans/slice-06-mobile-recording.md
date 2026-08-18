@@ -143,6 +143,11 @@ path to run.
 
 ## Status
 
+**Branch merged to `master` (fast-forward, 2026-08-18).** All eight tasks below are
+written and `check.sh`/`test-fast.sh` are green on `master`. Device verification is the
+one thing merging does not close — it is still owed, per the per-task notes below, and
+"it builds" must not stand in for "it works" on Tasks 2, 3, 4, 6.
+
 - **Task 1 — WAV file writer:** done. `test-fast.sh` green, 11 new unit tests over the
   header bytes and both length fields.
 - **Task 2 — Capture to a file in the foreground service:** written, **not verified**.
