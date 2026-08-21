@@ -1,0 +1,39 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/Harken.Api/Harken.Api.csproj" />
+    <Project Path="src/Harken.Console/Harken.Console.csproj" />
+    <Project Path="src/Harken.Core/Harken.Core.csproj" />
+    <Folder Name="Harken.Android/">
+      <!-- Gradle/Kotlin project — not MSBuild, so listed as solution items rather
+           than a Project reference. Visible and editable here; build via
+           .claude/scripts or ./gradlew directly, not F5/dotnet build. -->
+      <File Path="src/Harken.Android/settings.gradle.kts" />
+      <File Path="src/Harken.Android/build.gradle.kts" />
+      <File Path="src/Harken.Android/gradle.properties" />
+      <File Path="src/Harken.Android/app/build.gradle.kts" />
+      <File Path="src/Harken.Android/app/src/main/AndroidManifest.xml" />
+    </Folder>
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Harken.Api.IntegrationTests/Harken.Api.IntegrationTests.csproj" />
+    <Project Path="tests/Harken.Core.UnitTests/Harken.Core.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+    <File Path="CONTEXT.md" />
+    <File Path="global.json" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path=".gitignore" />
+  </Folder>
+  <Folder Name="/.claude/">
+    <File Path=".claude/scripts/check.sh" />
+    <File Path=".claude/scripts/test-fast.sh" />
+    <File Path=".claude/settings.local.json" />
+  </Folder>
+</Solution>

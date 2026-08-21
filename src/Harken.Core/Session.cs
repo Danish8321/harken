@@ -26,4 +26,9 @@ public class Session
 
     /// <summary>Set only when TranscriptionStatus is Failed.</summary>
     public string? TranscriptionFailureReason { get; set; }
+
+    /// <summary>Soft-deleted: hidden from the listing, but the row and its Recording's
+    /// audio file are kept on disk (setup.md: recordings are never auto-cleaned up).
+    /// A separate purge removes both permanently.</summary>
+    public bool Deleted { get; set; }
 }

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using OllamaSharp;
@@ -18,6 +19,9 @@ const long MaxUploadBytes = 500L * 1024 * 1024;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = MaxUploadBytes);
+
+builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails();
 
 var connectionString = builder.Configuration.GetConnectionString("Harken")
     ?? "Data Source=harken.db";
@@ -57,11 +61,15 @@ builder.Services.AddHostedService<TranscriptionBackgroundService>();
 
 var app = builder.Build();
 
+app.MapOpenApi();
+
 // ADR-0009: MVP 1 has no authentication and no ownership model. One implicit user,
 // reachable by anything on the LAN that can route to the host.
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/health", () => TypedResults.Ok(new { status = "ok" }));
 
-app.MapPost("/sessions", async (
+var sessions = app.MapGroup("/sessions");
+
+sessions.MapPost("/", async Task<Results<Ok<SessionListItem>, Created<SessionListItem>, BadRequest<string>, StatusCodeHttpResult>> (
     HttpRequest request,
     HarkenDbContext db,
     RecordingStorage storage,
@@ -70,14 +78,14 @@ app.MapPost("/sessions", async (
 {
     if (!request.HasFormContentType)
     {
-        return Results.BadRequest("Expected multipart/form-data with an audio file.");
+        return TypedResults.BadRequest("Expected multipart/form-data with an audio file.");
     }
 
     var form = await request.ReadFormAsync(ct);
     var file = form.Files["audio"];
     if (file is null || file.Length == 0)
     {
-        return Results.BadRequest("No audio file provided (expected form field 'audio').");
+        return TypedResults.BadRequest("No audio file provided (expected form field 'audio').");
     }
 
     // WAV only (slice-04 decision 1: what the console records, what Whisper wants
@@ -86,19 +94,19 @@ app.MapPost("/sessions", async (
     if (!string.Equals(file.ContentType, "audio/wav", StringComparison.OrdinalIgnoreCase)
         && !string.Equals(file.ContentType, "audio/x-wav", StringComparison.OrdinalIgnoreCase))
     {
-        return Results.BadRequest($"Unsupported content type '{file.ContentType}'. Expected audio/wav.");
+        return TypedResults.BadRequest($"Unsupported content type '{file.ContentType}'. Expected audio/wav.");
     }
 
     if (file.Length > MaxUploadBytes)
     {
-        return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+        return TypedResults.StatusCode(StatusCodes.Status413PayloadTooLarge);
     }
 
     var sourceValue = form["source"].ToString();
     if (!Enum.TryParse<AudioSource>(sourceValue, ignoreCase: true, out var source)
         || !Enum.IsDefined(source))
     {
-        return Results.BadRequest($"Missing or invalid 'source' (expected one of: {string.Join(", ", Enum.GetNames<AudioSource>())}).");
+        return TypedResults.BadRequest($"Missing or invalid 'source' (expected one of: {string.Join(", ", Enum.GetNames<AudioSource>())}).");
     }
 
     // Optional: clients that generate a recording id get idempotent retries, clients that
@@ -110,7 +118,7 @@ app.MapPost("/sessions", async (
     {
         if (!Guid.TryParse(clientRecordingIdValue, out var parsed))
         {
-            return Results.BadRequest($"Invalid 'recordingId' — expected a GUID, got '{clientRecordingIdValue}'.");
+            return TypedResults.BadRequest($"Invalid 'recordingId' — expected a GUID, got '{clientRecordingIdValue}'.");
         }
 
         clientRecordingId = parsed;
@@ -126,7 +134,7 @@ app.MapPost("/sessions", async (
 
         if (existing is not null)
         {
-            return Results.Ok(new SessionListItem(
+            return TypedResults.Ok(new SessionListItem(
                 existing.Id,
                 existing.StartedAt,
                 existing.EndedAt,
@@ -136,7 +144,7 @@ app.MapPost("/sessions", async (
         }
     }
 
-    var session = new Session
+    var newSession = new Session
     {
         Id = Guid.NewGuid(),
         ClientRecordingId = clientRecordingId,
@@ -149,12 +157,12 @@ app.MapPost("/sessions", async (
     // the client — RecordingStorage does not accept one.
     await using (var stream = file.OpenReadStream())
     {
-        var storedPath = await storage.SaveAsync(session.Id, stream, ct);
+        var storedPath = await storage.SaveAsync(newSession.Id, stream, ct);
 
-        session.Recording = new Recording
+        newSession.Recording = new Recording
         {
             Id = Guid.NewGuid(),
-            SessionId = session.Id,
+            SessionId = newSession.Id,
             StoredPath = storedPath,
             ByteLength = file.Length,
             ContentType = file.ContentType,
@@ -165,9 +173,9 @@ app.MapPost("/sessions", async (
         };
     }
 
-    session.TranscriptionStatus = Harken.Core.TranscriptionStatus.Pending;
+    newSession.TranscriptionStatus = Harken.Core.TranscriptionStatus.Pending;
 
-    db.Sessions.Add(session);
+    db.Sessions.Add(newSession);
 
     try
     {
@@ -190,7 +198,7 @@ app.MapPost("/sessions", async (
             throw;
         }
 
-        return Results.Ok(new SessionListItem(
+        return TypedResults.Ok(new SessionListItem(
             winner.Id,
             winner.StartedAt,
             winner.EndedAt,
@@ -201,18 +209,18 @@ app.MapPost("/sessions", async (
 
     // Enqueued after the commit: a job reading the id back out of the DB must be able to
     // find the Session it's for.
-    jobs.Enqueue(session.Id);
+    jobs.Enqueue(newSession.Id);
 
-    return Results.Created($"/sessions/{session.Id}", new SessionListItem(
-        session.Id,
-        session.StartedAt,
-        session.EndedAt,
-        session.Source,
+    return TypedResults.Created($"/sessions/{newSession.Id}", new SessionListItem(
+        newSession.Id,
+        newSession.StartedAt,
+        newSession.EndedAt,
+        newSession.Source,
         SegmentCount: 0,
         HasSummary: false));
 });
 
-app.MapGet("/sessions", async (
+sessions.MapGet("/", async (
     HarkenDbContext db,
     CancellationToken ct) =>
 {
@@ -220,7 +228,8 @@ app.MapGet("/sessions", async (
     // Materialized then ordered client-side: SQLite can't translate ORDER BY on a
     // DateTimeOffset column (the same limitation that bit us on TimeSpan in
     // SummarizeAgent); the session count is small enough this is cheap.
-    var sessions = (await db.Sessions
+    var list = (await db.Sessions
+        .Where(s => !s.Deleted)
         .Select(s => new SessionListItem(
             s.Id,
             s.StartedAt,
@@ -232,10 +241,10 @@ app.MapGet("/sessions", async (
         .OrderByDescending(s => s.StartedAt)
         .ToList();
 
-    return Results.Ok(sessions);
+    return TypedResults.Ok(list);
 });
 
-app.MapGet("/sessions/{id:guid}", async (
+sessions.MapGet("/{id:guid}", async Task<Results<Ok<SessionDetail>, NotFound>> (
     Guid id,
     HarkenDbContext db,
     CancellationToken ct) =>
@@ -247,7 +256,7 @@ app.MapGet("/sessions/{id:guid}", async (
 
     if (session is null)
     {
-        return Results.NotFound();
+        return TypedResults.NotFound();
     }
 
     // Materialize then order client-side: SQLite can't translate ORDER BY on a
@@ -265,7 +274,7 @@ app.MapGet("/sessions/{id:guid}", async (
         .Select(x => new SessionSummary(x.SessionId, x.Text, x.GeneratedAt))
         .FirstOrDefaultAsync(ct);
 
-    return Results.Ok(new SessionDetail(
+    return TypedResults.Ok(new SessionDetail(
         session.Id,
         session.StartedAt,
         session.EndedAt,
@@ -276,7 +285,7 @@ app.MapGet("/sessions/{id:guid}", async (
         session.TranscriptionFailureReason));
 });
 
-app.MapPost("/sessions/{id:guid}/summary", async (
+sessions.MapPost("/{id:guid}/summary", async Task<Results<Ok<SessionSummary>, NotFound, ProblemHttpResult>> (
     Guid id,
     SummarizeAgent agent,
     CancellationToken ct) =>
@@ -289,10 +298,55 @@ app.MapPost("/sessions/{id:guid}/summary", async (
     catch (Exception ex)
     {
         // Genuine LLM/provider failure — the Session existed.
-        return Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway);
+        return TypedResults.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway);
     }
 
-    return summary is null ? Results.NotFound() : Results.Ok(summary);
+    return summary is null ? TypedResults.NotFound() : TypedResults.Ok(summary);
+});
+
+sessions.MapDelete("/{id:guid}", async Task<Results<NoContent, NotFound>> (
+    Guid id,
+    HarkenDbContext db,
+    CancellationToken ct) =>
+{
+    var session = await db.Sessions.FindAsync([id], ct);
+    if (session is null)
+    {
+        return TypedResults.NotFound();
+    }
+
+    session.Deleted = true;
+    await db.SaveChangesAsync(ct);
+
+    return TypedResults.NoContent();
+});
+
+sessions.MapDelete("/{id:guid}/purge", async Task<Results<NoContent, NotFound>> (
+    Guid id,
+    HarkenDbContext db,
+    RecordingStorage storage,
+    CancellationToken ct) =>
+{
+    var session = await db.Sessions
+        .Include(s => s.Recording)
+        .SingleOrDefaultAsync(s => s.Id == id, ct);
+
+    if (session is null)
+    {
+        return TypedResults.NotFound();
+    }
+
+    // Cascade deletes remove Segments, StoredSummary and the Recording row (configured
+    // in HarkenDbContext); the file itself is not part of the DB, so it's removed here.
+    if (session.Recording is not null)
+    {
+        storage.Delete(session.Recording.StoredPath);
+    }
+
+    db.Sessions.Remove(session);
+    await db.SaveChangesAsync(ct);
+
+    return TypedResults.NoContent();
 });
 
 app.Run();

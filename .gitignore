@@ -11,6 +11,7 @@ appsettings.*.json
 # User-specific files
 *.user
 src/Harken.Api/recordings/
+.vs/
 
 # Claude Code harness state
 .claude/scheduled_tasks.lock

@@ -30,15 +30,16 @@ If that prints something older, install the .NET 10 SDK from
 `dotnet --list-sdks` shows what is available; `global.json` decides which is used inside
 this repo.
 
-For the Android client only:
+For the Android client (`src/Harken.Android`, native Kotlin + Jetpack Compose — chosen
+over MAUI for direct, bridge-free access to `AudioRecord` and the foreground service):
+Android SDK (API 36, or use Android Studio's SDK Manager to install it) and JDK 17.
+Point `src/Harken.Android/local.properties` (gitignored) at your SDK, e.g.
+`sdk.dir=C:\\Users\\<you>\\AppData\\Local\\Android\\Sdk`. The Gradle wrapper
+(`gradlew`/`gradlew.bat`) needs no separate Gradle install.
 
-```
-dotnet workload install maui-android
-```
-
-Several GB. Skip it if you are only running the backend and console client — which is the
-right way to start (ADR-0008: the console proves the transcription pipeline before any
-mobile work).
+Skip it if you are only running the backend and console client — which is the right way
+to start (ADR-0008: the console proves the transcription pipeline before any mobile
+work).
 
 ---
 
@@ -253,7 +254,9 @@ In order, so a failure points at one thing:
 
 1. **Build and test** — `bash .claude/scripts/check.sh` then
    `bash .claude/scripts/test-fast.sh`. These touch no external service; a failure here is
-   the code or the SDK.
+   the code or the SDK. Both scripts also build `src/Harken.Android` (`gradlew
+   assembleDebug`) and run its JVM unit tests (`gradlew testDebugUnitTest`) — a Gradle
+   failure here is the native client, not the backend.
 2. **Backend boots** — `dotnet run --project src/Harken.Api`. Then
    `curl http://localhost:5057/health` → `{"status":"ok"}`.
 3. **Transcription** — run the console client, record a short clip, and let it transcribe.
@@ -270,6 +273,11 @@ In order, so a failure points at one thing:
 Steps 3, 4 and 5 have never been run in this project's history — they are the real
 verification frontier. Everything before them is covered by automated tests.
 
+Steps 4 and 5 have since been run successfully over a USB `adb reverse tcp:5057 tcp:5057`
+tunnel — see [`onboarding.md`](onboarding.md)'s Option B note. Full phone flow confirmed:
+record, lock screen, stop from notification, upload, transcript, summarize, and the
+offline-recovery path (stop the backend mid-recording, confirm the app keeps the file).
+
 ---
 
 ## Troubleshooting
@@ -280,7 +288,7 @@ verification frontier. Everything before them is covered by automated tests.
 | Transcription very slow | running on CPU. Confirm the CUDA runtime package is referenced and the GPU is visible |
 | Transcription starts then dies | out of VRAM — Gemma still resident. Shorten `OLLAMA_KEEP_ALIVE` or use a smaller model |
 | Transcript is nonsense or repeats a phrase | Whisper hallucinating on silence or noise. Try a larger model; check the audio is actually 16 kHz mono |
-| `502` on summarize | Ollama not running or model not pulled — `curl http://localhost:11434/api/tags` |
+| `502` on summarize | Ollama not installed, not running, or model not pulled — `curl http://localhost:11434/api/tags` (connection refused means not installed/not running; empty/missing model in the list means pull it) |
 | `404` on a session id | the id does not exist — sessions are never deleted, so double-check it |
 | Upload fails from the phone | use the PC's LAN IP, not `localhost`; same Wi-Fi; Windows Firewall may need to allow the port. The recording is kept on the device and its path shown — retry is safe, `recordingId` makes it idempotent |
 | Phone cannot reach the backend at all | `launchSettings.json` binds `localhost` only. Start it as `dotnet run --project src/Harken.Api --urls http://0.0.0.0:5057` |

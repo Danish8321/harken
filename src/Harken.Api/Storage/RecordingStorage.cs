@@ -30,4 +30,14 @@ public sealed class RecordingStorage
 
         return path;
     }
+
+    /// <summary>Permanently removes a Session's audio file from disk. Only the purge
+    /// path calls this — a soft delete never touches the filesystem.</summary>
+    public void Delete(string storedPath)
+    {
+        if (File.Exists(storedPath))
+        {
+            File.Delete(storedPath);
+        }
+    }
 }

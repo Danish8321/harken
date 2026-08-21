@@ -16,6 +16,28 @@ decisions behind the shape of this thing.
 > quieter audio is still unmeasured — see `docs/plans/slice-04-record-then-transcribe.md`,
 > "Carried, unresolved".
 
+## What is this
+
+Harken turns spoken audio — a meeting, a lecture, a voice memo, a conversation — into
+searchable text and a short AI summary, with zero cloud dependency and zero cost per
+recording. Point a phone or a mic at a conversation, hit record, and later read what was
+said instead of re-listening to it.
+
+- **Capture** from either client: the Android app (phone as a portable recorder — a
+  foreground service keeps recording through a locked screen) or the console app (PC mic).
+- **Transcribe** locally via Whisper (`ggml-base.en.bin`), running on this machine — no
+  audio ever leaves the LAN, no per-minute billing, no API key.
+- **Summarize** on request via a local Gemma model through Ollama — same story, no cloud
+  account.
+- **Review** transcripts and summaries from either client, whenever transcription finishes
+  — recording and playback of results are decoupled; you don't wait around for a summary.
+
+It is intentionally single-user for MVP 1: one implicit user, no accounts, no auth, meant
+for one person's own recordings on their own LAN (ADR-0009). The design bet is that most
+of the friction in "I recorded something, now what" is turnaround time and cost, not
+accuracy at scale — so the whole pipeline is built to run entirely on hardware someone
+already owns.
+
 ## Prerequisites
 
 **Setting up a machine from scratch? Start at [`docs/setup.md`](docs/setup.md)** — it
@@ -116,22 +138,20 @@ dotnet ef database update --project src/Harken.Api
 ## Mobile (Android)
 
 The phone is a capture device: record → upload → poll → transcript, the console's flow on
-Android. See `docs/plans/slice-06-mobile-recording.md` for scope,
-`docs/adr/0003-mobile-foreground-service.md` for why recording runs as a foreground
-service, and `docs/plans/slice-02-mobile-android.md` for the earlier shell it replaced.
-
-> **Not yet verified on hardware.** Slice 06's capture, upload, and notification tasks
-> build and their pure logic is unit-tested, but the end-to-end run on a real phone has
-> not happened. Treat this section as what the code intends to do.
+Android. Native Kotlin + Jetpack Compose (`src/Harken.Android`) — chosen over an earlier
+MAUI client for direct, bridge-free access to `AudioRecord` and the foreground service.
+See `docs/adr/0003-mobile-foreground-service.md` for why recording runs as a foreground
+service.
 
 ### Prerequisites
 
-- `dotnet workload install maui-android` (pulls Android SDK/build tools — several GB).
+- Android SDK (API 36) + JDK 17. Point `src/Harken.Android/local.properties`
+  (gitignored) at your SDK, e.g. `sdk.dir=C:\\Users\\<you>\\AppData\\Local\\Android\\Sdk`.
 - A device to run on: a physical Android phone with **USB debugging enabled**
   (Settings → About phone → tap Build number ×7 → Developer options → USB debugging),
-  or an emulator via Android Studio's Device Manager / Visual Studio's
-  ".NET Multi-platform App UI development" workload.
-- Backend running and reachable on the same Wi-Fi/LAN as the phone — note your PC's LAN IP
+  or an Android Studio emulator.
+- Backend running and reachable on the same Wi-Fi/LAN as the phone (or via a USB
+  `adb reverse` tunnel — see `docs/onboarding.md` §5b) — note your PC's LAN IP
   (`ipconfig`), not `localhost`. `launchSettings.json` binds to `localhost` only, which the
   phone cannot reach, so start the API bound to all interfaces:
 
@@ -143,16 +163,19 @@ service, and `docs/plans/slice-02-mobile-android.md` for the earlier shell it re
 
 ### Configure
 
-Open the app → **Settings** tab → enter the backend base URL as
-`http://<your-pc-LAN-IP>:5057` (port from `launchSettings.json`) → Save.
+First launch runs a 3-step onboarding wizard: enter the backend base URL as
+`http://<your-pc-LAN-IP>:5057` and tap **Test connection** before it saves. Change it
+later from **Settings**.
 
 ### Run
 
 ```
-dotnet build src/Harken.Mobile -t:Run -f net10.0-android
+cd src/Harken.Android
+./gradlew installDebug
 ```
 
-or deploy from Visual Studio with the phone selected as the target device.
+then launch it from the phone's app drawer, or open `src/Harken.Android` in Android
+Studio and hit Run.
 
 Permissions are requested at the point of first **Record**, not at launch — a prompt means
 something to someone who just tapped Record and nothing to someone who just opened the app.
@@ -162,15 +185,24 @@ never blocks recording.
 
 ### Use
 
-No sign-in step (ADR-0009) — the app opens straight on **Sessions**.
+No sign-in step (ADR-0009) — the app opens straight on **Record**, one of three tabs
+reachable from a bottom navigation bar: **Record**, **Recordings**, **Settings**.
 
 - **Record → Stop.** Audio is captured to a WAV file in the app's private storage, then
-  uploaded on stop; the page polls until transcription finishes and shows the transcript.
-  ADR-0007 keeps all transcription on the backend, so the phone never runs a model itself.
-- **Refresh** lists sessions; picking one and hitting **Summarize** needs Ollama running on
-  the backend host, same as the console flow.
+  uploaded on stop. A **View transcript** button appears once the upload succeeds and
+  opens that session's detail screen. ADR-0007 keeps all transcription on the backend, so
+  the phone never runs a model itself.
+- **Session detail screen** (opened from Record's "View transcript" or by tapping a row in
+  Recordings): shows the transcript, polling while transcription is still running, and a
+  **Summarize** button (needs Ollama running on the backend host, same as the console
+  flow). A summarize failure surfaces as a dismissible banner without blanking an
+  already-loaded transcript.
 - If the upload fails, the recording is **kept** and the page names its path. A recording
   that never reached the backend is not deleted.
+- **Recordings list**: **Refresh** re-fetches from the backend. **Delete** hides a
+  recording from the list but keeps the row and audio file (soft delete). **Delete
+  permanently** asks for confirmation, then removes the row and the WAV file from disk
+  for good.
 
 ### Recording limits and storage cost
 
