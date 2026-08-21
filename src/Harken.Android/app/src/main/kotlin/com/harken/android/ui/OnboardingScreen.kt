@@ -220,9 +220,9 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
 
             Box(modifier = Modifier.weight(1f))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (state.step > 1) {
-                    OutlinedButton(onClick = viewModel::back, shape = PillShape) { Text("Back") }
+                    OutlinedButton(onClick = viewModel::back, modifier = Modifier.weight(1f), shape = PillShape) { Text("Back") }
                 }
                 if (state.step < 3) {
                     Button(

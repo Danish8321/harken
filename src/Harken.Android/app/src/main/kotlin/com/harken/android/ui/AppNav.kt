@@ -18,7 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -36,8 +38,6 @@ private object Routes {
     const val Capture = "capture"
     const val Settings = "settings"
     const val Recordings = "recordings"
-    const val SessionDetail = "recordings/{sessionId}"
-    fun sessionDetail(id: UUID) = "recordings/$id"
 }
 
 private data class BottomDestination(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
@@ -70,35 +70,26 @@ fun AppNav() {
             })
         }
         composable(Routes.Capture) {
-            MainHost(navController) {
-                CaptureScreen(onOpenSession = { id -> navController.navigate(Routes.sessionDetail(id)) })
-            }
+            MainHost(navController) { onOpenSession -> CaptureScreen(onOpenSession = onOpenSession) }
         }
         composable(Routes.Settings) { MainHost(navController) { SettingsScreen() } }
+        // no-op consumes the received onOpenSession param since Settings has no sessions
         composable(Routes.Recordings) {
-            MainHost(navController) {
-                RecordingListScreen(onOpenSession = { id ->
-                    navController.navigate(Routes.sessionDetail(id))
-                })
-            }
-        }
-        composable(
-            Routes.SessionDetail,
-            arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
-        ) { backStackEntry ->
-            val sessionId = UUID.fromString(backStackEntry.arguments?.getString("sessionId"))
-            SessionDetailScreen(sessionId = sessionId, onBack = { navController.popBackStack() })
+            MainHost(navController) { onOpenSession -> RecordingListScreen(onOpenSession = onOpenSession) }
         }
     }
 }
 
 // Shared Scaffold + bottom nav for the three primary tabs (Record, Recordings, Settings)
 // so switching between them is a single tap rather than hunting through top-bar icons.
+// Session detail opens as a modal sheet over whichever tab is active, hoisted here so
+// both Capture and Recordings share one presentation instead of each owning their own.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MainHost(navController: NavHostController, content: @Composable () -> Unit) {
+private fun MainHost(navController: NavHostController, content: @Composable (onOpenSession: (UUID) -> Unit) -> Unit) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+    var openSessionId by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<UUID?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -133,9 +124,13 @@ private fun MainHost(navController: NavHostController, content: @Composable () -
         },
     ) { padding ->
         Box(modifier = androidx.compose.ui.Modifier.padding(padding)) {
-            Crossfade(targetState = currentRoute, label = "tab-crossfade") {
-                content()
+            Crossfade(targetState = currentRoute, label = "tab-crossfade") { _: String? ->
+                content { id -> openSessionId = id }
             }
         }
+    }
+
+    openSessionId?.let { id ->
+        SessionDetailModal(sessionId = id, onDismiss = { openSessionId = null })
     }
 }

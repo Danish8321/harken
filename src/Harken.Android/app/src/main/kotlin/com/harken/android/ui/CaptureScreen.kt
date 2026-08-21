@@ -15,6 +15,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -50,8 +51,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -89,118 +93,99 @@ fun CaptureScreen(
     Column(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(20.dp),
     ) {
-        // Top row: wordmark + live timer.
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        // Centered wordmark; live timer sits under it rather than competing for the row.
+        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Harken", style = MaterialTheme.typography.titleLarge)
             if (state.isRecording) {
                 Text(
                     text = formatElapsed(elapsedSeconds),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
                 )
             }
         }
 
-        Waveform(active = state.isRecording, modifier = Modifier.padding(top = 16.dp))
-
-        // Middle: scrollable content area for summary + transcript status.
-        Column(modifier = Modifier.weight(1f).padding(top = 20.dp)) {
-            val uploadLabel = when (state.uploadStatus) {
-                UploadStatus.Idle -> null
-                UploadStatus.Uploading -> "Uploading…"
-                UploadStatus.Succeeded -> "Uploaded"
-                UploadStatus.Failed -> "Upload failed: ${state.lastError ?: "unknown error"}"
-            }
-
-            AnimatedVisibility(
-                visible = state.uploadStatus == UploadStatus.Succeeded && state.lastSessionId != null,
-                enter = fadeIn(tween(600)) + scaleIn(initialScale = 0.97f, animationSpec = tween(600)),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(MaterialTheme.colorScheme.secondaryContainer)
-                        .padding(20.dp)
-                        .then(Modifier),
-                ) {
-                    Column {
-                        Text(
-                            "Summary so far",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                        Text(
-                            "Ready — open the transcript to read the summary and full text.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                        OutlinedButton(
-                            modifier = Modifier.padding(top = 12.dp),
-                            shape = PillShape,
-                            onClick = { state.lastSessionId?.let(onOpenSession) },
-                        ) { Text("View transcript") }
-                    }
+        // Middle: one merged capture visual — glow, waveform and the record button
+        // together as a single unit, plus status copy — rather than scattered pieces.
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(220.dp)) {
+                if (state.isRecording) {
+                    GlowOrb(modifier = Modifier.size(220.dp))
                 }
+                RecordButton(
+                    isRecording = state.isRecording,
+                    onClick = {
+                        if (!hasMicPermission) {
+                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        } else if (state.isRecording) {
+                            viewModel.stopRecording()
+                        } else {
+                            viewModel.startRecording()
+                        }
+                    },
+                )
+                Waveform(
+                    active = state.isRecording,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp).width(120.dp),
+                )
             }
 
-            AnimatedVisibility(visible = uploadLabel != null && state.uploadStatus != UploadStatus.Succeeded) {
-                Row(
-                    modifier = Modifier.padding(top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (state.uploadStatus == UploadStatus.Uploading) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    }
+            Box(modifier = Modifier.padding(top = 28.dp)) {
+                if (state.isRecording) {
+                    RecordingTag()
+                } else {
                     Text(
-                        text = uploadLabel ?: "",
-                        color = if (state.uploadStatus == UploadStatus.Failed) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                        text = "Tap the mic to start capturing audio.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
+        }
 
-            if (state.uploadStatus == UploadStatus.Idle) {
+        // Bottom: upload/status feedback, then the summary CTA as a single full-width
+        // pill anchored at the bottom rather than a floating card mid-screen.
+        val uploadLabel = when (state.uploadStatus) {
+            UploadStatus.Idle -> null
+            UploadStatus.Uploading -> "Uploading…"
+            UploadStatus.Succeeded -> "Uploaded"
+            UploadStatus.Failed -> "Upload failed: ${state.lastError ?: "unknown error"}"
+        }
+
+        AnimatedVisibility(visible = uploadLabel != null && state.uploadStatus != UploadStatus.Succeeded) {
+            Row(
+                modifier = Modifier.padding(bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (state.uploadStatus == UploadStatus.Uploading) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                }
                 Text(
-                    text = if (state.isRecording) {
-                        "Recording… lock your screen freely, capture keeps running."
+                    text = uploadLabel ?: "",
+                    color = if (state.uploadStatus == UploadStatus.Failed) {
+                        MaterialTheme.colorScheme.error
                     } else {
-                        "Tap the mic to start capturing audio."
+                        MaterialTheme.colorScheme.onSurfaceVariant
                     },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
                 )
             }
         }
 
-        // Bottom (thumb zone): status tag + record/stop button.
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-            if (state.isRecording) {
-                RecordingTag()
-                Box(modifier = Modifier.padding(top = 20.dp))
-            }
-            RecordButton(
-                isRecording = state.isRecording,
-                onClick = {
-                    if (!hasMicPermission) {
-                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                    } else if (state.isRecording) {
-                        viewModel.stopRecording()
-                    } else {
-                        viewModel.startRecording()
-                    }
-                },
-            )
+        AnimatedVisibility(
+            visible = state.uploadStatus == UploadStatus.Succeeded && state.lastSessionId != null,
+            enter = fadeIn(tween(600)) + scaleIn(initialScale = 0.97f, animationSpec = tween(600)),
+        ) {
+            OutlinedButton(
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = PillShape,
+                onClick = { state.lastSessionId?.let(onOpenSession) },
+            ) { Text("View summary & transcript") }
         }
     }
 }
@@ -248,6 +233,7 @@ private fun RecordingTag() {
 
 @Composable
 private fun RecordButton(isRecording: Boolean, onClick: () -> Unit) {
+    val haptic = LocalHapticFeedback.current
     val infiniteTransition = rememberInfiniteTransition(label = "ring-pulse")
     val ringScale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -293,7 +279,10 @@ private fun RecordButton(isRecording: Boolean, onClick: () -> Unit) {
                 .clickable(
                     interactionSource = interactionSource,
                     indication = null,
-                    onClick = onClick,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onClick()
+                    },
                 ),
             contentAlignment = Alignment.Center,
         ) {
@@ -307,11 +296,33 @@ private fun RecordButton(isRecording: Boolean, onClick: () -> Unit) {
     }
 }
 
+// Soft single-color pulse behind the record button while capturing — concentric rings
+// in the theme's primary color, not a rainbow blob, to stay on the Organic palette.
+@Composable
+private fun GlowOrb(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "glow-orb")
+    val pulse by infiniteTransition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(tween(1800, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
+        label = "glowPulse",
+    )
+    val color = MaterialTheme.colorScheme.primary
+
+    Canvas(modifier = modifier) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val maxRadius = size.minDimension / 2f
+        listOf(0.55f to 0.10f, 0.40f to 0.16f, 0.28f to 0.24f).forEach { (fraction, alpha) ->
+            drawCircle(color = color.copy(alpha = alpha), radius = maxRadius * fraction * pulse, center = center)
+        }
+    }
+}
+
 @Composable
 private fun Waveform(active: Boolean, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier.fillMaxWidth().height(36.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(8) { index ->
