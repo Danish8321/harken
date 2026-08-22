@@ -3,14 +3,11 @@ package com.harken.android.recording
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
-import androidx.core.app.NotificationCompat
-import com.harken.android.R
 import com.harken.android.audio.AudioRecordCapture
 import com.harken.android.audio.RecordingStopReason
 import com.harken.android.audio.SilenceDetector
@@ -55,7 +52,7 @@ class RecordingForegroundService : Service() {
 
         createNotificationChannelIfNeeded()
         startedAtElapsedMs = SystemClock.elapsedRealtime()
-        startForeground(NotificationId, buildNotification())
+        startForeground(NotificationId, buildNotification(recordingId))
 
         synchronized(writerGate) {
             writer = WavWriter(RandomAccessFile(filePath, "rw"))
@@ -103,21 +100,12 @@ class RecordingForegroundService : Service() {
         super.onDestroy()
     }
 
-    private fun buildNotification(): Notification {
-        val stopIntent = Intent(this, RecordingForegroundService::class.java).apply { action = ActionStop }
-        val stopPendingIntent = PendingIntent.getService(
-            this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        return NotificationCompat.Builder(this, ChannelId)
-            .setContentTitle("Harken is recording")
-            .setSmallIcon(R.drawable.ic_notification_mic)
-            .setOngoing(true)
-            .setUsesChronometer(true)
-            .setWhen(System.currentTimeMillis() - (SystemClock.elapsedRealtime() - startedAtElapsedMs))
-            .addAction(0, "Stop", stopPendingIntent)
-            .build()
-    }
+    private fun buildNotification(recordingId: UUID): Notification = LiveUpdateNotification.recording(
+        context = this,
+        channelId = ChannelId,
+        startedAtWallClockMs = System.currentTimeMillis() - (SystemClock.elapsedRealtime() - startedAtElapsedMs),
+        title = recordingId.toString().take(8),
+    )
 
     private fun createNotificationChannelIfNeeded() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return

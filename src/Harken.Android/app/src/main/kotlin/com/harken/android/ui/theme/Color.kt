@@ -2,8 +2,17 @@ package com.harken.android.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Tokens from the "Organic" design system (design_handoff_harken_mobile_ui) — warm cream
-// ground, terracotta primary (recording) accent, sage secondary (safe/complete) accent.
+// Organic ramps, unchanged in value from the previous Color.kt — what changed is that
+// each role now has exactly one job (see docs/adr/0010-expressive-redesign.md):
+//
+//   Ink        audio surfaces only: capture stage, player, floating toolbar
+//   Accent     "live" and the single primary action on a screen, at full strength
+//   Accent2    "finished and safe": transcribed, summarized, reachable, progress
+//   Neutral    everything else: ground, card, inset field, hairline
+//
+// The old build spent Accent500 at 42%, 24%, 18% and 10% alpha as decoration, which is
+// why nothing on screen had a foreground. Tinted fills now come from the ramp's own
+// light steps (100-300), never from an alpha of the base.
 object Organic {
     val Background = Color(0xFFF5EAD8)
     val Surface = Color(0xFFEBDDC5)
@@ -39,6 +48,9 @@ object Organic {
     val Neutral800 = Color(0xFF474238)
     val Neutral900 = Color(0xFF2E2B25)
 
-    val RadiusContainer = 16
-    val RadiusPill = 999
+    // The ink anchor. Not in the generated ramp as a role, but it is Neutral900 in light
+    // and a step darker in dark, so it stays inside the system rather than beside it.
+    val InkLight = Neutral900
+    val InkDark = Color(0xFF100E0C)
+    val OnInk = Background
 }

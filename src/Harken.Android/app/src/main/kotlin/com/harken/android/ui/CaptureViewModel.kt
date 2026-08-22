@@ -36,6 +36,8 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
     private val api: HarkenApi = NetworkModule.create { runBlockingBaseUrl() }
 
     private var cachedBaseUrl: String = AppSettings.DefaultBaseUrl
+    private var lastRecordingId: java.util.UUID? = null
+    private var lastFilePath: String? = null
 
     private val _uiState = MutableStateFlow(CaptureUiState())
     val uiState: StateFlow<CaptureUiState> = _uiState.asStateFlow()
@@ -66,7 +68,15 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
         RecordingController.stopRecording(getApplication())
     }
 
+    fun retryUpload() {
+        val recordingId = lastRecordingId ?: return
+        val filePath = lastFilePath ?: return
+        upload(recordingId, filePath)
+    }
+
     private fun upload(recordingId: java.util.UUID, filePath: String) {
+        lastRecordingId = recordingId
+        lastFilePath = filePath
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Uploading, lastError = null)
             try {

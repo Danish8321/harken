@@ -75,6 +75,35 @@ was, so an Auto-stop is never mistaken for a crash.
 Where a Session's audio comes from — declared by the client when capture starts, not
 assumed by the backend. Mic (console, mobile) or system/tab audio (browser extension).
 
+## Record screen
+The Android client's capture tab (`RecordScreen`, route `record`). Formerly "Capture".
+Holds the capture stage and the morphing record button.
+
+## Library
+The Android client's list tab (`LibraryScreen`, route `library`). Formerly "Recordings",
+which sat confusingly next to the tab that records.
+
+## Session sheet
+The modal sheet showing one session's player, summary and transcript (`SessionSheet`).
+Formerly "Session detail screen".
+
+## Capture stage
+The dark ("ink") surface on the Record screen carrying the live waveform. Ink is
+reserved for audio surfaces; see ADR-0010.
+
+## Voice 1 / Voice 2
+The output of `SpeakerHeuristic`, which flips a voice index on a gap of two seconds or
+more. NOT diarization: Whisper base.en returns no speaker data, so the UI never says
+"Speaker A" and never uses a name. See ADR-0010.
+
+## Local mirror
+The client-side Room database (`harken-local.db`) holding sessions, segments and
+summaries, plus local-only titles and tags the backend has no field for.
+
+## Live Update
+Android 16's promoted ongoing notification. Harken uses two: recording (chronometer +
+Stop) and transcribing (determinate progress). See ADR-0003 and ADR-0010.
+
 ---
 
 ## Deferred terms

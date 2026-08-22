@@ -1,13 +1,11 @@
 package com.harken.android.ui
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -21,31 +19,34 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import com.harken.android.data.AppSettings
 import java.util.UUID
 
-private object Routes {
+// Routes renamed with the screens: "capture" -> "record", "recordings" -> "library".
+// A tab labelled "Recordings" sitting next to a tab that records was the single most
+// confusing thing in the old navigation.
+object Routes {
     const val Onboarding = "onboarding"
-    const val Capture = "capture"
+    const val Record = "record"
+    const val Library = "library"
     const val Settings = "settings"
-    const val Recordings = "recordings"
 }
 
-private data class BottomDestination(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
-private val bottomDestinations = listOf(
-    BottomDestination(Routes.Capture, "Record", Icons.Filled.Mic),
-    BottomDestination(Routes.Recordings, "Recordings", Icons.AutoMirrored.Filled.List),
-    BottomDestination(Routes.Settings, "Settings", Icons.Filled.Settings),
+private val tabs = listOf(
+    Tab(Routes.Record, "Record", Icons.Filled.Mic),
+    Tab(Routes.Library, "Library", Icons.Filled.LibraryMusic),
+    Tab(Routes.Settings, "Settings", Icons.Filled.Tune),
 )
 
 @Composable
@@ -55,62 +56,57 @@ fun AppNav() {
     val onboardingComplete by settings.onboardingComplete.collectAsState(initial = null)
 
     // Wait for the real DataStore value before picking a start destination — defaulting
-    // to Capture would flash past onboarding for a first-time user on a slow read.
+    // to Record would flash past onboarding for a first-time user on a slow read.
     if (onboardingComplete == null) return
 
     val navController = rememberNavController()
-    val startDestination = if (onboardingComplete == true) Routes.Capture else Routes.Onboarding
 
-    NavHost(navController = navController, startDestination = startDestination) {
+    NavHost(
+        navController = navController,
+        startDestination = if (onboardingComplete == true) Routes.Record else Routes.Onboarding,
+    ) {
         composable(Routes.Onboarding) {
             OnboardingScreen(onFinished = {
-                navController.navigate(Routes.Capture) {
-                    popUpTo(Routes.Onboarding) { inclusive = true }
-                }
+                navController.navigate(Routes.Record) { popUpTo(Routes.Onboarding) { inclusive = true } }
             })
         }
-        composable(Routes.Capture) {
-            MainHost(navController) { onOpenSession -> CaptureScreen(onOpenSession = onOpenSession) }
-        }
+        composable(Routes.Record) { MainHost(navController) { open -> RecordScreen(onOpenSession = open) } }
+        composable(Routes.Library) { MainHost(navController) { open -> LibraryScreen(onOpenSession = open) } }
         composable(Routes.Settings) { MainHost(navController) { SettingsScreen() } }
-        // no-op consumes the received onOpenSession param since Settings has no sessions
-        composable(Routes.Recordings) {
-            MainHost(navController) { onOpenSession -> RecordingListScreen(onOpenSession = onOpenSession) }
-        }
     }
 }
 
-// Shared Scaffold + bottom nav for the three primary tabs (Record, Recordings, Settings)
-// so switching between them is a single tap rather than hunting through top-bar icons.
-// Session detail opens as a modal sheet over whichever tab is active, hoisted here so
-// both Capture and Recordings share one presentation instead of each owning their own.
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MainHost(navController: NavHostController, content: @Composable (onOpenSession: (UUID) -> Unit) -> Unit) {
+private fun MainHost(
+    navController: NavHostController,
+    content: @Composable (onOpenSession: (UUID) -> Unit) -> Unit,
+) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    var openSessionId by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<UUID?>(null) }
+    var openSessionId by remember { mutableStateOf<UUID?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            // Active tab gets a pill-shaped tinted background behind its icon (Organic spec).
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                bottomDestinations.forEach { destination ->
-                    val selected = currentRoute == destination.route
+                tabs.forEach { tab ->
+                    val selected = currentRoute == tab.route
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
                             if (!selected) {
-                                navController.navigate(destination.route) {
+                                navController.navigate(tab.route) {
                                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
                             }
                         },
-                        icon = { Icon(destination.icon, contentDescription = destination.label) },
-                        label = { Text(destination.label) },
+                        icon = { Icon(tab.icon, contentDescription = tab.label) },
+                        // labelMedium is now explicitly Figtree Bold. The old build left it
+                        // un-overridden, which quietly rendered these three labels in Roboto
+                        // while the rest of the app used Figtree.
+                        label = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -123,14 +119,13 @@ private fun MainHost(navController: NavHostController, content: @Composable (onO
             }
         },
     ) { padding ->
-        Box(modifier = androidx.compose.ui.Modifier.padding(padding)) {
-            Crossfade(targetState = currentRoute, label = "tab-crossfade") { _: String? ->
-                content { id -> openSessionId = id }
-            }
-        }
+        // No Crossfade here. The old build crossfaded on currentRoute, which meant the pane
+        // faded on EVERY back-stack change, including opening the sheet. Each screen now
+        // owns its own entry transition on a spatial spring.
+        Box(Modifier.padding(padding)) { content { id -> openSessionId = id } }
     }
 
     openSessionId?.let { id ->
-        SessionDetailModal(sessionId = id, onDismiss = { openSessionId = null })
+        SessionSheet(sessionId = id, onDismiss = { openSessionId = null })
     }
 }
