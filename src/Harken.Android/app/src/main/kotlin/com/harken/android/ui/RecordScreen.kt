@@ -62,9 +62,6 @@ import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalInk
 import com.harken.android.ui.theme.rememberRecordShape
 import java.util.UUID
-import kotlin.math.absoluteValue
-import kotlin.math.sin
-import kotlin.random.Random
 
 // Renamed from CaptureScreen. One screen, one job: start and stop a recording, and make
 // it visible that audio is arriving. The layout is flush-left per the Organic direction —
@@ -261,6 +258,9 @@ private fun CaptureStage(recording: Boolean, elapsed: Int) {
  * waveform STOPS when the audio stops — which is the point. A recording that has gone
  * silent is visible at a glance instead of looking identical to one that has not.
  *
+ * Reads RecordingState.amplitude — the RMS of each chunk AudioRecordCapture hands to
+ * RecordingForegroundService — so the shape on screen is the shape of the actual input.
+ *
  * Deliberately linear rather than sprung: this is a data readout, not a state change, so
  * no spatial or effects token applies (see HarkenMotion's note).
  */
@@ -269,15 +269,14 @@ private fun LiveWaveform(recording: Boolean, modifier: Modifier = Modifier) {
     val bars = remember { mutableStateListOf<Float>().apply { repeat(34) { add(0.06f) } } }
     val colour = MaterialTheme.colorScheme.primary
     val idle = LocalInk.current.onInkDim
+    val amplitude by com.harken.android.recording.RecordingState.amplitude.collectAsState()
 
     LaunchedEffect(recording) {
         while (recording) {
             kotlinx.coroutines.delay(75)
-            // TODO(backend-free): swap for the real RMS of the AudioRecord buffer once
-            // RecordingForegroundService exposes it — the shape of this loop does not change.
-            val previous = bars.lastOrNull() ?: 0.3f
-            val speech = 0.35f + 0.45f * sin(System.currentTimeMillis() / 520.0).absoluteValue.toFloat()
-            val next = (previous * 0.45f + speech * 0.55f + (Random.nextFloat() - 0.42f) * 0.2f).coerceIn(0.06f, 1f)
+            // A little visual gain on top of raw RMS: quiet speech barely moved the bars
+            // otherwise, since full-scale 16-bit RMS for a normal voice sits well under 1.0.
+            val next = (amplitude * 3.2f).coerceIn(0.06f, 1f)
             bars.removeAt(0)
             bars.add(next)
         }

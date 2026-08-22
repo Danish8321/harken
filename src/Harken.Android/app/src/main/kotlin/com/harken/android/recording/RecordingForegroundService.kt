@@ -76,9 +76,27 @@ class RecordingForegroundService : Service() {
             writer?.write(chunk, 0, chunk.size)
             stopReason = silenceDetector?.add(chunk, 0, chunk.size) ?: RecordingStopReason.None
         }
+        RecordingState.publishAmplitude(pcm16Rms(chunk))
         if (stopReason != RecordingStopReason.None) {
             stopRecording(stopReason)
         }
+    }
+
+    /** RMS of a little-endian 16-bit PCM chunk, normalized to [0, 1] against full scale. */
+    private fun pcm16Rms(chunk: ByteArray): Float {
+        if (chunk.size < 2) return 0f
+        var sumSquares = 0.0
+        var sampleCount = 0
+        var i = 0
+        while (i + 1 < chunk.size) {
+            val sample = ((chunk[i + 1].toInt() shl 8) or (chunk[i].toInt() and 0xFF)).toShort().toInt()
+            sumSquares += (sample * sample).toDouble()
+            sampleCount += 1
+            i += 2
+        }
+        if (sampleCount == 0) return 0f
+        val rms = kotlin.math.sqrt(sumSquares / sampleCount)
+        return (rms / Short.MAX_VALUE).toFloat().coerceIn(0f, 1f)
     }
 
     private fun stopRecording(stopReason: RecordingStopReason) {

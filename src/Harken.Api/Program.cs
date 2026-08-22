@@ -287,6 +287,25 @@ sessions.MapGet("/{id:guid}", async Task<Results<Ok<SessionDetail>, NotFound>> (
         session.TranscriptionFailureReason));
 });
 
+sessions.MapGet("/{id:guid}/audio", async Task<Results<FileStreamHttpResult, NotFound>> (
+    Guid id,
+    HarkenDbContext db,
+    CancellationToken ct) =>
+{
+    var recording = await db.Sessions
+        .Where(s => s.Id == id && !s.Deleted)
+        .Select(s => s.Recording)
+        .FirstOrDefaultAsync(ct);
+
+    if (recording is null || !File.Exists(recording.StoredPath))
+    {
+        return TypedResults.NotFound();
+    }
+
+    var stream = File.OpenRead(recording.StoredPath);
+    return TypedResults.Stream(stream, recording.ContentType, enableRangeProcessing: true);
+});
+
 sessions.MapPost("/{id:guid}/summary", async Task<Results<Ok<SessionSummary>, NotFound, ProblemHttpResult>> (
     Guid id,
     SummarizeAgent agent,

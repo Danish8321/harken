@@ -9,6 +9,7 @@ import com.harken.android.data.SessionRepository
 import com.harken.android.data.SpeakerHeuristic
 import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.network.NetworkModule
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,7 +29,7 @@ data class SessionSheetUiState(
     val durationSeconds: Int = 0,
     val playheadSeconds: Int = 0,
     val playing: Boolean = false,
-    /** False until GET /sessions/{id}/audio exists — see ADR-0010. */
+    val status: String? = null,
     val audioAvailable: Boolean = false,
     val waveform: List<Float> = emptyList(),
     val summaryOptionsOpen: Boolean = false,
@@ -57,13 +58,26 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
     val uiState: StateFlow<SessionSheetUiState> = _uiState.asStateFlow()
 
     private var player: MediaPlayer? = null
+    private var currentSessionId: UUID? = null
+    private var observeJob: Job? = null
+    private var pollJob: Job? = null
+    private var tickerJob: Job? = null
 
     init {
         viewModelScope.launch { settings.baseUrl.collect { cachedBaseUrl = it } }
     }
 
     fun load(id: UUID) {
-        viewModelScope.launch {
+        // A prior session's jobs must not keep running once a new one loads — otherwise
+        // opening several sessions in one sheet lifetime piles up polling loops that keep
+        // rewriting an old session's rows in the background, which is what made the
+        // Library list (and this sheet, if reopened) intermittently flicker.
+        observeJob?.cancel()
+        pollJob?.cancel()
+        currentSessionId = id
+        releasePlayer()
+
+        observeJob = viewModelScope.launch {
             combine(
                 repository.observeSession(id),
                 repository.observeSegments(id),
@@ -80,17 +94,23 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
                     summary = summary?.summary?.let(::stripMarkdown),
                     transcriptMeta = "${rows.size} segments${if (voices > 1) " · $voices voices" else ""}",
                     voiceCount = voices,
+                    status = session?.status,
                     durationSeconds = duration,
+                    audioAvailable = session != null,
                     waveform = waveformFor(id, duration),
                 )
             }.collect { _uiState.value = it }
         }
-        // Transcription runs async on the backend, so keep reconciling until it settles.
-        viewModelScope.launch {
+        // Transcription runs async on the backend, so keep reconciling until it reaches a
+        // terminal state (Succeeded or Failed) — not until a summary shows up, since a
+        // summary is only ever generated on request and would otherwise never arrive,
+        // leaving this polling and rewriting the session's rows for up to ten minutes.
+        pollJob = viewModelScope.launch {
             var attempts = 0
             while (attempts < 200) {
                 repository.refreshDetail(id).onFailure { e -> _uiState.value = _uiState.value.copy(error = e.message) }
-                if (_uiState.value.segments.isNotEmpty() && _uiState.value.summary != null) break
+                val status = _uiState.value.status
+                if (status == "Succeeded" || status == "Failed") break
                 kotlinx.coroutines.delay(3000)
                 attempts += 1
             }
@@ -127,19 +147,61 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun togglePlay() {
-        // BACKEND WORK REQUIRED. Once GET /sessions/{id}/audio ships, point MediaPlayer at
-        // "$cachedBaseUrl/sessions/{id}/audio" and drive playheadSeconds from
-        // currentPosition. Until then audioAvailable stays false and the controls are
-        // disabled with a stated reason — never silently dead.
         if (!_uiState.value.audioAvailable) return
-        val p = player ?: return
-        if (p.isPlaying) p.pause() else p.start()
+        val id = currentSessionId ?: return
+
+        val p = player
+        if (p == null) {
+            preparePlayer(id)
+            return
+        }
+        if (p.isPlaying) {
+            p.pause()
+            tickerJob?.cancel()
+        } else {
+            p.start()
+            startTicker(p)
+        }
         _uiState.value = _uiState.value.copy(playing = p.isPlaying)
     }
 
+    private fun preparePlayer(id: UUID) {
+        val url = "${cachedBaseUrl.trimEnd('/')}/sessions/$id/audio"
+        val p = MediaPlayer()
+        player = p
+        try {
+            p.setDataSource(url)
+            p.setOnPreparedListener { prepared ->
+                prepared.seekTo(_uiState.value.playheadSeconds * 1000)
+                prepared.start()
+                _uiState.value = _uiState.value.copy(playing = true)
+                startTicker(prepared)
+            }
+            p.setOnCompletionListener {
+                tickerJob?.cancel()
+                _uiState.value = _uiState.value.copy(playing = false, playheadSeconds = 0)
+            }
+            p.prepareAsync()
+        } catch (e: Exception) {
+            player = null
+            _uiState.value = _uiState.value.copy(error = e.message)
+        }
+    }
+
+    private fun startTicker(p: MediaPlayer) {
+        tickerJob?.cancel()
+        tickerJob = viewModelScope.launch {
+            while (true) {
+                _uiState.value = _uiState.value.copy(playheadSeconds = p.currentPosition / 1000)
+                kotlinx.coroutines.delay(200)
+            }
+        }
+    }
+
     fun seekTo(seconds: Int) {
-        _uiState.value = _uiState.value.copy(playheadSeconds = seconds.coerceIn(0, _uiState.value.durationSeconds))
-        player?.seekTo(seconds * 1000)
+        val clamped = seconds.coerceIn(0, _uiState.value.durationSeconds)
+        _uiState.value = _uiState.value.copy(playheadSeconds = clamped)
+        player?.seekTo(clamped * 1000)
     }
 
     fun share() { /* wired by the host Activity via ACTION_SEND, unchanged from the previous build */ }
@@ -148,9 +210,14 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
         _uiState.value = _uiState.value.copy(toast = message)
     }
 
-    override fun onCleared() {
+    private fun releasePlayer() {
+        tickerJob?.cancel()
         player?.release()
         player = null
+    }
+
+    override fun onCleared() {
+        releasePlayer()
     }
 
     private fun buildMeta(session: SessionRepository.SessionView?, duration: Int): String {

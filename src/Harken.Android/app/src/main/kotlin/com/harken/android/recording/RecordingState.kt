@@ -29,6 +29,16 @@ object RecordingState {
     private val _isRecording = MutableStateFlow(false)
     val isRecording = _isRecording.asStateFlow()
 
+    // The capture thread publishes one normalized RMS sample per chunk; RecordScreen's
+    // waveform reads it directly instead of drawing a decorative sine — see
+    // AudioRecordCapture's chunk callback in RecordingForegroundService.
+    private val _amplitude = MutableStateFlow(0f)
+    val amplitude = _amplitude.asStateFlow()
+
+    fun publishAmplitude(value: Float) {
+        _amplitude.value = value
+    }
+
     val recordingId: UUID?
         get() = current.get()?.recordingId
 

@@ -1,6 +1,5 @@
 package com.harken.android.ui
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -206,11 +205,13 @@ private fun SessionRowCard(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             // A bar scaled to REAL duration, relative to the longest recording in the
             // list. Honest data in the space the fake waveform used to fill.
-            val fraction by animateFloatAsState(
-                targetValue = ((session.durationSeconds ?: 0).toFloat() / longestSeconds).coerceIn(0f, 1f),
-                animationSpec = com.harken.android.ui.theme.HarkenMotion.spatialDefault(),
-                label = "durationBar",
-            )
+            //
+            // Deliberately unanimated: LazyColumn discards and recreates this composable's
+            // state every time the row scrolls out of view and back, so an animateFloatAsState
+            // here restarted from 0 on every re-entry, reading as a glitch during a scroll.
+            // The duration itself never changes while the row is visible, so there is
+            // nothing to animate.
+            val fraction = ((session.durationSeconds ?: 0).toFloat() / longestSeconds).coerceIn(0f, 1f)
             LinearProgressIndicator(
                 progress = { fraction },
                 modifier = Modifier.weight(1f).height(6.dp),
