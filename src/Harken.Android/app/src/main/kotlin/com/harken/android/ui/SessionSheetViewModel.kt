@@ -30,6 +30,7 @@ data class SessionSheetUiState(
     val playheadSeconds: Int = 0,
     val playing: Boolean = false,
     val status: String? = null,
+    val summarizing: Boolean = false,
     val audioAvailable: Boolean = false,
     val waveform: List<Float> = emptyList(),
     val summaryOptionsOpen: Boolean = false,
@@ -129,10 +130,13 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun summarize(id: UUID) {
+        if (_uiState.value.summarizing) return
+        _uiState.value = _uiState.value.copy(summarizing = true)
         viewModelScope.launch {
             repository.summarize(id)
                 .onSuccess { confirm("Summary ready") }
                 .onFailure { e -> _uiState.value = _uiState.value.copy(error = e.message) }
+            _uiState.value = _uiState.value.copy(summarizing = false)
         }
     }
 
