@@ -1,6 +1,7 @@
 package com.harken.android.ui
 
 import android.app.Application
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -150,91 +151,118 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                 modifier = Modifier.padding(top = 12.dp),
             )
 
-            when (state.step) {
-                1 -> {
-                    Text(
-                        "Connect to your backend",
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.padding(top = 16.dp),
+            // Content fills the space between the progress header and the nav buttons,
+            // and is centered both ways within it rather than pinned to the top-left —
+            // step 1's form and steps 2/3's icon+text now sit in the same visual spot.
+            // AnimatedContent slides+fades between steps so Back/Continue feels like
+            // navigation, not an instant swap.
+            androidx.compose.animation.AnimatedContent(
+                targetState = state.step,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                transitionSpec = {
+                    val forward = targetState >= initialState
+                    (
+                        androidx.compose.animation.slideInHorizontally(
+                            animationSpec = androidx.compose.animation.core.tween(250),
+                        ) { width -> if (forward) width / 3 else -width / 3 } +
+                            androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(250))
+                    ).togetherWith(
+                        androidx.compose.animation.slideOutHorizontally(
+                            animationSpec = androidx.compose.animation.core.tween(250),
+                        ) { width -> if (forward) -width / 3 else width / 3 } +
+                            androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(250)),
                     )
-                    Text(
-                        "Enter the address of your Harken backend.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                    OutlinedTextField(
-                        value = state.baseUrl,
-                        onValueChange = viewModel::onBaseUrlChanged,
-                        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                        singleLine = true,
-                        shape = PillShape,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        ),
-                        label = { Text("http://host:port") },
-                    )
-                    OutlinedButton(
-                        onClick = viewModel::testConnection,
-                        modifier = Modifier.padding(top = 16.dp),
-                        shape = PillShape,
-                        enabled = state.connectionCheck != ConnectionCheck.Checking,
-                    ) {
-                        if (state.connectionCheck == ConnectionCheck.Checking) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        } else {
-                            Text("Test connection")
-                        }
-                    }
-                    state.connectionMessage?.let {
-                        if (state.connectionCheck == ConnectionCheck.Connected) {
-                            ConnectedTag(modifier = Modifier.padding(top = 12.dp))
-                        } else if (state.connectionCheck != ConnectionCheck.Checking) {
-                            Row(
-                                modifier = Modifier.padding(top = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                },
+                label = "onboardingStep",
+            ) { step ->
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    when (step) {
+                        1 -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "Connect to your backend",
+                                style = MaterialTheme.typography.headlineSmall,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Text(
+                                "Enter the address of your Harken backend.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            )
+                            OutlinedTextField(
+                                value = state.baseUrl,
+                                onValueChange = viewModel::onBaseUrlChanged,
+                                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                                singleLine = true,
+                                shape = PillShape,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                ),
+                                label = { Text("http://host:port") },
+                            )
+                            OutlinedButton(
+                                onClick = viewModel::testConnection,
+                                modifier = Modifier.padding(top = 16.dp).height(56.dp),
+                                shape = PillShape,
+                                enabled = state.connectionCheck != ConnectionCheck.Checking,
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Error,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                                Text(text = it, color = MaterialTheme.colorScheme.error)
+                                if (state.connectionCheck == ConnectionCheck.Checking) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Text("Test connection")
+                                }
+                            }
+                            state.connectionMessage?.let {
+                                if (state.connectionCheck == ConnectionCheck.Connected) {
+                                    ConnectedTag(modifier = Modifier.padding(top = 12.dp))
+                                } else if (state.connectionCheck != ConnectionCheck.Checking) {
+                                    Row(
+                                        modifier = Modifier.padding(top = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Error,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                        Text(text = it, color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
                             }
                         }
+                        2 -> OnboardingExplainer(
+                            icon = Icons.Filled.Lock,
+                            text = "Harken records via a foreground service with a persistent notification, so it keeps recording when your screen locks. Grant microphone access when asked.",
+                        )
+                        3 -> OnboardingExplainer(
+                            icon = Icons.Filled.GraphicEq,
+                            text = "Record, then upload — Harken keeps the local WAV file and uploads it to your backend for transcription and summary.",
+                        )
                     }
                 }
-                2 -> OnboardingExplainer(
-                    icon = Icons.Filled.Lock,
-                    text = "Harken records via a foreground service with a persistent notification, so it keeps recording when your screen locks. Grant microphone access when asked.",
-                )
-                3 -> OnboardingExplainer(
-                    icon = Icons.Filled.GraphicEq,
-                    text = "Record, then upload — Harken keeps the local WAV file and uploads it to your backend for transcription and summary.",
-                )
             }
-
-            Box(modifier = Modifier.weight(1f))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (state.step > 1) {
-                    OutlinedButton(onClick = viewModel::back, modifier = Modifier.weight(1f), shape = PillShape) { Text("Back") }
+                    OutlinedButton(onClick = viewModel::back, modifier = Modifier.weight(1f).height(56.dp), shape = PillShape) { Text("Back") }
                 }
                 if (state.step < 3) {
                     Button(
                         onClick = viewModel::next,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(56.dp),
                         shape = PillShape,
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     ) { Text("Continue") }
                 } else {
                     Button(
                         onClick = { viewModel.finish(onFinished) },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(56.dp),
                         shape = PillShape,
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     ) { Text("Continue") }
@@ -270,7 +298,10 @@ private fun ConnectedTag(modifier: Modifier = Modifier) {
 
 @Composable
 private fun OnboardingExplainer(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
-    Column(modifier = Modifier.padding(top = 32.dp)) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Box(
             modifier = Modifier
                 .size(56.dp)
@@ -288,6 +319,7 @@ private fun OnboardingExplainer(icon: androidx.compose.ui.graphics.vector.ImageV
         Text(
             text = text,
             style = MaterialTheme.typography.bodyLarge,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.padding(top = 16.dp),
         )
     }

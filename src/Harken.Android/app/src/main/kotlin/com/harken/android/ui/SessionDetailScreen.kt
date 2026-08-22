@@ -53,6 +53,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
@@ -245,7 +249,7 @@ fun SessionDetailModal(
             // Fixed below the scrollable transcript, not part of it — the summary
             // stays reachable without scrolling through the whole transcript first.
             state.detail?.let { detail ->
-                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
                     SummarySection(
                         summary = detail.summary?.summary,
                         isSummarizing = state.isSummarizing,
@@ -322,29 +326,41 @@ private fun SummarySection(
         label = "chevronRotation",
     )
 
-    Row(
-        modifier = Modifier
-            .padding(top = 12.dp)
-            .fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("Summary", style = MaterialTheme.typography.labelLarge)
-        if (summary == null) {
-            OutlinedButton(onClick = onSummarize, enabled = !isSummarizing) {
-                if (isSummarizing) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                        Text("Summarizing…")
-                    }
-                } else {
-                    Text("Summarize")
-                }
+    if (summary != null) {
+        // A real Button, not a Row+clickable — gets Material's ripple, focus, and
+        // accessibility semantics (toggle role, expanded/collapsed state) for free,
+        // where a bare clickable Row silently drops all of that.
+        androidx.compose.material3.TextButton(
+            onClick = { expanded = !expanded },
+            modifier = Modifier
+                .padding(top = 12.dp)
+                .fillMaxWidth()
+                .semantics {
+                    role = Role.Button
+                    stateDescription = if (expanded) "Expanded" else "Collapsed"
+                },
+            shape = com.harken.android.ui.theme.PillShape,
+            colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Summary", style = MaterialTheme.typography.labelLarge)
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Collapse summary" else "Expand summary",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.rotate(chevronRotation),
+                )
             }
         }
-    }
 
-    if (summary != null) {
         AnimatedVisibility(visible = expanded, enter = expandVertically(), exit = shrinkVertically()) {
             // Bordered + shadowed like the sheet itself opens over its host — the card
             // reads as a panel nested under the dialog, not a flat fill block.
@@ -373,19 +389,35 @@ private fun SummarySection(
                 }
             }
         }
-        // Centered collapse control anchored under the card, not a header chevron —
-        // the affordance sits where the reader finishes reading, not where they started.
-        Row(modifier = Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.Center) {
-            IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(44.dp)) {
-                Icon(
-                    imageVector = Icons.Filled.KeyboardArrowDown,
-                    contentDescription = if (expanded) "Collapse summary" else "Expand summary",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.rotate(chevronRotation),
-                )
+    } else {
+        Row(
+            modifier = Modifier
+                .padding(top = 12.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Summary", style = MaterialTheme.typography.labelLarge)
+            OutlinedButton(
+                onClick = onSummarize,
+                enabled = !isSummarizing,
+                shape = com.harken.android.ui.theme.PillShape,
+                modifier = Modifier.height(36.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+            ) {
+                if (isSummarizing) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                        Text("Summarizing…")
+                    }
+                } else {
+                    Text("Summarize")
+                }
             }
         }
-    } else if (!isSummarizing && transcriptionStatus != TranscriptionStatus.Succeeded) {
+    }
+
+    if (summary == null && !isSummarizing && transcriptionStatus != TranscriptionStatus.Succeeded) {
         Text(
             "Summary available once transcription finishes.",
             style = MaterialTheme.typography.bodySmall,

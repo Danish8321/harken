@@ -10,6 +10,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
+import com.harken.android.R
 import com.harken.android.audio.AudioRecordCapture
 import com.harken.android.audio.RecordingStopReason
 import com.harken.android.audio.SilenceDetector
@@ -110,7 +111,7 @@ class RecordingForegroundService : Service() {
 
         return NotificationCompat.Builder(this, ChannelId)
             .setContentTitle("Harken is recording")
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setSmallIcon(R.drawable.ic_notification_mic)
             .setOngoing(true)
             .setUsesChronometer(true)
             .setWhen(System.currentTimeMillis() - (SystemClock.elapsedRealtime() - startedAtElapsedMs))

@@ -291,6 +291,7 @@ offline-recovery path (stop the backend mid-recording, confirm the app keeps the
 | `502` on summarize | Ollama not installed, not running, or model not pulled — `curl http://localhost:11434/api/tags` (connection refused means not installed/not running; empty/missing model in the list means pull it) |
 | `404` on a session id | the id does not exist — sessions are never deleted, so double-check it |
 | Upload fails from the phone | use the PC's LAN IP, not `localhost`; same Wi-Fi; Windows Firewall may need to allow the port. The recording is kept on the device and its path shown — retry is safe, `recordingId` makes it idempotent |
+| Phone can't reach PC over Wi-Fi at all (LAN IP `/health` also fails from the phone's browser) | router AP/client isolation, common on shared/ISP-default routers. Use a USB reverse tunnel instead — `adb reverse tcp:5057 tcp:5057`, then enter `http://localhost:5057` on the phone. See [`onboarding.md`](onboarding.md) §5b |
 | Phone cannot reach the backend at all | `launchSettings.json` binds `localhost` only. Start it as `dotnet run --project src/Harken.Api --urls http://0.0.0.0:5057` |
 | Recording stops on its own | by design — 5 minutes of silence or the 3-hour Session Cap. Both upload what was captured |
 | No Stop button on the notification | notification permission denied (Android 13+). Recording still works; grant it in Settings → Apps → Harken → Notifications |
