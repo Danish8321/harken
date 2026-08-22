@@ -68,8 +68,8 @@ class SessionRepository(
         val offsets = SpeakerHeuristic.offsetSeconds(detail.segments)
         val voices = SpeakerHeuristic.assign(offsets)
         dao.upsertMirrored(detail.toRow(System.currentTimeMillis(), offsets.lastOrNull()))
-        dao.clearSegments(id)
-        dao.replaceSegments(
+        dao.replaceSegmentsAtomically(
+            id,
             detail.segments.mapIndexed { i, s ->
                 SegmentRow(
                     id = s.id,

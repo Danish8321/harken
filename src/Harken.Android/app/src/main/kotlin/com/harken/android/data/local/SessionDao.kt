@@ -94,6 +94,18 @@ interface SessionDao {
     @Query("DELETE FROM segments WHERE sessionId = :id")
     suspend fun clearSegments(id: UUID)
 
+    // clearSegments + replaceSegments used to run as two separate statements, so
+    // observeSegments' Flow emitted an empty list between the delete and the insert —
+    // every poll cycle while a session was still transcribing. That emptied-then-refilled
+    // list is what made the transcript visibly flicker/jump when scrolled near the bottom.
+    // One transaction means Room's invalidation tracker only fires once, after both
+    // statements land.
+    @Transaction
+    suspend fun replaceSegmentsAtomically(id: UUID, segments: List<SegmentRow>) {
+        clearSegments(id)
+        replaceSegments(segments)
+    }
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun replaceSummary(summary: SummaryRow)
 
