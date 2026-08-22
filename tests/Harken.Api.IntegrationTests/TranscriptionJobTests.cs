@@ -59,7 +59,7 @@ public class TranscriptionJobTests
         var deadline = DateTime.UtcNow.AddSeconds(10);
         while (DateTime.UtcNow < deadline)
         {
-            var detail = await client.GetFromJsonAsync<SessionDetail>($"/sessions/{sessionId}");
+            var detail = await client.GetFromJsonAsync<SessionDetail>($"/sessions/{sessionId}", TestJson.Options);
             if (detail is not null &&
                 detail.TranscriptionStatus is Harken.Core.TranscriptionStatus.Succeeded
                     or Harken.Core.TranscriptionStatus.Failed)
@@ -84,7 +84,7 @@ public class TranscriptionJobTests
 
         var upload = await client.PostAsync("/sessions", BuildUpload([1, 2, 3]));
         upload.EnsureSuccessStatusCode();
-        var created = await upload.Content.ReadFromJsonAsync<SessionListItem>();
+        var created = await upload.Content.ReadFromJsonAsync<SessionListItem>(TestJson.Options);
         Assert.NotNull(created);
 
         var detail = await PollUntilTerminalAsync(client, created!.Id);
@@ -105,7 +105,7 @@ public class TranscriptionJobTests
 
         var upload = await client.PostAsync("/sessions", BuildUpload([1, 2, 3]));
         upload.EnsureSuccessStatusCode();
-        var created = await upload.Content.ReadFromJsonAsync<SessionListItem>();
+        var created = await upload.Content.ReadFromJsonAsync<SessionListItem>(TestJson.Options);
         Assert.NotNull(created);
 
         var detail = await PollUntilTerminalAsync(client, created!.Id);

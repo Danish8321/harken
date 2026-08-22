@@ -26,7 +26,7 @@ public class SessionReadEndpointTests : IClassFixture<CustomWebApplicationFactor
         var older = _factory.SeedSession(DateTimeOffset.UtcNow.AddHours(-2));
         var newer = _factory.SeedSession(DateTimeOffset.UtcNow);
 
-        var sessions = await client.GetFromJsonAsync<List<SessionListItem>>("/sessions");
+        var sessions = await client.GetFromJsonAsync<List<SessionListItem>>("/sessions", TestJson.Options);
 
         Assert.NotNull(sessions);
         var ids = sessions!.Select(s => s.Id).ToList();
@@ -45,7 +45,7 @@ public class SessionReadEndpointTests : IClassFixture<CustomWebApplicationFactor
         _factory.SeedSegment(sessionId, TimeSpan.FromSeconds(30), "second");
         _factory.SeedSegment(sessionId, TimeSpan.FromSeconds(5), "first");
 
-        var detail = await client.GetFromJsonAsync<SessionDetail>($"/sessions/{sessionId}");
+        var detail = await client.GetFromJsonAsync<SessionDetail>($"/sessions/{sessionId}", TestJson.Options);
 
         Assert.NotNull(detail);
         Assert.Equal(sessionId, detail!.Id);
@@ -62,7 +62,7 @@ public class SessionReadEndpointTests : IClassFixture<CustomWebApplicationFactor
         var generated = await client.PostAsync($"/sessions/{sessionId}/summary", content: null);
         generated.EnsureSuccessStatusCode();
 
-        var detail = await client.GetFromJsonAsync<SessionDetail>($"/sessions/{sessionId}");
+        var detail = await client.GetFromJsonAsync<SessionDetail>($"/sessions/{sessionId}", TestJson.Options);
 
         Assert.NotNull(detail);
         Assert.NotNull(detail!.Summary);

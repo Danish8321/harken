@@ -47,7 +47,7 @@ public class UploadEndpointTests : IClassFixture<CustomWebApplicationFactory>
         using var response = await client.PostAsync("/sessions", BuildUpload([1, 2, 3, 4, 5]));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var created = await response.Content.ReadFromJsonAsync<SessionListItem>();
+        var created = await response.Content.ReadFromJsonAsync<SessionListItem>(TestJson.Options);
         Assert.NotNull(created);
 
         using var scope = _factory.Services.CreateScope();
@@ -140,7 +140,7 @@ public class UploadEndpointTests : IClassFixture<CustomWebApplicationFactory>
         // no effect at all rather than being specially rejected.
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var created = await response.Content.ReadFromJsonAsync<SessionListItem>();
+        var created = await response.Content.ReadFromJsonAsync<SessionListItem>(TestJson.Options);
         Assert.NotNull(created);
 
         using var scope = _factory.Services.CreateScope();
@@ -169,8 +169,8 @@ public class UploadEndpointTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
         Assert.Equal(HttpStatusCode.OK, second.StatusCode);
 
-        var firstSession = await first.Content.ReadFromJsonAsync<SessionListItem>();
-        var secondSession = await second.Content.ReadFromJsonAsync<SessionListItem>();
+        var firstSession = await first.Content.ReadFromJsonAsync<SessionListItem>(TestJson.Options);
+        var secondSession = await second.Content.ReadFromJsonAsync<SessionListItem>(TestJson.Options);
 
         Assert.NotNull(firstSession);
         Assert.NotNull(secondSession);
@@ -192,8 +192,8 @@ public class UploadEndpointTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
         Assert.Equal(HttpStatusCode.Created, second.StatusCode);
 
-        var firstSession = await first.Content.ReadFromJsonAsync<SessionListItem>();
-        var secondSession = await second.Content.ReadFromJsonAsync<SessionListItem>();
+        var firstSession = await first.Content.ReadFromJsonAsync<SessionListItem>(TestJson.Options);
+        var secondSession = await second.Content.ReadFromJsonAsync<SessionListItem>(TestJson.Options);
 
         Assert.NotEqual(firstSession!.Id, secondSession!.Id);
     }
@@ -211,8 +211,8 @@ public class UploadEndpointTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
         Assert.Equal(HttpStatusCode.Created, second.StatusCode);
 
-        var firstSession = await first.Content.ReadFromJsonAsync<SessionListItem>();
-        var secondSession = await second.Content.ReadFromJsonAsync<SessionListItem>();
+        var firstSession = await first.Content.ReadFromJsonAsync<SessionListItem>(TestJson.Options);
+        var secondSession = await second.Content.ReadFromJsonAsync<SessionListItem>(TestJson.Options);
 
         Assert.NotEqual(firstSession!.Id, secondSession!.Id);
     }
@@ -246,7 +246,7 @@ public class UploadEndpointTests : IClassFixture<CustomWebApplicationFactory>
                 $"Expected Created or OK, got {(int)response.StatusCode}");
         }
 
-        var sessions = await Task.WhenAll(responses.Select(r => r.Content.ReadFromJsonAsync<SessionListItem>()));
+        var sessions = await Task.WhenAll(responses.Select(r => r.Content.ReadFromJsonAsync<SessionListItem>(TestJson.Options)));
         Assert.Equal(sessions[0]!.Id, sessions[1]!.Id);
 
         using var scope = _factory.Services.CreateScope();

@@ -22,6 +22,8 @@ builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = MaxUploadByt
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
+builder.Services.ConfigureHttpJsonOptions(o =>
+    o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 
 var connectionString = builder.Configuration.GetConnectionString("Harken")
     ?? "Data Source=harken.db";

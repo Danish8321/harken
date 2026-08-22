@@ -192,12 +192,12 @@ fun SessionSheet(
                     }) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy transcript") }
                     IconButton(onClick = viewModel::share) { Icon(Icons.Filled.Share, contentDescription = "Share transcript") }
                     Spacer(Modifier.weight(1f))
+                    Button(onClick = { viewModel.summarize(sessionId) }, shape = PillShape) {
+                        Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.size(8.dp))
+                        Text(if (state.summary == null) "Summarize" else "Re-summarize", maxLines = 1)
+                    }
                     Box {
-                        Button(onClick = { viewModel.summarize(sessionId) }, shape = PillShape) {
-                            Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.size(8.dp))
-                            Text(if (state.summary == null) "Summarize" else "Re-summarize", maxLines = 1)
-                        }
                         IconButton(onClick = { summaryMenuOpen = true; viewModel.toggleSummaryOptions(true) }) {
                             Icon(Icons.Filled.ExpandMore, contentDescription = "Summary options")
                         }

@@ -34,7 +34,7 @@ public class DeleteEndpointTests : IClassFixture<CustomWebApplicationFactory>
         var client = _factory.CreateClient();
 
         using var upload = await client.PostAsync("/sessions", BuildUpload([1, 2, 3]));
-        var created = await upload.Content.ReadFromJsonAsync<SessionListItem>();
+        var created = await upload.Content.ReadFromJsonAsync<SessionListItem>(TestJson.Options);
         Assert.NotNull(created);
 
         using var scope = _factory.Services.CreateScope();
@@ -46,7 +46,7 @@ public class DeleteEndpointTests : IClassFixture<CustomWebApplicationFactory>
         using var delete = await client.DeleteAsync($"/sessions/{created!.Id}");
         Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
 
-        var listed = await client.GetFromJsonAsync<List<SessionListItem>>("/sessions");
+        var listed = await client.GetFromJsonAsync<List<SessionListItem>>("/sessions", TestJson.Options);
         Assert.DoesNotContain(listed!, s => s.Id == created.Id);
 
         var session = await db.Sessions
@@ -75,7 +75,7 @@ public class DeleteEndpointTests : IClassFixture<CustomWebApplicationFactory>
         var client = _factory.CreateClient();
 
         using var upload = await client.PostAsync("/sessions", BuildUpload([1, 2, 3]));
-        var created = await upload.Content.ReadFromJsonAsync<SessionListItem>();
+        var created = await upload.Content.ReadFromJsonAsync<SessionListItem>(TestJson.Options);
         Assert.NotNull(created);
 
         using var scope = _factory.Services.CreateScope();
