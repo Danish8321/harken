@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -38,7 +39,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -70,7 +74,7 @@ import java.util.UUID
 // — see ui/theme/Motion.kt), so the bottom action bar is a plain Row of IconButtons plus
 // a Button+DropdownMenu pair instead, giving the same actions with stable APIs.
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SessionSheet(
     sessionId: UUID,
@@ -102,8 +106,16 @@ fun SessionSheet(
                 }
             }
 
+            // Stretch overscroll at the transcript's scroll boundaries fights the
+            // ModalBottomSheet's own nested-scroll drag handling: hitting the end of the
+            // list forwards leftover drag to the sheet, which briefly reads as the sheet
+            // expanding past its fixed 0.95f height before springing back. Disabling
+            // overscroll here removes the extra delta this sheet has no use for.
+            Box(Modifier.weight(1f)) {
+            @Suppress("DEPRECATION")
+            CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, bottom = 118.dp),
             ) {
                 item {
@@ -182,6 +194,8 @@ fun SessionSheet(
                         onSeek = { viewModel.seekTo(segment.offsetSeconds) },
                     )
                 }
+            }
+            }
             }
 
             Surface(color = MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
