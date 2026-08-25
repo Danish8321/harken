@@ -31,6 +31,8 @@ data class SessionRow(
     /** Local: set when a recording was captured but never reached the backend. */
     val pendingUploadPath: String? = null,
     val syncedAt: Long = 0L,
+    /** Local: true when this session was transcribed on-device and never reached the backend. */
+    val isLocalOnly: Boolean = false,
 )
 
 @Entity(tableName = "segments")

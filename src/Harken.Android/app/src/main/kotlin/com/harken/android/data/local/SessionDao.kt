@@ -34,6 +34,12 @@ interface SessionDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIfNew(session: SessionRow)
 
+    // A local-only session's id is always freshly generated on this device, so a
+    // conflict here would mean a real bug (id collision), not a benign re-sync race —
+    // unlike insertIfNew, this must not silently swallow it.
+    @Insert
+    suspend fun insertLocalOnly(session: SessionRow)
+
     @Query(
         """
         UPDATE sessions SET
@@ -106,6 +112,36 @@ interface SessionDao {
         replaceSegments(segments)
     }
 
+    @Query(
+        """
+        UPDATE sessions SET
+            transcriptionStatus = 'Succeeded',
+            segmentCount = :segmentCount,
+            durationSeconds = :durationSeconds
+        WHERE id = :id
+        """,
+    )
+    suspend fun markLocalTranscriptionSucceeded(id: UUID, segmentCount: Int, durationSeconds: Int)
+
+    // Same flicker-avoidance reasoning as replaceSegmentsAtomically: status/segmentCount
+    // and the segment rows themselves must land as one transaction so observers never see
+    // a "Succeeded" session with a momentarily empty transcript.
+    @Transaction
+    suspend fun completeLocalTranscription(id: UUID, segments: List<SegmentRow>, durationSeconds: Int) {
+        markLocalTranscriptionSucceeded(id, segments.size, durationSeconds)
+        replaceSegmentsAtomically(id, segments)
+    }
+
+    @Query(
+        """
+        UPDATE sessions SET
+            transcriptionStatus = 'Failed',
+            transcriptionFailureReason = :reason
+        WHERE id = :id
+        """,
+    )
+    suspend fun failLocalTranscription(id: UUID, reason: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun replaceSummary(summary: SummaryRow)
 
@@ -121,7 +157,15 @@ class UuidConverters {
     @TypeConverter fun fromUuid(value: UUID?): String? = value?.toString()
 }
 
-@Database(entities = [SessionRow::class, SegmentRow::class, SummaryRow::class], version = 1, exportSchema = false)
+// Real user data already lives in the sessions table on shipped installs, so this must
+// be a real, additive migration — never fallbackToDestructiveMigration().
+val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE sessions ADD COLUMN isLocalOnly INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+@Database(entities = [SessionRow::class, SegmentRow::class, SummaryRow::class], version = 2, exportSchema = false)
 @TypeConverters(UuidConverters::class)
 abstract class HarkenDatabase : RoomDatabase() {
     abstract fun sessions(): SessionDao
@@ -132,6 +176,7 @@ abstract class HarkenDatabase : RoomDatabase() {
         fun get(context: android.content.Context): HarkenDatabase = instance ?: synchronized(this) {
             instance ?: androidx.room.Room
                 .databaseBuilder(context.applicationContext, HarkenDatabase::class.java, "harken-local.db")
+                .addMigrations(MIGRATION_1_2)
                 .build()
                 .also { instance = it }
         }
