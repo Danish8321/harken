@@ -25,10 +25,15 @@ alternatives considered below are what survived that process.
 Move the *default* transcription path fully on-device, native to the Android app.
 Recordings transcribed this way never touch a network:
 
-1. **Native whisper.cpp on-device**, via a maintained Android JNI binding (not vendoring
-   whisper.cpp ourselves — reuse over inventing our own NDK build). Model file
-   (ggml-tiny/base) is **not** bundled in the APK; it downloads once, on first run, from
-   a GitHub Releases asset on this repo (free, versioned, no new hosting dependency).
+1. **Native whisper.cpp on-device**, vendored as source and built via our own NDK/CMake
+   JNI layer, not a third-party prebuilt binding. The two Maven-published community
+   options found (`ffmpegkit-maintained/whisper`, `GiviMAD/whisper-jni`) are either an
+   unverified fork with a messy provenance or JNA-based for desktop JVM, not Android —
+   neither is trustworthy enough to add as a dependency. Vendoring is more setup work but
+   zero third-party trust risk, and mirrors how the backend already depends directly on
+   whisper.cpp (via Whisper.net, ADR-0008) rather than an unvetted middle layer. Model
+   file (ggml-tiny/base) is **not** bundled in the APK; it downloads once, on first run,
+   from a GitHub Releases asset on this repo (free, versioned, no new hosting dependency).
 2. **A local session store** (Room) mirrors the shape of the backend's `Session` /
    `TranscriptSegment` tables closely enough for the Library screen to render local and
    remote sessions the same way. A locally-transcribed recording gets a fully-formed
@@ -66,8 +71,10 @@ Recordings transcribed this way never touch a network:
   actually standalone: Library/history would still be empty without a reachable backend.
 
 ## Consequences
-- New dependency: an Android whisper.cpp JNI binding (exact artifact chosen at
-  implementation time; a maintained community AAR, not a vendored build).
+- New build surface: NDK/CMake toolchain in the Android module, vendored whisper.cpp
+  source, and a hand-written JNI layer — no new third-party dependency, but real
+  native-build maintenance burden (arch ABIs, toolchain upgrades) that didn't exist
+  before in this app.
 - New local schema: a Room database mirroring `Session`/`TranscriptSegment` shapes,
   independent of `HarkenDbContext` — no shared migration story between the two stores in
   this slice (see ADR-0012 for whether/how they'd ever reconcile).
