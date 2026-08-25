@@ -174,9 +174,9 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
                 when (step) {
                     1 -> Column {
-                        Text("Connect to\nyour backend", style = MaterialTheme.typography.headlineLarge)
+                        Text("Cloud extras\n(optional)", style = MaterialTheme.typography.headlineLarge)
                         Text(
-                            "Harken runs entirely on your own machine. Point the phone at it and nothing ever leaves your network.",
+                            "On-device transcription is free, private and works right now, with no setup. Connecting a backend here unlocks Azure cloud transcription and AI-generated summaries. You can skip this and set it up later from Settings.",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 10.dp),
@@ -221,6 +221,10 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                             }
                         }
+                        androidx.compose.material3.TextButton(
+                            onClick = viewModel::next,
+                            modifier = Modifier.padding(top = 4.dp),
+                        ) { Text("Skip for now") }
                     }
 
                     2 -> OnboardingExplainer(
@@ -232,7 +236,7 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                     3 -> OnboardingExplainer(
                         icon = Icons.Filled.GraphicEq,
                         title = "Record now,\nread later",
-                        body = "Audio uploads when you stop, then your machine transcribes it with Whisper and summarizes it with Gemma. No account, no API key, no per-minute cost.",
+                        body = "Recording transcribes right there on your phone the moment you stop — no upload, no account, no per-minute cost. If you connected a backend in the first step, you also get cloud transcription and AI-generated summaries.",
                     )
                 }
             }
