@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlin.math.absoluteValue
@@ -32,6 +33,8 @@ data class SessionSheetUiState(
     val status: String? = null,
     val summarizing: Boolean = false,
     val audioAvailable: Boolean = false,
+    val canSummarize: Boolean = false,
+    val canPlayAudio: Boolean = true,
     val waveform: List<Float> = emptyList(),
     val summaryOptionsOpen: Boolean = false,
     val toast: String? = null,
@@ -98,6 +101,10 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
                     status = session?.status,
                     durationSeconds = duration,
                     audioAvailable = session != null,
+                    canSummarize = session != null && !session.isLocalOnly && AppSettings.isValid(cachedBaseUrl),
+                    // A local-only session's audio was never uploaded — there is nothing
+                    // at `${cachedBaseUrl}/sessions/$id/audio` to stream (ADR-0011).
+                    canPlayAudio = session != null && !session.isLocalOnly,
                     waveform = waveformFor(id, duration),
                 )
             }.collect { _uiState.value = it }
@@ -106,7 +113,14 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
         // terminal state (Succeeded or Failed) — not until a summary shows up, since a
         // summary is only ever generated on request and would otherwise never arrive,
         // leaving this polling and rewriting the session's rows for up to ten minutes.
+        //
+        // A local-only session (ADR-0011) was never uploaded, so there is nothing on the
+        // backend to reconcile: its transcription lands directly in Room via
+        // CaptureViewModel/SessionRepository.completeLocal/failLocal. Polling it would
+        // just 404-loop against a session id the backend has never heard of.
         pollJob = viewModelScope.launch {
+            val initial = repository.observeSession(id).first()
+            if (initial?.isLocalOnly == true) return@launch
             var attempts = 0
             while (attempts < 200) {
                 repository.refreshDetail(id).onFailure { e -> _uiState.value = _uiState.value.copy(error = e.message) }
@@ -152,6 +166,7 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
 
     fun togglePlay() {
         if (!_uiState.value.audioAvailable) return
+        if (!_uiState.value.canPlayAudio) return
         val id = currentSessionId ?: return
 
         val p = player
@@ -170,6 +185,7 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
     }
 
     private fun preparePlayer(id: UUID) {
+        if (!_uiState.value.canPlayAudio) return
         val url = "${cachedBaseUrl.trimEnd('/')}/sessions/$id/audio"
         val p = MediaPlayer()
         player = p

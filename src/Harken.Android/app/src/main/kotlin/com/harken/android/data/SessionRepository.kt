@@ -37,6 +37,7 @@ class SessionRepository(
         val failureReason: String?,
         val tags: List<String>,
         val pendingUploadPath: String?,
+        val isLocalOnly: Boolean,
     )
 
     fun observeSessions(): Flow<List<SessionView>> = dao.observeSessions().map { rows -> rows.map(::toView) }
@@ -161,6 +162,7 @@ class SessionRepository(
         failureReason = row.transcriptionFailureReason,
         tags = row.localTags.split(',').filter { it.isNotBlank() },
         pendingUploadPath = row.pendingUploadPath,
+        isLocalOnly = row.isLocalOnly,
     )
 
     private fun SessionListItem.toRow(now: Long) = SessionRow(

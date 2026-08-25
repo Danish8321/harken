@@ -206,41 +206,46 @@ fun SessionSheet(
                     }) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy transcript") }
                     IconButton(onClick = viewModel::share) { Icon(Icons.Filled.Share, contentDescription = "Share transcript") }
                     Spacer(Modifier.weight(1f))
-                    Button(
-                        onClick = { viewModel.summarize(sessionId) },
-                        enabled = !state.summarizing,
-                        shape = PillShape,
-                    ) {
-                        if (state.summarizing) {
-                            androidx.compose.material3.CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        } else {
-                            Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(20.dp))
-                        }
-                        Spacer(Modifier.size(8.dp))
-                        Text(
-                            when {
-                                state.summarizing && state.summary == null -> "Summarizing…"
-                                state.summarizing -> "Re-summarizing…"
-                                state.summary == null -> "Summarize"
-                                else -> "Re-summarize"
-                            },
-                            maxLines = 1,
-                        )
-                    }
-                    Box {
-                        IconButton(onClick = { summaryMenuOpen = true; viewModel.toggleSummaryOptions(true) }) {
-                            Icon(Icons.Filled.ExpandMore, contentDescription = "Summary options")
-                        }
-                        androidx.compose.material3.DropdownMenu(
-                            expanded = summaryMenuOpen,
-                            onDismissRequest = { summaryMenuOpen = false; viewModel.toggleSummaryOptions(false) },
+                    // Local-only sessions (ADR-0011) never touch the backend, so
+                    // summarization — a backend-only operation — is hidden rather than
+                    // shown-and-erroring (decision 4).
+                    if (state.canSummarize) {
+                        Button(
+                            onClick = { viewModel.summarize(sessionId) },
+                            enabled = !state.summarizing,
+                            shape = PillShape,
                         ) {
-                            androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text("Short") })
-                            androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text("Detailed") })
+                            if (state.summarizing) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
+                            } else {
+                                Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.size(8.dp))
+                            Text(
+                                when {
+                                    state.summarizing && state.summary == null -> "Summarizing…"
+                                    state.summarizing -> "Re-summarizing…"
+                                    state.summary == null -> "Summarize"
+                                    else -> "Re-summarize"
+                                },
+                                maxLines = 1,
+                            )
+                        }
+                        Box {
+                            IconButton(onClick = { summaryMenuOpen = true; viewModel.toggleSummaryOptions(true) }) {
+                                Icon(Icons.Filled.ExpandMore, contentDescription = "Summary options")
+                            }
+                            androidx.compose.material3.DropdownMenu(
+                                expanded = summaryMenuOpen,
+                                onDismissRequest = { summaryMenuOpen = false; viewModel.toggleSummaryOptions(false) },
+                            ) {
+                                androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text("Short") })
+                                androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text("Detailed") })
+                            }
                         }
                     }
                 }
@@ -284,7 +289,7 @@ private fun PlayerCard(
         ScrubbableWaveform(
             bars = state.waveform,
             progress = state.progressFraction,
-            enabled = state.audioAvailable,
+            enabled = state.audioAvailable && state.canPlayAudio,
             onSeekFraction = { onSeek((it * state.durationSeconds).toInt()) },
             modifier = Modifier.fillMaxWidth().height(76.dp),
         )
@@ -296,7 +301,7 @@ private fun PlayerCard(
             )
             Surface(
                 onClick = onTogglePlay,
-                enabled = state.audioAvailable,
+                enabled = state.audioAvailable && state.canPlayAudio,
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(radius.dp),
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(56.dp),
@@ -313,8 +318,11 @@ private fun PlayerCard(
             Column(Modifier.weight(1f)) {
                 Text(formatElapsed(state.playheadSeconds), style = MaterialTheme.typography.titleLarge, color = ink.onInk, maxLines = 1)
                 Text(
-                    if (state.audioAvailable) "of ${formatElapsed(state.durationSeconds)} · seek on the wave"
-                    else "Playback needs the audio endpoint",
+                    when {
+                        !state.canPlayAudio -> "Recorded on-device; no audio file to play back"
+                        state.audioAvailable -> "of ${formatElapsed(state.durationSeconds)} · seek on the wave"
+                        else -> "Playback needs the audio endpoint"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = ink.onInkDim,
                     maxLines = 1,
