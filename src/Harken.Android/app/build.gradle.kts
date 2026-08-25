@@ -17,6 +17,19 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
+        // Single ABI for now — matches minSdk 26+modern-device assumption, avoids
+        // multi-ABI native build time while on-device transcription is unproven
+        // (ADR-0011).
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+        }
     }
 
     buildTypes {
