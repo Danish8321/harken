@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#12100d;}
+a{color:#F6A06B;} a:hover{color:#FFC6A5;}
+::selection{background:#4A2E19;color:#FFC6A5;}
+*{scrollbar-width:none;}
+*::-webkit-scrollbar{display:none;}
+*:focus-visible{outline:2px solid #F6A06B;outline-offset:2px;}
+@keyframes harkenBar{0%,100%{transform:scaleY(.35);}50%{transform:scaleY(1);}}
+@keyframes slideUpIn{from{transform:translateY(100%);opacity:.4;}to{transform:translateY(0);opacity:1;}}
+@keyframes slideDownOut{from{transform:translateY(0);opacity:1;}to{transform:translateY(100%);opacity:0;}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes harkenSpin{to{transform:rotate(360deg);}}
+@keyframes sonarPing{0%{box-shadow:0 0 0 0 rgba(246,160,107,.5);}70%{box-shadow:0 0 0 11px rgba(246,160,107,0);}100%{box-shadow:0 0 0 0 rgba(246,160,107,0);}}
+@keyframes toastIn{from{transform:translateY(16px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+@keyframes bannerIn{from{transform:translateY(-6px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+@keyframes segPulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+</style>
+</helmet>
+
+<div style="font-family:Figtree,sans-serif;background:#12100d;min-height:100vh;padding:48px 24px 80px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;">
+
+  <div style="max-width:520px;text-align:center;margin-bottom:28px;">
+    <div style="display:inline-flex;align-items:center;gap:8px;background:#262320;border:1px solid #474238;border-radius:999px;padding:6px 14px;margin-bottom:14px;">
+      <span style="width:7px;height:7px;border-radius:50%;background:#F6A06B;"></span>
+      <span style="font:700 11px Figtree,sans-serif;letter-spacing:.4px;color:#FFC6A5;">INTERACTIVE PROTOTYPE</span>
+    </div>
+    <h1 style="font-family:Caprasimo,serif;font-size:26px;color:{{ theme.text }};margin:0 0 10px;">Try the flow</h1>
+    <p style="font-size:14px;line-height:1.55;color:{{ theme.textSecondary }};margin:0;">Tap the record button, switch tabs, open a Library row, and try Settings. Recording is sped up for the demo — the storage warning shows after ~8s instead of 2h30m.</p>
+  </div>
+
+  <div style="width:360px;height:780px;border-radius:48px;background:#050403;padding:9px;box-shadow:0 40px 90px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.04);flex-shrink:0;">
+    <div style="width:100%;height:100%;border-radius:40px;overflow:hidden;background:{{ theme.screenBg }};display:flex;flex-direction:column;position:relative;">
+
+      <div style="height:40px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:relative;z-index:1;">
+        <span style="font:600 13px Figtree,sans-serif;color:{{ theme.text }};">9:41</span>
+        <div style="display:flex;align-items:center;gap:7px;color:{{ theme.text }};">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0120 0M5.5 12a10 10 0 0113 0M9 15.5a5 5 0 016 0" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/><circle cx="12" cy="19" r="1.2" fill="currentColor"/></svg>
+          <svg width="17" height="12" viewBox="0 0 24 16"><rect x="1" y="3" width="19" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="5" width="12" height="6" rx="1" fill="currentColor"/><rect x="21" y="6" width="2" height="4" rx="1" fill="currentColor"/></svg>
+        </div>
+      </div>
+
+      <sc-if value="{{ onboardingActive }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;top:40px;left:0;right:0;bottom:0;display:flex;flex-direction:column;justify-content:space-between;padding:36px 24px 30px;box-sizing:border-box;">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-top:32px;">
+          <sc-if value="{{ onboardingStep0 }}" hint-placeholder-val="{{ true }}">
+          <div style="width:96px;height:96px;border-radius:50%;background:#4A2E19;display:flex;align-items:center;justify-content:center;">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z" fill="#FFC6A5"/><path d="M19 11a1 1 0 10-2 0 5 5 0 01-10 0 1 1 0 10-2 0 7 7 0 006 6.92V20H9a1 1 0 100 2h6a1 1 0 100-2h-2v-2.08A7 7 0 0019 11z" fill="#FFC6A5"/></svg>
+          </div>
+          <div style="font-family:Caprasimo,serif;font-size:27px;line-height:1.2;color:{{ theme.text }};margin-top:24px;">Meet Harken</div>
+          <div style="font-size:14.5px;color:{{ theme.textSecondary }};line-height:1.6;margin-top:18px;max-width:260px;">A quiet recorder for meetings and field notes. Audio, transcripts and summaries — kept on your own network.</div>
+          </sc-if>
+          <sc-if value="{{ onboardingStep1 }}" hint-placeholder-val="{{ false }}">
+          <div style="width:96px;height:96px;border-radius:50%;background:#333B26;display:flex;align-items:center;justify-content:center;">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="6" rx="1.5" fill="none" stroke="#CCDBB2" stroke-width="1.8"/><rect x="4" y="14" width="16" height="6" rx="1.5" fill="none" stroke="#CCDBB2" stroke-width="1.8"/><circle cx="8" cy="7" r="1.2" fill="#CCDBB2"/><circle cx="8" cy="17" r="1.2" fill="#CCDBB2"/></svg>
+          </div>
+          <div style="font-family:Caprasimo,serif;font-size:27px;line-height:1.2;color:{{ theme.text }};margin-top:24px;">Point it at your studio Mac</div>
+          <div style="font-size:14.5px;color:{{ theme.textSecondary }};line-height:1.6;margin-top:18px;max-width:260px;">Recordings upload over your own Wi-Fi to a backend you run. Nothing goes further than your LAN.</div>
+          </sc-if>
+          <sc-if value="{{ onboardingStep2 }}" hint-placeholder-val="{{ false }}">
+          <div style="width:96px;height:96px;border-radius:50%;background:#4A2E19;display:flex;align-items:center;justify-content:center;">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" fill="#FFC6A5"/></svg>
+          </div>
+          <div style="font-family:Caprasimo,serif;font-size:27px;line-height:1.2;color:{{ theme.text }};margin-top:24px;">Ready when you are</div>
+          <div style="font-size:14.5px;color:{{ theme.textSecondary }};line-height:1.6;margin-top:18px;max-width:260px;">Tap Record any time. We'll ask for the microphone only when you actually start.</div>
+          </sc-if>
+        </div>
+        <div style="display:flex;justify-content:center;gap:7px;margin-bottom:22px;">
+          <div style="width:{{ dot0W }};height:7px;border-radius:4px;background:{{ dot0Bg }};transition:width .2s ease;"></div>
+          <div style="width:{{ dot1W }};height:7px;border-radius:4px;background:{{ dot1Bg }};transition:width .2s ease;"></div>
+          <div style="width:{{ dot2W }};height:7px;border-radius:4px;background:{{ dot2Bg }};transition:width .2s ease;"></div>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <sc-if value="{{ onboardingShowSkip }}" hint-placeholder-val="{{ true }}">
+          <div onClick="{{ onSkipOnboarding }}" style="flex:1;height:52px;border:1px solid #82796A;border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+            <span style="font:700 14.5px Figtree,sans-serif;color:{{ theme.text }};">Skip</span>
+          </div>
+          </sc-if>
+          <div onClick="{{ onOnboardingNext }}" style="flex:1;height:52px;background:#F6A06B;border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+            <span style="font:700 14.5px Figtree,sans-serif;color:#402310;">{{ onboardingCta }}</span>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ onboardingDone }}" hint-placeholder-val="{{ false }}">
+      <!-- RECORD TAB -->
+      <sc-if value="{{ isRecordTab }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;display:flex;flex-direction:column;padding:6px 20px 0;overflow:hidden;animation:fadeIn .18s ease-out both;">
+        <div style="display:flex;align-items:center;height:40px;">
+          <span style="font-family:Caprasimo,serif;font-size:20px;color:{{ theme.text }};">Harken</span>
+          <div style="flex:1;"></div>
+          <div style="display:inline-flex;align-items:center;gap:6px;background:{{ theme.accentFill2 }};border-radius:999px;padding:6px 12px;">
+            <span style="width:7px;height:7px;border-radius:50%;background:#AEBF92;flex-shrink:0;"></span>
+            <span style="font:700 12px Figtree,sans-serif;color:{{ theme.accentFill2Fg }};letter-spacing:.2px;white-space:nowrap;">{{ statusChipLabel }}</span>
+          </div>
+        </div>
+
+        <sc-if value="{{ notRecording }}" hint-placeholder-val="{{ true }}">
+        <div style="height:18px;"></div>
+        <div style="font-family:Caprasimo,serif;font-size:32px;line-height:1.15;color:{{ theme.text }};">Ready when<br>you are.</div>
+        <div style="height:10px;"></div>
+        <div style="font-size:15px;color:{{ theme.textSecondary }};">16 kHz mono · caps at 3 h</div>
+        <div style="height:22px;"></div>
+        <div style="width:100%;height:230px;background:{{ theme.meterBg }};border-radius:30px;padding:20px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <svg width="15" height="15" viewBox="0 0 24 24"><rect x="3" y="9" width="3" height="6" rx="1" fill="{{ theme.ink55 }}"/><rect x="8" y="5" width="3" height="14" rx="1" fill="{{ theme.ink55 }}"/><rect x="13" y="2" width="3" height="20" rx="1" fill="{{ theme.ink55 }}"/><rect x="18" y="7" width="3" height="10" rx="1" fill="{{ theme.ink55 }}"/></svg>
+            <span style="font:800 11px Figtree,sans-serif;letter-spacing:1.3px;color:{{ theme.ink55 }};">INPUT IDLE</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:5px;height:60px;">
+            <div style="width:5px;height:7px;border-radius:3px;background:{{ theme.ink28 }};"></div><div style="width:5px;height:7px;border-radius:3px;background:{{ theme.ink28 }};"></div><div style="width:5px;height:7px;border-radius:3px;background:{{ theme.ink28 }};"></div><div style="width:5px;height:7px;border-radius:3px;background:{{ theme.ink28 }};"></div><div style="width:5px;height:7px;border-radius:3px;background:{{ theme.ink28 }};"></div><div style="width:5px;height:7px;border-radius:3px;background:{{ theme.ink28 }};"></div><div style="width:5px;height:7px;border-radius:3px;background:{{ theme.ink28 }};"></div><div style="width:5px;height:7px;border-radius:3px;background:{{ theme.ink28 }};"></div><div style="width:5px;height:7px;border-radius:3px;background:{{ theme.ink28 }};"></div><div style="width:5px;height:7px;border-radius:3px;background:{{ theme.ink28 }};"></div><div style="width:5px;height:7px;border-radius:3px;background:{{ theme.ink28 }};"></div><div style="width:5px;height:7px;border-radius:3px;background:{{ theme.ink28 }};"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-size:12.5px;color:{{ theme.ink55 }};">0:00</span>
+            <span style="font-size:12.5px;color:{{ theme.ink55 }};">tap to start</span>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ recording }}" hint-placeholder-val="{{ false }}">
+        <div style="height:14px;"></div>
+        <div style="font-family:Caprasimo,serif;font-size:36px;color:{{ theme.text }};">{{ elapsedLabel }}</div>
+        <div style="height:6px;"></div>
+        <div style="display:inline-flex;align-items:center;gap:7px;background:{{ theme.accentFill }};border-radius:999px;padding:6px 12px;width:fit-content;">
+          <span style="width:7px;height:7px;border-radius:50%;background:#F6A06B;animation:sonarPing 1.6s ease-out infinite;flex-shrink:0;"></span>
+          <span style="font:800 11px Figtree,sans-serif;letter-spacing:1.3px;color:{{ theme.accentFillFg }};">CAPTURING</span>
+        </div>
+        <div style="height:18px;"></div>
+        <div style="width:100%;height:180px;background:{{ theme.meterBg }};border-radius:30px;padding:20px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <svg width="15" height="15" viewBox="0 0 24 24"><rect x="3" y="9" width="3" height="6" rx="1" fill="#F6A06B"/><rect x="8" y="5" width="3" height="14" rx="1" fill="#F6A06B"/><rect x="13" y="2" width="3" height="20" rx="1" fill="#F6A06B"/><rect x="18" y="7" width="3" height="10" rx="1" fill="#F6A06B"/></svg>
+            <span style="font:800 11px Figtree,sans-serif;letter-spacing:1.3px;color:{{ theme.ink7 }};">LIVE INPUT · 16 KHZ MONO</span>
+          </div>
+          <div style="display:flex;align-items:flex-end;justify-content:center;gap:5px;height:44px;">
+            <div style="width:5px;height:40px;border-radius:3px;background:#F6A06B;transform-origin:bottom;animation:harkenBar .9s ease-in-out infinite;animation-delay:0ms;"></div><div style="width:5px;height:40px;border-radius:3px;background:#F6A06B;transform-origin:bottom;animation:harkenBar .9s ease-in-out infinite;animation-delay:70ms;"></div><div style="width:5px;height:40px;border-radius:3px;background:#F6A06B;transform-origin:bottom;animation:harkenBar .9s ease-in-out infinite;animation-delay:140ms;"></div><div style="width:5px;height:40px;border-radius:3px;background:#F6A06B;transform-origin:bottom;animation:harkenBar .9s ease-in-out infinite;animation-delay:210ms;"></div><div style="width:5px;height:40px;border-radius:3px;background:#F6A06B;transform-origin:bottom;animation:harkenBar .9s ease-in-out infinite;animation-delay:280ms;"></div><div style="width:5px;height:40px;border-radius:3px;background:#F6A06B;transform-origin:bottom;animation:harkenBar .9s ease-in-out infinite;animation-delay:350ms;"></div><div style="width:5px;height:40px;border-radius:3px;background:#F6A06B;transform-origin:bottom;animation:harkenBar .9s ease-in-out infinite;animation-delay:420ms;"></div><div style="width:5px;height:40px;border-radius:3px;background:#F6A06B;transform-origin:bottom;animation:harkenBar .9s ease-in-out infinite;animation-delay:490ms;"></div><div style="width:5px;height:40px;border-radius:3px;background:#F6A06B;transform-origin:bottom;animation:harkenBar .9s ease-in-out infinite;animation-delay:560ms;"></div><div style="width:5px;height:40px;border-radius:3px;background:#F6A06B;transform-origin:bottom;animation:harkenBar .9s ease-in-out infinite;animation-delay:630ms;"></div><div style="width:5px;height:40px;border-radius:3px;background:#F6A06B;transform-origin:bottom;animation:harkenBar .9s ease-in-out infinite;animation-delay:700ms;"></div><div style="width:5px;height:40px;border-radius:3px;background:#F6A06B;transform-origin:bottom;animation:harkenBar .9s ease-in-out infinite;animation-delay:770ms;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-size:12.5px;color:{{ theme.ink7 }};">{{ elapsedLabel }}</span>
+            <span style="font-size:12.5px;color:{{ theme.ink7 }};">cap 3:00:00</span>
+          </div>
+        </div>
+        <sc-if value="{{ storageWarningVisible }}" hint-placeholder-val="{{ false }}">
+        <div style="height:14px;"></div>
+        <div style="background:{{ theme.card }};border:1px solid {{ theme.cardBorder }};border-radius:22px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;animation:bannerIn .25s ease-out both;">
+          <svg width="16" height="16" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px;"><path d="M12 3l10 18H2L12 3z" fill="none" style="stroke:{{ theme.textSecondary }};" stroke-width="1.7" stroke-linejoin="round"/><line x1="12" y1="9" x2="12" y2="14" style="stroke:{{ theme.textSecondary }};" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="17" r="1" style="fill:{{ theme.textSecondary }};"/></svg>
+          <span style="font-size:12px;line-height:1.5;color:{{ theme.textSecondary }};">Approaching the 3-hour cap — it'll stop and upload on its own.</span>
+        </div>
+        </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ justStopped }}" hint-placeholder-val="{{ false }}">
+        <div style="height:14px;"></div>
+        <div onClick="{{ onOpenLastFn }}" style="background:{{ theme.card }};border:1px solid {{ theme.cardBorder }};border-radius:22px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><path d="M6 18a4 4 0 01-.6-7.96A5 5 0 0115 8a4.5 4.5 0 011 8.9" stroke="#CCDBB2" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M9 13l2 2 4-4.5" stroke="#CCDBB2" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div style="flex:1;">
+            <div style="font:700 14px Figtree,sans-serif;color:{{ theme.text }};">Uploaded · transcribing</div>
+            <div style="font-size:12px;color:{{ theme.textSecondary }};">Tap to follow the transcript</div>
+          </div>
+        </div>
+        </sc-if>
+
+        <div style="flex:1;"></div>
+        <sc-if value="{{ recording }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center;font-size:12.5px;color:#9C9280;padding-bottom:8px;">Stops after 5 min silence</div>
+        </sc-if>
+        <div style="display:flex;justify-content:center;padding-bottom:24px;">
+          <div onClick="{{ onRecordButtonTap }}" style="width:88px;height:88px;border-radius:50%;background:#F6A06B;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 30px rgba(246,160,107,.35);cursor:pointer;transition:clip-path .25s ease,transform .12s ease;clip-path:{{ recordClipPath }};" style-hover="transform:scale(1.03);" style-active="transform:scale(.94);">
+            <sc-if value="{{ notRecording }}" hint-placeholder-val="{{ true }}">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z" fill="#402310"/><path d="M19 11a1 1 0 10-2 0 5 5 0 01-10 0 1 1 0 10-2 0 7 7 0 006 6.92V20H9a1 1 0 100 2h6a1 1 0 100-2h-2v-2.08A7 7 0 0019 11z" fill="#402310"/></svg>
+            </sc-if>
+            <sc-if value="{{ recording }}" hint-placeholder-val="{{ false }}">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="6" y="6" width="12" height="12" rx="2" fill="#402310"/></svg>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- LIBRARY TAB -->
+      <sc-if value="{{ isLibraryTab }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;flex-direction:column;padding:6px 20px 0;overflow-y:auto;animation:fadeIn .18s ease-out both;">
+        <div style="font-family:Caprasimo,serif;font-size:26px;color:{{ theme.text }};">Library</div>
+        <div style="font-size:13.5px;color:{{ theme.textSecondary }};margin-top:2px;margin-bottom:14px;">{{ visibleSessions.length }} shown · {{ pendingCount }} waiting to upload</div>
+
+        <div style="display:flex;gap:8px;margin-bottom:14px;overflow:hidden;">
+          <span onClick="{{ onFilterAll }}" style="font:700 13px Figtree,sans-serif;border-radius:999px;padding:7px 14px;cursor:pointer;background:{{ filterAllBg }};color:{{ filterAllFg }};">All</span>
+          <span onClick="{{ onFilterMeetings }}" style="font:700 13px Figtree,sans-serif;border-radius:999px;padding:7px 14px;cursor:pointer;background:{{ filterMeetingsBg }};color:{{ filterMeetingsFg }};">Meetings</span>
+          <span onClick="{{ onFilterField }}" style="font:700 13px Figtree,sans-serif;border-radius:999px;padding:7px 14px;cursor:pointer;background:{{ filterFieldBg }};color:{{ filterFieldFg }};">Field</span>
+          <span onClick="{{ onFilterIdeas }}" style="font:700 13px Figtree,sans-serif;border-radius:999px;padding:7px 14px;cursor:pointer;background:{{ filterIdeasBg }};color:{{ filterIdeasFg }};">Ideas</span>
+        </div>
+
+        <sc-if value="{{ pendingVisible }}" hint-placeholder-val="{{ true }}">
+        <div style="background:{{ theme.card }};border:1px solid {{ theme.cardBorder }};border-radius:24px;padding:16px;margin-bottom:14px;">
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;margin-top:1px;"><path d="M12 16V6m0 0l-4 4m4-4l4 4" style="stroke:{{ theme.textSecondary }};" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 18h14" style="stroke:{{ theme.textSecondary }};" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span style="font:700 14px Figtree,sans-serif;color:{{ theme.text }};line-height:1.35;">{{ pendingCount }} waiting to upload</span>
+          </div>
+          <div style="font-size:12.5px;color:{{ theme.textSecondary }};line-height:1.5;margin-bottom:10px;">studio-mac is unreachable. They'll retry on their own once it's back on this Wi-Fi.</div>
+          <sc-for list="{{ pending }}" as="item" hint-placeholder-count="2">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-top:1px solid #3a352d;">
+              <span style="font-size:12.5px;color:{{ theme.text }};">{{ item.name }} · {{ item.size }}</span>
+              <span style="font-size:12px;color:#9C9280;">{{ item.status }}</span>
+            </div>
+          </sc-for>
+          <div style="margin-top:8px;display:flex;justify-content:flex-end;">
+            <span onClick="{{ onRetryQueue }}" style="font:700 12.5px Figtree,sans-serif;color:{{ theme.text }};border:1px solid #82796A;border-radius:999px;padding:7px 14px;cursor:pointer;">Retry now</span>
+          </div>
+        </div>
+        </sc-if>
+
+        <div style="display:flex;flex-direction:column;gap:12px;padding-bottom:20px;">
+          <sc-for list="{{ visibleSessions }}" as="item" hint-placeholder-count="3">
+          <div style="background:{{ theme.card }};border:1px solid {{ theme.cardBorder }};border-radius:24px;padding:16px;">
+            <div onClick="{{ item.openFn }}" style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;cursor:pointer;">
+              <div style="flex:1;min-width:0;">
+                <div style="font:700 15px Figtree,sans-serif;color:{{ theme.text }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.title }}</div>
+                <div style="font-size:12px;color:{{ theme.textSecondary }};margin-top:2px;">{{ item.metaLine }}</div>
+              </div>
+              <div style="display:inline-flex;align-items:center;gap:5px;background:{{ item.chipBg }};border-radius:999px;padding:5px 10px;flex-shrink:0;">
+                <sc-if value="{{ item.showSpinner }}" hint-placeholder-val="{{ false }}">
+                  <svg width="10" height="10" viewBox="0 0 24 24" style="animation:harkenSpin .9s linear infinite;"><circle cx="12" cy="12" r="9" stroke="{{ item.chipFg }}" stroke-width="3" fill="none" stroke-dasharray="16 40" stroke-linecap="round"/></svg>
+                </sc-if>
+                <span style="font:700 11px Figtree,sans-serif;color:{{ item.chipFg }};">{{ item.chipLabel }}</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+              <div style="flex:1;height:5px;border-radius:3px;background:{{ theme.cardBorder }};overflow:hidden;"><div style="width:{{ item.progressPct }};height:100%;background:{{ item.barColor }};"></div></div>
+              <span onClick="{{ item.archiveFn }}" style="font:700 10.5px Figtree,sans-serif;color:{{ theme.textSecondary }};background:{{ theme.pillTrack }};border-radius:999px;padding:5px 10px;cursor:pointer;">Archive</span>
+            </div>
+          </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- SETTINGS TAB -->
+      <sc-if value="{{ isSettingsTab }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;overflow-y:auto;padding:6px 20px 20px;animation:fadeIn .18s ease-out both;">
+        <div style="font-family:Caprasimo,serif;font-size:26px;color:{{ theme.text }};margin-bottom:14px;">Settings</div>
+
+        <div style="background:{{ theme.card }};border:1px solid {{ theme.cardBorder }};border-radius:24px;padding:16px;margin-bottom:12px;">
+          <span style="font:800 11px Figtree,sans-serif;letter-spacing:1.2px;color:{{ theme.textSecondary }};">BACKEND</span>
+          <div style="background:{{ theme.pillTrack }};border-radius:999px;padding:12px 16px;display:flex;align-items:center;gap:10px;margin-top:10px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="6" rx="1.5" fill="none" style="stroke:{{ theme.textSecondary }};" stroke-width="1.6"/><rect x="4" y="14" width="16" height="6" rx="1.5" fill="none" style="stroke:{{ theme.textSecondary }};" stroke-width="1.6"/></svg>
+            <span style="font-size:14px;color:{{ theme.text }};">http://192.168.1.42:5057</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:12px;">
+            <span onClick="{{ onTestConnection }}" style="font:700 13px Figtree,sans-serif;color:{{ theme.text }};border:1px solid #82796A;border-radius:999px;padding:8px 16px;cursor:pointer;">{{ testLabel }}</span>
+            <sc-if value="{{ connChecking }}" hint-placeholder-val="{{ false }}">
+              <span style="font:700 11.5px Figtree,sans-serif;color:{{ theme.textSecondary }};">checking…</span>
+            </sc-if>
+            <sc-if value="{{ connOk }}" hint-placeholder-val="{{ true }}">
+              <div style="display:inline-flex;align-items:center;gap:6px;background:{{ theme.accentFill2 }};border-radius:999px;padding:6px 12px;flex-shrink:0;">
+                <span style="font:700 11.5px Figtree,sans-serif;color:{{ theme.accentFill2Fg }};white-space:nowrap;">Reachable · {{ connLatency }}ms</span>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <div style="background:{{ theme.card }};border:1px solid {{ theme.cardBorder }};border-radius:24px;padding:16px;margin-bottom:12px;">
+          <span style="font:800 11px Figtree,sans-serif;letter-spacing:1.2px;color:{{ theme.textSecondary }};">STORAGE</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 2px;">
+            <div>
+              <div style="font-size:14px;color:{{ theme.text }};">Warn before the 3-hour cap</div>
+              <div style="font-size:12px;color:{{ theme.textSecondary }};margin-top:2px;">~115 MB per hour recorded.</div>
+            </div>
+            <div onClick="{{ onToggleWarnCap }}" style="width:48px;height:28px;border-radius:14px;background:{{ warnCapTrackBg }};display:flex;align-items:center;padding:2px;flex-shrink:0;margin-left:12px;cursor:pointer;">
+              <div style="width:22px;height:22px;border-radius:50%;background:#F6A06B;margin-left:{{ warnCapKnobMargin }};transition:margin .15s ease;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:{{ theme.card }};border:1px solid {{ theme.cardBorder }};border-radius:24px;padding:16px;margin-bottom:12px;">
+          <span style="font:800 11px Figtree,sans-serif;letter-spacing:1.2px;color:{{ theme.textSecondary }};">APPEARANCE</span>
+          <div style="display:flex;background:{{ theme.pillTrack }};border-radius:999px;padding:4px;gap:4px;margin-top:10px;">
+            <span onClick="{{ onThemeLight }}" style="flex:1;text-align:center;font:700 12.5px Figtree,sans-serif;padding:8px 0;border-radius:999px;cursor:pointer;background:{{ themeLightBg }};color:{{ themeLightFg }};">Light</span>
+            <span onClick="{{ onThemeDark }}" style="flex:1;text-align:center;font:700 12.5px Figtree,sans-serif;padding:8px 0;border-radius:999px;cursor:pointer;background:{{ themeDarkBg }};color:{{ themeDarkFg }};">Dark</span>
+            <span onClick="{{ onThemeSystem }}" style="flex:1;text-align:center;font:700 12.5px Figtree,sans-serif;padding:8px 0;border-radius:999px;cursor:pointer;background:{{ themeSystemBg }};color:{{ themeSystemFg }};">System</span>
+          </div>
+          <div style="font-size:11px;color:#5a5348;margin-top:6px;">System follows your OS setting — shown here as dark.</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">
+            <div>
+              <div style="font-size:14px;color:{{ theme.text }};">Wallpaper colours</div>
+              <div style="font-size:11px;color:#5a5348;margin-top:2px;">Preview only in this prototype.</div>
+            </div>
+            <div onClick="{{ onToggleWallpaper }}" style="width:44px;height:26px;border-radius:13px;background:{{ wallpaperTrackBg }};display:flex;align-items:center;padding:2px;flex-shrink:0;cursor:pointer;">
+              <div style="width:20px;height:20px;border-radius:50%;background:{{ wallpaperKnobBg }};margin-left:{{ wallpaperKnobMargin }};transition:margin .15s ease;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:{{ theme.card }};border:1px solid {{ theme.cardBorder }};border-radius:24px;padding:16px;">
+          <span style="font:800 11px Figtree,sans-serif;letter-spacing:1.2px;color:{{ theme.textSecondary }};">TRANSCRIPTION</span>
+          <div style="display:flex;background:{{ theme.pillTrack }};border-radius:999px;padding:4px;gap:4px;margin-top:10px;">
+            <span onClick="{{ onProviderOnDevice }}" style="flex:1;text-align:center;font:700 12.5px Figtree,sans-serif;padding:8px 0;border-radius:999px;cursor:pointer;background:{{ onDeviceBg }};color:{{ onDeviceFg }};">On-device</span>
+            <span onClick="{{ onProviderCloud }}" style="flex:1;text-align:center;font:700 12.5px Figtree,sans-serif;padding:8px 0;border-radius:999px;cursor:pointer;background:{{ cloudBg }};color:{{ cloudFg }};">Cloud</span>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <div style="height:70px;flex-shrink:0;background:{{ theme.navBg }};border-top:1px solid {{ theme.navBorder }};display:flex;align-items:center;justify-content:space-around;">
+        <div onClick="{{ onTabRecord }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;transition:transform .1s ease;" style-active="transform:scale(.92);">
+          <div style="width:52px;height:26px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:{{ navRecordBg }};transform:{{ navRecordScale }};transition:transform .22s cubic-bezier(.34,1.56,.64,1),background .15s ease;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z" fill="{{ navRecordFg }}"/><path d="M19 11a1 1 0 10-2 0 5 5 0 01-10 0 1 1 0 10-2 0 7 7 0 006 6.92V20H9a1 1 0 100 2h6a1 1 0 100-2h-2v-2.08A7 7 0 0019 11z" fill="{{ navRecordFg }}"/></svg>
+          </div>
+          <span style="font:700 11px Figtree,sans-serif;color:{{ navRecordFg }};">Record</span>
+        </div>
+        <div onClick="{{ onTabLibrary }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;transition:transform .1s ease;" style-active="transform:scale(.92);">
+          <div style="width:52px;height:26px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:{{ navLibraryBg }};transform:{{ navLibraryScale }};transition:transform .22s cubic-bezier(.34,1.56,.64,1),background .15s ease;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2" fill="none" stroke="{{ navLibraryFg }}" stroke-width="1.6"/><line x1="7" y1="8" x2="17" y2="8" stroke="{{ navLibraryFg }}" stroke-width="1.6"/><line x1="7" y1="12" x2="17" y2="12" stroke="{{ navLibraryFg }}" stroke-width="1.6"/><line x1="7" y1="16" x2="13" y2="16" stroke="{{ navLibraryFg }}" stroke-width="1.6"/></svg>
+          </div>
+          <span style="font:700 11px Figtree,sans-serif;color:{{ navLibraryFg }};">Library</span>
+        </div>
+        <div onClick="{{ onTabSettings }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;transition:transform .1s ease;" style-active="transform:scale(.92);">
+          <div style="width:52px;height:26px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:{{ navSettingsBg }};transform:{{ navSettingsScale }};transition:transform .22s cubic-bezier(.34,1.56,.64,1),background .15s ease;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="7" r="2" fill="{{ navSettingsFg }}"/><rect x="10" y="6" width="10" height="2" rx="1" fill="{{ navSettingsFg }}"/><circle cx="16" cy="13" r="2" fill="{{ navSettingsFg }}"/><rect x="4" y="12" width="10" height="2" rx="1" fill="{{ navSettingsFg }}"/><circle cx="9" cy="19" r="2" fill="{{ navSettingsFg }}"/><rect x="13" y="18" width="7" height="2" rx="1" fill="{{ navSettingsFg }}"/></svg>
+          </div>
+          <span style="font:700 11px Figtree,sans-serif;color:{{ navSettingsFg }};">Settings</span>
+        </div>
+      </div>
+
+      <div style="height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+        <div style="width:108px;height:4px;border-radius:2px;background:{{ theme.grabber }};opacity:.4;"></div>
+      </div>
+      </sc-if>
+
+      <!-- PERMISSION SHEET -->
+      <sc-if value="{{ permissionSheetOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;">
+        <div onClick="{{ onDenyMic }}" style="position:absolute;inset:0;background:rgba(0,0,0,.55);animation:{{ permissionBackdropAnim }};"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:{{ theme.sheetBg }};border-radius:30px 30px 0 0;padding:10px 24px 34px;box-shadow:0 -24px 60px rgba(0,0,0,.5);animation:{{ permissionPanelAnim }};">
+          <div style="display:flex;justify-content:center;margin-bottom:20px;">
+            <div style="width:34px;height:4px;border-radius:2px;background:#474238;"></div>
+          </div>
+          <div style="width:60px;height:60px;border-radius:50%;background:#4A2E19;display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z" fill="#FFC6A5"/><path d="M19 11a1 1 0 10-2 0 5 5 0 01-10 0 1 1 0 10-2 0 7 7 0 006 6.92V20H9a1 1 0 100 2h6a1 1 0 100-2h-2v-2.08A7 7 0 0019 11z" fill="#FFC6A5"/></svg>
+          </div>
+          <div style="font-family:Caprasimo,serif;font-size:22px;color:{{ theme.text }};line-height:1.2;">Allow Harken to record audio?</div>
+          <div style="font-size:14px;color:{{ theme.textSecondary }};line-height:1.55;margin-top:10px;">It only listens while you're recording, and audio stays on this phone until you stop.</div>
+          <div style="display:flex;gap:12px;margin-top:22px;">
+            <div onClick="{{ onDenyMic }}" style="flex:1;height:52px;border:1px solid #82796A;border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s ease;" style-active="transform:scale(.96);">
+              <span style="font:700 14.5px Figtree,sans-serif;color:{{ theme.text }};">Not now</span>
+            </div>
+            <div onClick="{{ onAllowMic }}" style="flex:1;height:52px;background:#F6A06B;border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s ease;" style-active="transform:scale(.96);">
+              <span style="font:700 14.5px Figtree,sans-serif;color:#402310;">Allow microphone</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- SESSION SHEET -->
+      <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;">
+        <div onClick="{{ onCloseSession }}" style="position:absolute;inset:0;background:rgba(0,0,0,.45);animation:{{ sessionBackdropAnim }};"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;top:6%;background:{{ theme.sheetBg }};border-radius:30px 30px 0 0;display:flex;flex-direction:column;box-shadow:0 -20px 50px rgba(0,0,0,.5);animation:{{ sessionPanelAnim }};translate:0 {{ dragOffsetPx }};">
+          <div onPointerDown="{{ onGrabberDown }}" onPointerMove="{{ onGrabberMove }}" onPointerUp="{{ onGrabberUp }}" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px 0;cursor:grab;touch-action:none;">
+            <div onClick="{{ onCloseSession }}" style="width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" style="stroke:{{ theme.textSecondary }};" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="rotate(90 12 12)"/></svg>
+            </div>
+            <div style="width:34px;height:4px;border-radius:2px;background:#474238;"></div>
+            <div onClick="{{ onCloseSession }}" style="width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m1 0l-1 13a1 1 0 01-1 1H9a1 1 0 01-1-1L7 7" style="stroke:{{ theme.textSecondary }};" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+
+          <div style="flex:1;overflow-y:auto;padding:4px 20px 110px;overscroll-behavior-y:contain;">
+            <div style="font-family:Caprasimo,serif;font-size:24px;color:{{ theme.text }};line-height:1.15;">{{ currentSession.title }}</div>
+            <div style="font-size:13.5px;color:{{ theme.textSecondary }};margin-top:8px;">{{ currentSession.metaLine }}</div>
+
+            <sc-if value="{{ sheetTranscribing }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:10px;background:{{ theme.card }};border:1px solid {{ theme.cardBorder }};border-radius:22px;padding:14px 16px;margin-top:18px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" style="flex-shrink:0;"><circle cx="12" cy="12" r="9" stroke="#AEBF92" stroke-width="2.5" fill="none" stroke-dasharray="16 40"/></svg>
+              <span style="font:700 13.5px Figtree,sans-serif;color:{{ theme.text }};">TRANSCRIBING · about 4–6 min left</span>
+            </div>
+            <div style="margin-top:18px;display:flex;flex-direction:column;gap:12px;">
+              <div style="background:{{ theme.card }};border-radius:24px;padding:16px;opacity:.55;"><div style="width:62%;height:13px;border-radius:4px;background:{{ theme.skeleton }};"></div><div style="width:40%;height:11px;border-radius:4px;background:{{ theme.skeleton }};margin-top:8px;"></div></div>
+              <div style="background:{{ theme.card }};border-radius:24px;padding:16px;opacity:.35;"><div style="width:70%;height:13px;border-radius:4px;background:{{ theme.skeleton }};"></div><div style="width:45%;height:11px;border-radius:4px;background:{{ theme.skeleton }};margin-top:8px;"></div></div>
+            </div>
+            </sc-if>
+
+            <sc-if value="{{ sheetFailed }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:flex-start;gap:10px;background:{{ theme.card }};border:1px solid rgba(242,184,181,.35);border-radius:22px;padding:14px 16px;margin-top:18px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:2px;"><path d="M12 3l10 18H2L12 3z" fill="none" stroke="#F2B8B5" stroke-width="1.7" stroke-linejoin="round"/><line x1="12" y1="9" x2="12" y2="14" stroke="#F2B8B5" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="#F2B8B5"/></svg>
+              <span style="font-size:13px;line-height:1.5;color:{{ theme.text }};">Upload failed. This recording is kept on the phone and will retry automatically.</span>
+            </div>
+            <div onClick="{{ currentSession.retryFn }}" style="display:flex;align-items:center;justify-content:center;gap:8px;background:{{ theme.card }};border:1px solid #82796A;border-radius:999px;padding:12px;margin-top:12px;cursor:pointer;transition:transform .1s ease;" style-active="transform:scale(.97);">
+              <sc-if value="{{ currentSession.retrying }}" hint-placeholder-val="{{ false }}">
+                <svg width="15" height="15" viewBox="0 0 24 24" style="animation:harkenSpin .9s linear infinite;"><circle cx="12" cy="12" r="9" style="stroke:{{ theme.text }};" stroke-width="2.5" fill="none" stroke-dasharray="14 40" stroke-linecap="round"/></svg>
+              </sc-if>
+              <span style="font:700 13.5px Figtree,sans-serif;color:{{ theme.text }};">{{ currentSession.retryLabel }}</span>
+            </div>
+            </sc-if>
+
+            <sc-if value="{{ sheetReady }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:8px;margin-top:14px;">
+              <span style="font:700 11px Figtree,sans-serif;color:{{ theme.textSecondary }};background:{{ theme.pillTrack }};border-radius:999px;padding:6px 12px;">{{ currentSession.tag }}</span>
+            </div>
+            <div style="background:{{ theme.meterBg }};border-radius:28px;padding:18px;margin-top:16px;">
+              <div style="display:flex;align-items:center;gap:2px;height:44px;">
+                <div style="width:4px;height:26px;border-radius:2px;background:#F6A06B;"></div><div style="width:4px;height:38px;border-radius:2px;background:#F6A06B;"></div><div style="width:4px;height:18px;border-radius:2px;background:#F6A06B;"></div><div style="width:4px;height:30px;border-radius:2px;background:{{ theme.ink4 }};"></div><div style="width:4px;height:20px;border-radius:2px;background:{{ theme.ink4 }};"></div><div style="width:4px;height:34px;border-radius:2px;background:{{ theme.ink4 }};"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px;margin-top:12px;">
+                <div onClick="{{ currentSession.toggleFn }}" style="width:52px;height:36px;border-radius:20px;background:#F6A06B;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;transition:transform .1s ease;" style-active="transform:scale(.92);">
+                  <sc-if value="{{ currentSession.playing }}" hint-placeholder-val="{{ false }}">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="7" y="5" width="4" height="14" rx="1" fill="#402310"/><rect x="14" y="5" width="4" height="14" rx="1" fill="#402310"/></svg>
+                  </sc-if>
+                  <sc-if value="{{ currentSession.notPlaying }}" hint-placeholder-val="{{ true }}">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7L8 5z" fill="#402310"/></svg>
+                  </sc-if>
+                </div>
+                <div style="flex:1;">
+                  <div style="font:700 17px Figtree,sans-serif;color:{{ theme.text }};">{{ currentSession.playhead }}</div>
+                  <div style="font-size:12px;color:{{ theme.ink55 }};">of {{ currentSession.duration }} · seek on the wave</div>
+                </div>
+              </div>
+            </div>
+
+            <sc-if value="{{ hasSummary }}" hint-placeholder-val="{{ false }}">
+            <div style="background:{{ theme.accentFill2 }};border-radius:24px;padding:18px;margin-top:16px;">
+              <div onClick="{{ onToggleSummary }}" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font:800 11px Figtree,sans-serif;letter-spacing:1.2px;color:{{ theme.accentFill2Fg }};">SUMMARY</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="transform:{{ summaryChevronRot }};transition:transform .2s ease;"><path d="M6 9l6 6 6-6" stroke="{{ theme.accentFill2Fg }}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <span onClick="{{ onCopySummary }}" style="display:inline-flex;align-items:center;gap:5px;font:700 11.5px Figtree,sans-serif;color:{{ theme.accentFill2Fg }};cursor:pointer;transition:transform .1s ease;" style-active="transform:scale(.94);">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="8" y="8" width="12" height="12" rx="2" style="stroke:{{ theme.accentFill2Fg }};" stroke-width="1.8"/><path d="M6 16H5a1 1 0 01-1-1V5a1 1 0 011-1h10a1 1 0 011 1v1" style="stroke:{{ theme.accentFill2Fg }};" stroke-width="1.8" stroke-linecap="round"/></svg>
+                  Copy
+                </span>
+              </div>
+              <div style="font-size:14.5px;line-height:1.55;color:{{ theme.accentFill2Fg }};margin-top:8px;">{{ currentSession.summaryIntro }}</div>
+
+              <sc-if value="{{ summaryExpanded }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-top:16px;animation:fadeIn .16s ease-out both;">
+                <span style="font:800 10px Figtree,sans-serif;letter-spacing:1.1px;color:{{ theme.accentFill2Fg }};">KEY POINTS</span>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+                  <sc-for list="{{ currentSession.keyPoints }}" as="pt" hint-placeholder-count="3">
+                  <div style="display:flex;gap:9px;align-items:flex-start;">
+                    <span style="width:5px;height:5px;border-radius:50%;background:#AEBF92;flex-shrink:0;margin-top:7px;"></span>
+                    <span style="font-size:13.5px;line-height:1.5;color:{{ theme.accentFill2Fg }};">{{ pt.text }}</span>
+                  </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <sc-if value="{{ currentSession.hasActionItems }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:16px;">
+                <span style="font:800 10px Figtree,sans-serif;letter-spacing:1.1px;color:{{ theme.accentFill2Fg }};">ACTION ITEMS</span>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+                  <sc-for list="{{ currentSession.actionItems }}" as="act" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:10px;background:{{ theme.accentFill2Soft }};border-radius:14px;padding:10px 12px;">
+                    <div style="width:24px;height:24px;border-radius:50%;background:{{ theme.accentFill }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                      <span style="font:700 11px Figtree,sans-serif;color:{{ theme.accentFillFg }};">{{ act.initial }}</span>
+                    </div>
+                    <span style="flex:1;font-size:13px;color:{{ theme.accentFill2Fg }};line-height:1.4;">{{ act.task }}</span>
+                    <span style="font:700 11px Figtree,sans-serif;color:{{ theme.accentFill2Fg }};flex-shrink:0;">{{ act.due }}</span>
+                  </div>
+                  </sc-for>
+                </div>
+              </div>
+              </sc-if>
+              </sc-if>
+            </div>
+            </sc-if>
+
+            <sc-if value="{{ summarizing }}" hint-placeholder-val="{{ false }}">
+            <div style="background:{{ theme.card }};border-radius:24px;padding:18px;margin-top:16px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" style="animation:harkenSpin .9s linear infinite;flex-shrink:0;"><circle cx="12" cy="12" r="9" style="stroke:{{ theme.textSecondary }};" stroke-width="2.5" fill="none" stroke-dasharray="14 40" stroke-linecap="round"/></svg>
+                <span style="font:700 13px Figtree,sans-serif;color:{{ theme.textSecondary }};">Re-summarizing…</span>
+              </div>
+              <div style="height:11px;border-radius:4px;background:{{ theme.skeleton }};margin-top:14px;width:88%;"></div>
+              <div style="height:11px;border-radius:4px;background:{{ theme.skeleton }};margin-top:8px;width:64%;"></div>
+            </div>
+            </sc-if>
+
+            <sc-if value="{{ currentSession.hasTranscript }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;gap:10px;margin-top:24px;margin-bottom:8px;">
+              <span style="font:800 11px Figtree,sans-serif;letter-spacing:1.3px;color:{{ theme.textSecondary }};">TRANSCRIPT</span>
+              <div style="flex:1;height:1px;background:#3a352d;"></div>
+              <span style="font:700 11px Figtree,sans-serif;color:{{ theme.textSecondary }};">{{ currentSession.transcriptSegments.length }} lines</span>
+            </div>
+            <sc-for list="{{ currentSession.transcriptSegments }}" as="seg" hint-placeholder-count="4">
+            <div onClick="{{ seg.seekFn }}" style="display:flex;gap:12px;padding:10px 8px;border-radius:14px;cursor:pointer;background:{{ seg.rowBg }};transition:background .15s ease;">
+              <div style="width:38px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                <span style="font:700 10.5px Figtree,sans-serif;border-radius:999px;padding:2px 7px;background:{{ seg.chipBg }};color:{{ seg.chipFg }};animation:{{ seg.pulseAnim }};">{{ seg.time }}</span>
+              </div>
+              <div style="flex:1;">
+                <div style="font:800 10px Figtree,sans-serif;letter-spacing:1px;color:{{ seg.chipFg }};">{{ seg.voiceLabel }}</div>
+                <div style="font-size:14.5px;color:{{ theme.text }};line-height:1.5;margin-top:2px;">{{ seg.text }}</div>
+              </div>
+            </div>
+            </sc-for>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ sheetReady }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:20px;right:20px;bottom:16px;background:{{ theme.card }};border-radius:30px;padding:8px 12px;display:flex;align-items:center;gap:4px;box-shadow:0 12px 30px rgba(0,0,0,.4);">
+            <div onClick="{{ onShareSession }}" style="width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s ease;" style-active="transform:scale(.9);" style-hover="background:{{ theme.pillTrack }};">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="12" r="2.2" style="fill:{{ theme.text }};"/><circle cx="18" cy="6" r="2.2" style="fill:{{ theme.text }};"/><circle cx="18" cy="18" r="2.2" style="fill:{{ theme.text }};"/><path d="M8 11l8-4M8 13l8 4" style="stroke:{{ theme.text }};" stroke-width="1.6"/></svg>
+            </div>
+            <div style="flex:1;"></div>
+            <div onClick="{{ currentSession.summarizeFn }}" style="background:{{ currentSession.summarizeBg }};border-radius:999px;padding:10px 18px;display:flex;align-items:center;gap:7px;cursor:pointer;transition:transform .1s ease,background .15s ease;" style-active="transform:scale(.95);">
+              <sc-if value="{{ summarizing }}" hint-placeholder-val="{{ false }}">
+                <svg width="15" height="15" viewBox="0 0 24 24" style="animation:harkenSpin .9s linear infinite;"><circle cx="12" cy="12" r="9" stroke="#402310" stroke-width="2.5" fill="none" stroke-dasharray="14 40" stroke-linecap="round"/></svg>
+              </sc-if>
+              <sc-if value="{{ notSummarizing }}" hint-placeholder-val="{{ true }}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" fill="#402310"/></svg>
+              </sc-if>
+              <span style="font:700 13.5px Figtree,sans-serif;color:#402310;">{{ currentSession.summarizeLabel }}</span>
+            </div>
+          </div>
+          </sc-if>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- TOAST -->
+      <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:20px;right:20px;bottom:96px;background:#302C27;border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);animation:toastIn .22s ease-out both;">
+        <span style="flex:1;font-size:13px;color:#F5EAD8;">{{ toast }}</span>
+        <span onClick="{{ onUndoArchive }}" style="font:700 13px Figtree,sans-serif;color:#F6A06B;cursor:pointer;">Undo</span>
+      </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    onboardingDone: false,
+    onboardingStep: 0,
+    tab: 'record',
+    micGranted: false,
+    permissionSheetOpen: false,
+    permissionClosing: false,
+    sessionClosing: false,
+    recording: false,
+    elapsedSec: 0,
+    justStopped: false,
+    lastOpenAfterStop: 's2',
+    openSessionId: null,
+    filter: 'All',
+    sessions: [
+      { id: 's1', title: 'Q3 planning kickoff notes', date: '14 MAR', duration: '42m 18s', tag: 'Meetings', status: 'ready', hasSummary: true, summarizing: false, progress: 0.82, playing: false, archived: false,
+        summary: {
+          intro: 'Team agreed the near-term focus is finishing the transcript reader before search.',
+          keyPoints: ['Transcript reader ships before search — reprioritized this quarter', 'Whisper on studio-mac may be CPU-bound; Sam is checking GPU passthrough', 'Upload retry queue needs to be visible, not silent'],
+          actions: [{ owner: 'Priya', initial: 'P', task: 'Scope the upload-queue retry logic', due: 'Fri' }, { owner: 'Sam', initial: 'S', task: 'Confirm Whisper container fits the studio Mac GPU', due: 'Mon' }],
+        },
+        transcript: [
+          { time: '0:04', voice: 1, text: "Okay — let's start with what's actually shipping this quarter." },
+          { time: '0:11', voice: 2, text: 'The transcript reader, definitely. Search can wait for Q4.' },
+          { time: '0:19', voice: 1, text: "Agreed. Priya, can you scope the upload retry logic this week?" },
+          { time: '0:26', voice: 2, text: "Yeah, I'll have something by Friday." },
+        ] },
+      { id: 's2', title: 'Studio walk-through', date: '13 MAR', duration: '18m 42s', tag: 'Field', status: 'transcribing', progress: 0.35, archived: false },
+      { id: 's3', title: 'Morning voice memo', date: '12 MAR', duration: '4m 02s', tag: 'Ideas', status: 'ready', hasSummary: false, summarizing: false, progress: 0.15, playing: false, archived: false,
+        transcript: [{ time: '0:02', voice: 1, text: 'Idea for the intro — open on the waveform, not the logo.' }] },
+      { id: 's4', title: 'Ideas — new intro', date: '11 MAR', duration: null, tag: 'Ideas', status: 'upload_failed', archived: false },
+    ],
+    pending: [
+      { id: 'p1', name: 'rec-0942.wav', size: '84 MB', status: 'retrying' },
+      { id: 'p2', name: 'rec-0918.wav', size: '22 MB', status: 'queued' },
+    ],
+    toast: null,
+    lastArchivedId: null,
+    themeMode: 'Dark',
+    wallpaperColors: false,
+    transcriptionProvider: 'On-device',
+    warnBeforeCap: true,
+    connChecking: false,
+    connLatency: 42,
+    summaryExpanded: true,
+    selectedSegmentIdx: null,
+    dragY: 0,
+    dragging: false,
+  };
+
+  componentWillUnmount() {
+    clearInterval(this._timer);
+    clearInterval(this._playTimer);
+    clearTimeout(this._toastTimer);
+    clearTimeout(this._retryTimer);
+    clearTimeout(this._connTimer);
+    clearTimeout(this._sumTimer);
+    clearTimeout(this._sessionCloseTimer);
+    clearTimeout(this._permCloseTimer);
+    clearTimeout(this._sessionRetryTimer);
+  }
+
+  onGrabberDown(e) {
+    if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+    this.setState({ dragging: true, dragStartY: e.clientY, dragY: 0 });
+  }
+  onGrabberMove(e) {
+    if (!this.state.dragging) return;
+    const delta = Math.max(0, e.clientY - this.state.dragStartY);
+    this.setState({ dragY: delta });
+  }
+  onGrabberUp() {
+    if (!this.state.dragging) return;
+    if (this.state.dragY > 110) { this.setState({ dragging: false, dragY: 0 }); this.closeSession(); }
+    else this.setState({ dragging: false, dragY: 0 });
+  }
+
+  setTab(tab) { this.setState({ tab }); }
+
+  onOnboardingNext() {
+    if (this.state.onboardingStep < 2) this.setState(s => ({ onboardingStep: s.onboardingStep + 1 }));
+    else this.setState({ onboardingDone: true });
+  }
+  onSkipOnboarding() { this.setState({ onboardingDone: true }); }
+
+  onRecordButtonTap() {
+    if (this.state.recording) { this.stopRecording(); return; }
+    if (!this.state.micGranted) { this.setState({ permissionSheetOpen: true }); return; }
+    this.startRecording();
+  }
+  startRecording() {
+    this.setState({ recording: true, elapsedSec: 0, justStopped: false });
+    clearInterval(this._timer);
+    this._timer = setInterval(() => this.setState(s => ({ elapsedSec: s.elapsedSec + 1 })), 1000);
+  }
+  stopRecording() {
+    clearInterval(this._timer);
+    this.setState({ recording: false, justStopped: true });
+  }
+  closePermissionSheet(cb) {
+    this.setState({ permissionClosing: true });
+    clearTimeout(this._permCloseTimer);
+    this._permCloseTimer = setTimeout(() => { this.setState({ permissionSheetOpen: false, permissionClosing: false }); if (cb) cb(); }, 220);
+  }
+  allowMic() { this.setState({ micGranted: true }); this.closePermissionSheet(() => this.startRecording()); }
+  denyMic() { this.closePermissionSheet(); }
+
+  openSession(id) { clearTimeout(this._sessionCloseTimer); this.setState({ openSessionId: id, sessionClosing: false, selectedSegmentIdx: null }); }
+  seekToSegment(idx) { this.setState({ selectedSegmentIdx: idx }); }
+  shareSession() {
+    this.setState({ toast: 'Share sheet would open here' });
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => this.setState({ toast: null }), 2400);
+  }
+  closeSession() {
+    this.setState({ sessionClosing: true });
+    clearTimeout(this._sessionCloseTimer);
+    this._sessionCloseTimer = setTimeout(() => this.setState({ openSessionId: null, sessionClosing: false }), 240);
+  }
+  togglePlay(id) {
+    const session = this.state.sessions.find(s => s.id === id);
+    const willPlay = !session.playing;
+    this.setState({ sessions: this.state.sessions.map(s => s.id === id ? { ...s, playing: willPlay } : s) });
+    clearInterval(this._playTimer);
+    if (willPlay) {
+      const len = (session.transcript || []).length;
+      if (len > 0) {
+        this._playTimer = setInterval(() => {
+          this.setState(s => ({ selectedSegmentIdx: s.selectedSegmentIdx === null ? 0 : (s.selectedSegmentIdx + 1) % len }));
+        }, 1800);
+      }
+    }
+  }
+  retrySessionUpload(id) {
+    this.setState({ sessions: this.state.sessions.map(s => s.id === id ? { ...s, retrying: true } : s) });
+    clearTimeout(this._sessionRetryTimer);
+    this._sessionRetryTimer = setTimeout(() => {
+      this.setState({ sessions: this.state.sessions.map(s => s.id === id ? { ...s, retrying: false, status: 'ready', hasSummary: false } : s) });
+    }, 1800);
+  }
+  summarize(id) {
+    this.setState({ sessions: this.state.sessions.map(s => s.id === id ? { ...s, summarizing: true } : s) });
+    clearTimeout(this._sumTimer);
+    this._sumTimer = setTimeout(() => {
+      this.setState({ sessions: this.state.sessions.map(s => s.id === id ? { ...s, summarizing: false, hasSummary: true, summary: s.summary || {
+        intro: 'The conversation covered the main topic in brief; here are the highlights.',
+        keyPoints: ['Overall tone was constructive', 'No blocking disagreements surfaced'],
+        actions: [],
+      } } : s) });
+    }, 1500);
+  }
+  toggleSummary() { this.setState(s => ({ summaryExpanded: !s.summaryExpanded })); }
+  copySummary(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    this.setState({ toast: 'Summary copied' });
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => this.setState({ toast: null }), 2600);
+  }
+
+  setFilter(f) { this.setState({ filter: f }); }
+  archiveSession(id) {
+    this.setState({
+      sessions: this.state.sessions.map(s => s.id === id ? { ...s, archived: true } : s),
+      toast: 'Archived — kept on this phone',
+      lastArchivedId: id,
+    });
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => this.setState({ toast: null }), 4000);
+  }
+  undoArchive() {
+    const id = this.state.lastArchivedId;
+    if (!id) return;
+    this.setState({ sessions: this.state.sessions.map(s => s.id === id ? { ...s, archived: false } : s), toast: null, lastArchivedId: null });
+  }
+  retryQueue() {
+    this.setState({ pending: this.state.pending.map(p => ({ ...p, status: 'uploading' })) });
+    clearTimeout(this._retryTimer);
+    this._retryTimer = setTimeout(() => this.setState({ pending: [] }), 1600);
+  }
+  testConnection() {
+    this.setState({ connChecking: true });
+    clearTimeout(this._connTimer);
+    this._connTimer = setTimeout(() => this.setState({ connChecking: false }), 1100);
+  }
+
+  fmt(sec) {
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    const mm = h > 0 ? String(m).padStart(2, '0') : m;
+    const ss = String(s).padStart(2, '0');
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+  }
+
+  renderVals() {
+    const st = this.state;
+    const isLight = st.themeMode === 'Light';
+    const inkRgb = isLight ? '36,31,27' : '245,234,216';
+    const meterBg = isLight ? '#F1E7D0' : '#100E0C';
+    const ink28 = `rgba(${inkRgb},${isLight ? .32 : .28})`;
+    const ink4 = `rgba(${inkRgb},${isLight ? .4 : .4})`;
+    const ink55 = `rgba(${inkRgb},${isLight ? .6 : .55})`;
+    const ink7 = `rgba(${inkRgb},${isLight ? .72 : .7})`;
+    const theme = isLight ? {
+      screenBg: '#FAF1E1', sheetBg: '#FFFFFF', card: '#FFFFFF', cardBorder: '#E4D6BC',
+      text: '#241F1B', textSecondary: '#6E6153', navBg: '#FFFFFF', navBorder: '#E4D6BC',
+      pillTrack: '#F1E5CC', grabber: '#241F1B', rowHighlight: '#F5EBD6', skeleton: '#E4D6BC',
+      accentFill: '#F0975C', accentFillFg: '#3A1C0B',
+      accentFill2: '#9FB37D', accentFill2Fg: '#20280F', accentFill2Soft: '#C4D2A9',
+      dangerFill: '#E8735A', dangerFillFg: '#FFFFFF',
+      meterBg, ink28, ink4, ink55, ink7,
+    } : {
+      screenBg: '#1C1A17', sheetBg: '#1C1A17', card: '#262320', cardBorder: '#474238',
+      text: '#F5EAD8', textSecondary: '#A19786', navBg: '#262320', navBorder: '#474238',
+      pillTrack: '#302C27', grabber: '#F5EAD8', rowHighlight: '#262320', skeleton: '#474238',
+      accentFill: '#4A2E19', accentFillFg: '#FFC6A5',
+      accentFill2: '#333B26', accentFill2Fg: '#CCDBB2', accentFill2Soft: '#2b3320',
+      dangerFill: '#8C1D18', dangerFillFg: '#F9DEDC',
+      meterBg, ink28, ink4, ink55, ink7,
+    };
+    const active = theme.accentFill, activeFg = theme.accentFillFg;
+    const inactiveFg = theme.textSecondary;
+    const pillBg = (on) => on ? active : theme.pillTrack;
+    const pillFg = (on) => on ? activeFg : inactiveFg;
+
+    const chipFor = (s) => {
+      if (s.status === 'transcribing') return { chipBg: theme.accentFill2, chipFg: theme.accentFill2Fg, chipLabel: 'Transcribing' };
+      if (s.status === 'upload_failed') return { chipBg: theme.dangerFill, chipFg: theme.dangerFillFg, chipLabel: 'Kept on device' };
+      if (s.hasSummary) return { chipBg: theme.accentFill2, chipFg: theme.accentFill2Fg, chipLabel: 'Summarized' };
+      return { chipBg: theme.pillTrack, chipFg: theme.textSecondary, chipLabel: 'Transcribed' };
+    };
+
+    const visibleSessions = st.sessions
+      .filter(s => !s.archived && (st.filter === 'All' || s.tag === st.filter))
+      .map(s => {
+        const chip = chipFor(s);
+        return {
+          ...s,
+          metaLine: s.duration ? `${s.date} · ${s.duration}` : `${s.date} · upload failed`,
+          progressPct: `${Math.round((s.progress || 0) * 100)}%`,
+          barColor: s.status === 'transcribing' ? '#AEBF92' : '#82796A',
+          ...chip,
+          showSpinner: s.status === 'transcribing',
+          openFn: () => this.openSession(s.id),
+          archiveFn: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.archiveSession(s.id); },
+        };
+      });
+
+    const raw = st.sessions.find(s => s.id === st.openSessionId) || null;
+    const current = raw ? {
+      ...raw,
+      metaLine: raw.duration ? `${raw.date} · ${raw.duration}${raw.status === 'ready' ? ' · 2 voices' : ''}` : raw.date,
+      playhead: this.fmt(Math.round((raw.progress || 0.28) * 1200)),
+      notPlaying: !raw.playing,
+      toggleFn: () => this.togglePlay(raw.id),
+      summarizeFn: () => this.summarize(raw.id),
+      summarizeLabel: raw.summarizing ? 'Re-summarizing…' : (raw.hasSummary ? 'Re-summarize' : 'Summarize'),
+      summarizeBg: raw.summarizing ? '#c98959' : '#F6A06B',
+      summaryIntro: raw.summary ? raw.summary.intro : '',
+      keyPoints: raw.summary ? raw.summary.keyPoints.map(t => ({ text: t })) : [],
+      actionItems: raw.summary ? raw.summary.actions : [],
+      hasActionItems: !!(raw.summary && raw.summary.actions && raw.summary.actions.length),
+      transcriptSegments: (raw.transcript || []).map((seg, idx) => ({
+        idx, time: seg.time, text: seg.text,
+        voiceLabel: 'VOICE ' + seg.voice,
+        chipBg: seg.voice === 1 ? theme.accentFill : theme.accentFill2,
+        chipFg: seg.voice === 1 ? theme.accentFillFg : theme.accentFill2Fg,
+        rowBg: st.selectedSegmentIdx === idx ? theme.rowHighlight : 'transparent',
+        pulseAnim: (raw.playing && st.selectedSegmentIdx === idx) ? 'segPulse 1.4s ease-in-out infinite' : 'none',
+        seekFn: () => this.seekToSegment(idx),
+      })),
+      hasTranscript: !!(raw.transcript && raw.transcript.length),
+      retryFn: () => this.retrySessionUpload(raw.id),
+      retrying: !!raw.retrying,
+      retryLabel: raw.retrying ? 'Retrying…' : 'Retry upload',
+    } : null;
+
+    return {
+      theme,
+      onboardingDone: st.onboardingDone, onboardingActive: !st.onboardingDone,
+      onboardingStep0: st.onboardingStep === 0, onboardingStep1: st.onboardingStep === 1, onboardingStep2: st.onboardingStep === 2,
+      onboardingShowSkip: st.onboardingStep < 2,
+      onboardingCta: st.onboardingStep < 2 ? 'Next' : 'Get started',
+      dot0W: st.onboardingStep === 0 ? '22px' : '7px', dot1W: st.onboardingStep === 1 ? '22px' : '7px', dot2W: st.onboardingStep === 2 ? '22px' : '7px',
+      dot0Bg: st.onboardingStep === 0 ? '#F6A06B' : '#3a352d', dot1Bg: st.onboardingStep === 1 ? '#F6A06B' : '#3a352d', dot2Bg: st.onboardingStep === 2 ? '#F6A06B' : '#3a352d',
+      onOnboardingNext: () => this.onOnboardingNext(), onSkipOnboarding: () => this.onSkipOnboarding(),
+
+      isRecordTab: st.tab === 'record', isLibraryTab: st.tab === 'library', isSettingsTab: st.tab === 'settings',
+      recording: st.recording, notRecording: !st.recording,
+      statusChipLabel: st.recording ? 'LAN OK' : 'studio-mac',
+      elapsedLabel: this.fmt(st.elapsedSec),
+      storageWarningVisible: st.recording && st.elapsedSec >= 8,
+      justStopped: st.justStopped && !st.recording,
+      permissionSheetOpen: st.permissionSheetOpen,
+      permissionPanelAnim: st.permissionClosing ? 'slideDownOut .22s ease-in both' : 'slideUpIn .26s ease-out both',
+      permissionBackdropAnim: st.permissionClosing ? 'fadeIn .22s ease-in reverse both' : 'fadeIn .2s ease-out both',
+      sessionPanelAnim: st.sessionClosing ? 'slideDownOut .24s ease-in both' : 'slideUpIn .26s ease-out both',
+      sessionBackdropAnim: st.sessionClosing ? 'fadeIn .24s ease-in reverse both' : 'fadeIn .2s ease-out both',
+      recordClipPath: st.recording ? 'polygon(100% 50%,91.5% 61.1%,93.3% 75%,80.4% 80.4%,75% 93.3%,61.1% 91.5%,50% 100%,38.9% 91.5%,25% 93.3%,19.6% 80.4%,6.7% 75%,8.5% 61.1%,0% 50%,8.5% 38.9%,6.7% 25%,19.6% 19.6%,25% 6.7%,38.9% 8.5%,50% 0%,61.1% 8.5%,75% 6.7%,80.4% 19.6%,93.3% 25%,91.5% 38.9%)' : 'none',
+
+      filterAllBg: pillBg(st.filter === 'All'), filterAllFg: pillFg(st.filter === 'All'),
+      filterMeetingsBg: pillBg(st.filter === 'Meetings'), filterMeetingsFg: pillFg(st.filter === 'Meetings'),
+      filterFieldBg: pillBg(st.filter === 'Field'), filterFieldFg: pillFg(st.filter === 'Field'),
+      filterIdeasBg: pillBg(st.filter === 'Ideas'), filterIdeasFg: pillFg(st.filter === 'Ideas'),
+      onFilterAll: () => this.setFilter('All'), onFilterMeetings: () => this.setFilter('Meetings'),
+      onFilterField: () => this.setFilter('Field'), onFilterIdeas: () => this.setFilter('Ideas'),
+
+      visibleSessions,
+      pendingCount: st.pending.length, pendingVisible: st.pending.length > 0, pending: st.pending,
+      onRetryQueue: () => this.retryQueue(),
+
+      toast: st.toast, toastVisible: !!st.toast, onUndoArchive: () => this.undoArchive(),
+
+      currentSession: current, sheetOpen: !!current,
+      sheetReady: !!current && current.status === 'ready',
+      sheetTranscribing: !!current && current.status === 'transcribing',
+      sheetFailed: !!current && current.status === 'upload_failed',
+      hasSummary: !!current && !!current.hasSummary && !current.summarizing,
+      summarizing: !!current && !!current.summarizing,
+      notSummarizing: !current || !current.summarizing,
+      onCopySummary: (e) => this.copySummary(e),
+      onShareSession: () => this.shareSession(),
+      summaryExpanded: st.summaryExpanded,
+      onToggleSummary: () => this.toggleSummary(),
+      summaryChevronRot: st.summaryExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+      onCloseSession: () => this.closeSession(),
+      onOpenLastFn: () => this.openSession(st.lastOpenAfterStop),
+      onGrabberDown: (e) => this.onGrabberDown(e),
+      onGrabberMove: (e) => this.onGrabberMove(e),
+      onGrabberUp: (e) => this.onGrabberUp(e),
+      dragOffsetPx: st.dragY + 'px',
+
+      testLabel: st.connChecking ? 'Testing…' : 'Test', connChecking: st.connChecking, connOk: !st.connChecking,
+      connLatency: st.connLatency, onTestConnection: () => this.testConnection(),
+
+      warnCapTrackBg: st.warnBeforeCap ? theme.accentFill : theme.pillTrack,
+      warnCapKnobMargin: st.warnBeforeCap ? 'auto 0 0 auto' : '0',
+      onToggleWarnCap: () => this.setState({ warnBeforeCap: !st.warnBeforeCap }),
+
+      themeLightBg: pillBg(st.themeMode === 'Light'), themeLightFg: pillFg(st.themeMode === 'Light'),
+      themeDarkBg: pillBg(st.themeMode === 'Dark'), themeDarkFg: pillFg(st.themeMode === 'Dark'),
+      themeSystemBg: pillBg(st.themeMode === 'System'), themeSystemFg: pillFg(st.themeMode === 'System'),
+      onThemeLight: () => this.setState({ themeMode: 'Light' }), onThemeDark: () => this.setState({ themeMode: 'Dark' }),
+      onThemeSystem: () => this.setState({ themeMode: 'System' }),
+
+      wallpaperTrackBg: st.wallpaperColors ? theme.accentFill : theme.pillTrack,
+      wallpaperKnobBg: st.wallpaperColors ? '#F6A06B' : '#82796A',
+      wallpaperKnobMargin: st.wallpaperColors ? 'auto 0 0 auto' : '0',
+      onToggleWallpaper: () => this.setState({ wallpaperColors: !st.wallpaperColors }),
+
+      onDeviceBg: pillBg(st.transcriptionProvider === 'On-device'), onDeviceFg: pillFg(st.transcriptionProvider === 'On-device'),
+      cloudBg: pillBg(st.transcriptionProvider === 'Cloud'), cloudFg: pillFg(st.transcriptionProvider === 'Cloud'),
+      onProviderOnDevice: () => this.setState({ transcriptionProvider: 'On-device' }), onProviderCloud: () => this.setState({ transcriptionProvider: 'Cloud' }),
+
+      navRecordBg: st.tab === 'record' ? active : 'transparent', navRecordFg: st.tab === 'record' ? activeFg : inactiveFg,
+      navLibraryBg: st.tab === 'library' ? active : 'transparent', navLibraryFg: st.tab === 'library' ? activeFg : inactiveFg,
+      navSettingsBg: st.tab === 'settings' ? active : 'transparent', navSettingsFg: st.tab === 'settings' ? activeFg : inactiveFg,
+      navRecordScale: st.tab === 'record' ? 'scale(1.08)' : 'scale(1)',
+      navLibraryScale: st.tab === 'library' ? 'scale(1.08)' : 'scale(1)',
+      navSettingsScale: st.tab === 'settings' ? 'scale(1.08)' : 'scale(1)',
+      onTabRecord: () => this.setTab('record'), onTabLibrary: () => this.setTab('library'), onTabSettings: () => this.setTab('settings'),
+
+      onRecordButtonTap: () => this.onRecordButtonTap(),
+      onAllowMic: () => this.allowMic(), onDenyMic: () => this.denyMic(),
+    };
+  }
+}
+</script>
+</body>
+</html>
+
