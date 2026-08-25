@@ -4,12 +4,18 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.harken.android.data.AppSettings
+import com.harken.android.data.SessionRepository
+import com.harken.android.data.TranscriptionProviderChoice
+import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.network.AudioSource
 import com.harken.android.network.HarkenApi
 import com.harken.android.network.NetworkModule
 import com.harken.android.recording.RecordingController
 import com.harken.android.recording.RecordingState
+import com.harken.android.speech.ModelDownloadManager
+import com.harken.android.speech.OnDeviceTranscriber
 import java.io.File
+import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +25,9 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
-enum class UploadStatus { Idle, Uploading, Succeeded, Failed }
+// DownloadingModel/Transcribing are the on-device (WhisperLocal) equivalents of
+// Uploading — no network call happens in either state, unlike Uploading.
+enum class UploadStatus { Idle, DownloadingModel, Transcribing, Uploading, Succeeded, Failed }
 
 data class CaptureUiState(
     val isRecording: Boolean = false,
@@ -34,8 +42,15 @@ data class CaptureUiState(
 class CaptureViewModel(application: Application) : AndroidViewModel(application) {
     private val settings = AppSettings(application)
     private val api: HarkenApi = NetworkModule.create { runBlockingBaseUrl() }
+    private val repository = SessionRepository(
+        db = HarkenDatabase.get(application),
+        api = NetworkModule.create { cachedBaseUrl },
+    )
+    private val modelDownloadManager = ModelDownloadManager(application)
+    private val onDeviceTranscriber = OnDeviceTranscriber()
 
     private var cachedBaseUrl: String = AppSettings.DefaultBaseUrl
+    private var cachedProvider: TranscriptionProviderChoice = TranscriptionProviderChoice.WhisperLocal
     private var lastRecordingId: java.util.UUID? = null
     private var lastFilePath: String? = null
 
@@ -45,6 +60,9 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
     init {
         viewModelScope.launch {
             settings.baseUrl.collect { cachedBaseUrl = it }
+        }
+        viewModelScope.launch {
+            settings.transcriptionProvider.collect { cachedProvider = it }
         }
         viewModelScope.launch {
             RecordingState.isRecording.collect { recording ->
@@ -78,24 +96,58 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
         lastRecordingId = recordingId
         lastFilePath = filePath
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Uploading, lastError = null)
-            try {
-                val file = File(filePath)
-                val audioPart = MultipartBody.Part.createFormData(
-                    "audio", file.name, file.asRequestBody("audio/wav".toMediaType()),
-                )
-                val sourcePart = AudioSource.Microphone.name.toRequestBody("text/plain".toMediaType())
-                val recordingIdPart = recordingId.toString().toRequestBody("text/plain".toMediaType())
-
-                val response = api.upload(audioPart, sourcePart, recordingIdPart)
-                _uiState.value = if (response.isSuccessful) {
-                    _uiState.value.copy(uploadStatus = UploadStatus.Succeeded, lastSessionId = response.body()?.id)
-                } else {
-                    _uiState.value.copy(uploadStatus = UploadStatus.Failed, lastError = "HTTP ${response.code()}")
-                }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Failed, lastError = e.message)
+            _uiState.value = _uiState.value.copy(lastError = null)
+            if (cachedProvider == TranscriptionProviderChoice.WhisperLocal) {
+                transcribeOnDevice(recordingId, filePath)
+            } else {
+                uploadToBackend(recordingId, filePath)
             }
+        }
+    }
+
+    // WhisperLocal (ADR-0011): the whole path below — model download, native inference,
+    // Room write — never makes a network call. api.upload(...) is never reached here.
+    private suspend fun transcribeOnDevice(recordingId: java.util.UUID, filePath: String) {
+        _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.DownloadingModel)
+        try {
+            repository.createLocalSession(
+                id = recordingId,
+                startedAt = Instant.now().toString(),
+                source = AudioSource.Microphone.name,
+            )
+
+            val modelPath = modelDownloadManager.ensureModel().getOrThrow()
+
+            _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Transcribing)
+            val segments = onDeviceTranscriber.transcribe(filePath, modelPath)
+            val durationSeconds = segments.maxOfOrNull { it.offsetSeconds } ?: 0
+
+            repository.completeLocal(recordingId, segments, durationSeconds)
+            _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Succeeded, lastSessionId = recordingId)
+        } catch (e: Exception) {
+            repository.failLocal(recordingId, e.message ?: "On-device transcription failed")
+            _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Failed, lastError = e.message)
+        }
+    }
+
+    private suspend fun uploadToBackend(recordingId: java.util.UUID, filePath: String) {
+        _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Uploading)
+        try {
+            val file = File(filePath)
+            val audioPart = MultipartBody.Part.createFormData(
+                "audio", file.name, file.asRequestBody("audio/wav".toMediaType()),
+            )
+            val sourcePart = AudioSource.Microphone.name.toRequestBody("text/plain".toMediaType())
+            val recordingIdPart = recordingId.toString().toRequestBody("text/plain".toMediaType())
+
+            val response = api.upload(audioPart, sourcePart, recordingIdPart)
+            _uiState.value = if (response.isSuccessful) {
+                _uiState.value.copy(uploadStatus = UploadStatus.Succeeded, lastSessionId = response.body()?.id)
+            } else {
+                _uiState.value.copy(uploadStatus = UploadStatus.Failed, lastError = "HTTP ${response.code()}")
+            }
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Failed, lastError = e.message)
         }
     }
 }

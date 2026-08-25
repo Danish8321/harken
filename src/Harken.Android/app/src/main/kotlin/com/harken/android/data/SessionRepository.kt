@@ -7,6 +7,7 @@ import com.harken.android.data.local.SummaryRow
 import com.harken.android.network.HarkenApi
 import com.harken.android.network.SessionDetail
 import com.harken.android.network.SessionListItem
+import com.harken.android.speech.LocalTranscribedSegment
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
@@ -94,6 +95,53 @@ class SessionRepository(
         if (!response.isSuccessful) error("deleteSession returned ${response.code()}")
         dao.deleteSession(id)
     }
+
+    /**
+     * Creates a fresh local-only session row (ADR-0011) for a recording that will be
+     * transcribed entirely on-device — never synced from/to the backend. Mirrors the
+     * shape `refresh()` would have produced for an uploaded session, except
+     * `isLocalOnly = true` and a `"Running"` status the caller settles via
+     * [completeLocal] or [failLocal].
+     */
+    suspend fun createLocalSession(id: UUID, startedAt: String, source: String) {
+        dao.insertLocalOnly(
+            SessionRow(
+                id = id,
+                startedAt = startedAt,
+                endedAt = null,
+                source = source,
+                segmentCount = 0,
+                hasSummary = false,
+                transcriptionStatus = "Running",
+                transcriptionFailureReason = null,
+                durationSeconds = null,
+                syncedAt = System.currentTimeMillis(),
+                isLocalOnly = true,
+            ),
+        )
+    }
+
+    /** Settles a local-only session as transcribed, using the same voice heuristic refreshDetail() uses. */
+    suspend fun completeLocal(id: UUID, segments: List<LocalTranscribedSegment>, durationSeconds: Int) {
+        val offsets = segments.map { it.offsetSeconds }
+        val voices = SpeakerHeuristic.assign(offsets)
+        dao.completeLocalTranscription(
+            id,
+            segments.mapIndexed { i, s ->
+                SegmentRow(
+                    id = UUID.randomUUID(),
+                    sessionId = id,
+                    offsetSeconds = s.offsetSeconds,
+                    text = s.text,
+                    voiceIndex = voices[i],
+                )
+            },
+            durationSeconds,
+        )
+    }
+
+    /** Marks a local-only session's on-device transcription as failed. */
+    suspend fun failLocal(id: UUID, reason: String) = dao.failLocalTranscription(id, reason)
 
     suspend fun purge(id: UUID): Result<Unit> = runCatching {
         val response = api.purgeSession(id)
