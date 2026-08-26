@@ -54,6 +54,12 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
     private var lastRecordingId: java.util.UUID? = null
     private var lastFilePath: String? = null
 
+    // A retry re-enters transcribeOnDevice with the same recordingId as the failed
+    // attempt (see retryUpload) — that's expected, not the id collision insertLocalOnly's
+    // plain @Insert is meant to guard against. Track which ids already have a local
+    // session row so a retry skips re-creating it instead of hitting that guard.
+    private val localSessionsCreated = mutableSetOf<java.util.UUID>()
+
     private val _uiState = MutableStateFlow(CaptureUiState())
     val uiState: StateFlow<CaptureUiState> = _uiState.asStateFlow()
 
@@ -110,11 +116,13 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
     private suspend fun transcribeOnDevice(recordingId: java.util.UUID, filePath: String) {
         _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.DownloadingModel)
         try {
-            repository.createLocalSession(
-                id = recordingId,
-                startedAt = Instant.now().toString(),
-                source = AudioSource.Microphone.name,
-            )
+            if (localSessionsCreated.add(recordingId)) {
+                repository.createLocalSession(
+                    id = recordingId,
+                    startedAt = Instant.now().toString(),
+                    source = AudioSource.Microphone.name,
+                )
+            }
 
             val modelPath = modelDownloadManager.ensureModel().getOrThrow()
 
