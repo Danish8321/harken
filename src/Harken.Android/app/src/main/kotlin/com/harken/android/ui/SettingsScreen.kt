@@ -181,7 +181,7 @@ private fun protoSwitchColors(c: ProtoColors) = SwitchDefaults.colors(
     checkedThumbColor = com.harken.android.ui.theme.ProtoAccentColor,
     checkedTrackColor = c.accentFill,
     checkedBorderColor = Color.Transparent,
-    uncheckedThumbColor = Color(0xFF82796A),
+    uncheckedThumbColor = c.textSecondary,
     uncheckedTrackColor = c.pillTrack,
     uncheckedBorderColor = Color.Transparent,
 )
@@ -193,5 +193,5 @@ private fun protoSegmentedColors(c: ProtoColors) = SegmentedButtonDefaults.color
     inactiveContainerColor = c.pillTrack,
     inactiveContentColor = c.textSecondary,
     activeBorderColor = Color.Transparent,
-    inactiveBorderColor = Color.Transparent,
+    inactiveBorderColor = c.cardBorder,
 )

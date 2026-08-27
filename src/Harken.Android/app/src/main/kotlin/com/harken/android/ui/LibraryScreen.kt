@@ -135,7 +135,13 @@ private fun FilterChipProto(c: ProtoColors, selected: Boolean, label: String, on
             selectedContainerColor = c.accentFill,
             selectedLabelColor = c.accentFillFg,
         ),
-        border = null,
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = selected,
+            borderColor = c.cardBorder,
+            selectedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
+            borderWidth = 1.dp,
+        ),
     )
 }
 

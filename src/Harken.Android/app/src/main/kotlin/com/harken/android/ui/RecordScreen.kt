@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -201,7 +203,7 @@ fun RecordScreen(
             }
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.weight(1f, fill = true).heightIn(max = 140.dp))
         if (state.isRecording) {
             Text(
                 "Stops after 5 min silence",
@@ -227,7 +229,7 @@ fun RecordScreen(
 @Composable
 private fun IdleMeter(c: ProtoColors) {
     Column(
-        Modifier.fillMaxWidth().height(230.dp).background(c.meterBg, RoundedCornerShape(30.dp)).padding(20.dp),
+        Modifier.fillMaxWidth().height(150.dp).background(c.meterBg, RoundedCornerShape(30.dp)).padding(20.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -235,7 +237,7 @@ private fun IdleMeter(c: ProtoColors) {
             Spacer(Modifier.width(8.dp))
             Text("INPUT IDLE", color = c.ink55, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
         }
-        Row(Modifier.fillMaxWidth().height(60.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             repeat(12) {
                 Box(Modifier.padding(horizontal = 2.5.dp).width(5.dp).height(7.dp).background(c.ink28, RoundedCornerShape(3.dp)))
             }
@@ -305,6 +307,7 @@ private fun RecordButton(recording: Boolean, onTap: () -> Unit) {
         shape = rememberRecordShape(recording),
         containerColor = ProtoAccentColor,
         contentColor = ProtoAccentOn,
+        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 10.dp, pressedElevation = 4.dp),
         interactionSource = interaction,
     ) {
         Icon(
