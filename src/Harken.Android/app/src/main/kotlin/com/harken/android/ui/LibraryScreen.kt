@@ -1,9 +1,9 @@
 package com.harken.android.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,19 +11,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,32 +31,33 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.data.SessionRepository
 import com.harken.android.ui.components.EmptyState
 import com.harken.android.ui.components.ErrorState
-import com.harken.android.ui.components.HarkenCard
 import com.harken.android.ui.components.SkeletonRow
-import com.harken.android.ui.components.StatusChip
+import com.harken.android.ui.theme.ProtoBodyFont
+import com.harken.android.ui.theme.ProtoColors
+import com.harken.android.ui.theme.ProtoHeadingFont
+import com.harken.android.ui.theme.rememberProtoColors
 import java.util.UUID
 
-// Renamed from RecordingListScreen. The row is the biggest change in the redesign: the
-// hash-seeded fake waveform is gone (it was pure noise wearing the costume of
-// information) and the space it occupied now carries a title, a duration bar scaled to
-// real length, tags and live transcription progress.
-//
-// Adapted from the sync original: ButtonGroup/clickableItem and LoadingIndicator are
-// Material 3 Expressive components whose Kotlin visibility is still internal in the
-// released material3 1.4.0 artifact (same wall as MotionScheme — see
-// ui/theme/Motion.kt), so the filter row is a LazyRow of FilterChips and the
-// transcribing indicator is a CircularProgressIndicator instead.
+// Prototype card visuals wired to the real LibraryViewModel — real Room+network session
+// list, real refresh, real tag-based filtering. The prototype's fake "pending upload
+// queue" and archive button had no backing endpoint and are dropped rather than left
+// pretending to work.
 
 @Composable
 fun LibraryScreen(
     onOpenSession: (UUID) -> Unit = {},
     viewModel: LibraryViewModel = viewModel(),
 ) {
+    val c = rememberProtoColors()
     val state by viewModel.uiState.collectAsState()
     var filter by remember { mutableStateOf(LibraryFilter.All) }
 
@@ -73,38 +71,22 @@ fun LibraryScreen(
     }
     val longest = remember(state.sessions) { state.sessions.mapNotNull { it.durationSeconds }.maxOrNull() ?: 1 }
 
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp)) {
-            Text("Library", style = MaterialTheme.typography.displaySmall)
-            Text(
-                text = viewModel.subtitle(state),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
-        }
+    Column(Modifier.fillMaxSize().background(c.screenBg).padding(horizontal = 20.dp, vertical = 6.dp)) {
+        Text("Library", color = c.text, fontFamily = ProtoHeadingFont, fontSize = 26.sp)
+        Text(
+            viewModel.subtitle(state),
+            color = c.textSecondary,
+            fontFamily = ProtoBodyFont,
+            fontSize = 13.5.sp,
+            maxLines = 1,
+            modifier = Modifier.padding(top = 2.dp, bottom = 14.dp),
+        )
 
-        Spacer(Modifier.height(16.dp))
-
-        LazyRow(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(LibraryFilter.entries.toList()) { option ->
-                val selected = filter == option
-                FilterChip(
-                    selected = selected,
-                    onClick = { filter = option },
-                    label = { Text(option.label) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
-                )
+        Row(Modifier.fillMaxWidth().padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LibraryFilter.entries.forEach { option ->
+                FilterChipProto(c, selected = filter == option, label = option.label) { filter = option }
             }
         }
-
-        Spacer(Modifier.height(14.dp))
 
         when {
             state.error != null && state.sessions.isEmpty() -> ErrorState(
@@ -113,13 +95,11 @@ fun LibraryScreen(
                 onRetry = viewModel::refresh,
                 secondaryLabel = "Change address",
                 onSecondary = viewModel::openSettings,
-                modifier = Modifier.padding(horizontal = 20.dp),
             )
 
-            state.isLoading && state.sessions.isEmpty() -> Column(
-                Modifier.padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) { repeat(4) { SkeletonRow() } }
+            state.isLoading && state.sessions.isEmpty() -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                repeat(4) { SkeletonRow() }
+            }
 
             visible.isEmpty() -> EmptyState(
                 icon = Icons.Filled.GraphicEq,
@@ -131,108 +111,81 @@ fun LibraryScreen(
                 },
                 actionLabel = if (filter == LibraryFilter.All) "Record something" else null,
                 onAction = if (filter == LibraryFilter.All) viewModel::goToRecord else null,
-                modifier = Modifier.padding(horizontal = 20.dp),
             )
 
-            else -> LazyColumn(
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(visible, key = { it.id }) { session ->
-                    SessionRowCard(
-                        session = session,
-                        longestSeconds = longest,
-                        onOpen = { onOpenSession(session.id) },
-                        modifier = Modifier.animateItem(),
-                    )
+                    SessionCard(c, session, longest) { onOpenSession(session.id) }
                 }
+                item { Spacer(Modifier.height(8.dp)) }
             }
         }
+    }
+}
+
+@Composable
+private fun FilterChipProto(c: ProtoColors, selected: Boolean, label: String, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) },
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = c.pillTrack,
+            labelColor = c.textSecondary,
+            selectedContainerColor = c.accentFill,
+            selectedLabelColor = c.accentFillFg,
+        ),
+        border = null,
+    )
+}
+
+@Composable
+private fun SessionCard(
+    c: ProtoColors,
+    s: SessionRepository.SessionView,
+    longestSeconds: Int,
+    onOpen: () -> Unit,
+) {
+    val transcribing = s.status == "Pending" || s.status == "Running"
+    val failed = s.status == "Failed"
+    val (chipBg, chipFg, chipLabel) = when {
+        transcribing -> Triple(c.accentFill2, c.accentFill2Fg, "Transcribing")
+        failed -> Triple(c.dangerFill, c.dangerFillFg, "Kept on device")
+        s.hasSummary -> Triple(c.accentFill2, c.accentFill2Fg, "Summarized")
+        else -> Triple(c.pillTrack, c.textSecondary, "Transcribed")
+    }
+    val metaLine = buildString {
+        append(formatSessionTimestamp(s.startedAt))
+        s.durationSeconds?.let { append(" · ${it / 60}m ${(it % 60).toString().padStart(2, '0')}s") }
+    }
+    val barColor = if (transcribing) Color(0xFFAEBF92) else Color(0xFF82796A)
+    val fraction = ((s.durationSeconds ?: 0).toFloat() / longestSeconds).coerceIn(0f, 1f)
+
+    Column(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(24.dp)).padding(16.dp)) {
+        Row(Modifier.fillMaxWidth().clickable(onClick = onOpen), verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
+                Text(s.title, color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(metaLine, color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+            }
+            Row(
+                Modifier.background(chipBg, RoundedCornerShape(999.dp)).padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (transcribing) {
+                    CircularProgressIndicator(modifier = Modifier.size(11.dp), strokeWidth = 1.5.dp, color = chipFg)
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(chipLabel, color = chipFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        LinearProgressIndicator(
+            progress = { fraction },
+            modifier = Modifier.fillMaxWidth().height(5.dp),
+            color = barColor,
+            trackColor = c.cardBorder,
+        )
     }
 }
 
 enum class LibraryFilter(val label: String) { All("All"), Meetings("Meetings"), Field("Field"), Ideas("Ideas") }
-
-@Composable
-private fun SessionRowCard(
-    session: SessionRepository.SessionView,
-    longestSeconds: Int,
-    onOpen: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val transcribing = session.status == "Pending" || session.status == "Running"
-    val failed = session.status == "Failed"
-
-    HarkenCard(modifier = modifier.fillMaxWidth(), onClick = onOpen) {
-        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text(session.title, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = rowMeta(session),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
-            }
-            when {
-                transcribing -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.secondary)
-                    Text("Transcribing", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, maxLines = 1)
-                }
-
-                failed -> StatusChip(
-                    label = "Kept on device",
-                    container = MaterialTheme.colorScheme.errorContainer,
-                    content = MaterialTheme.colorScheme.onErrorContainer,
-                )
-
-                session.hasSummary -> StatusChip(
-                    label = "Summarized",
-                    container = MaterialTheme.colorScheme.secondaryContainer,
-                    content = MaterialTheme.colorScheme.onSecondaryContainer,
-                    leading = { Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) },
-                )
-
-                else -> StatusChip(
-                    label = "Transcribed",
-                    container = MaterialTheme.colorScheme.surfaceVariant,
-                    content = MaterialTheme.colorScheme.onSurfaceVariant,
-                    leading = { Icon(Icons.Filled.Notes, contentDescription = null, modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                )
-            }
-        }
-
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            // A bar scaled to REAL duration, relative to the longest recording in the
-            // list. Honest data in the space the fake waveform used to fill.
-            //
-            // Deliberately unanimated: LazyColumn discards and recreates this composable's
-            // state every time the row scrolls out of view and back, so an animateFloatAsState
-            // here restarted from 0 on every re-entry, reading as a glitch during a scroll.
-            // The duration itself never changes while the row is visible, so there is
-            // nothing to animate.
-            val fraction = ((session.durationSeconds ?: 0).toFloat() / longestSeconds).coerceIn(0f, 1f)
-            LinearProgressIndicator(
-                progress = { fraction },
-                modifier = Modifier.weight(1f).height(6.dp),
-                color = if (transcribing) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline,
-                trackColor = MaterialTheme.colorScheme.outlineVariant,
-            )
-            session.tags.firstOrNull()?.let { tag ->
-                StatusChip(
-                    label = tag.uppercase(),
-                    container = MaterialTheme.colorScheme.surfaceVariant,
-                    content = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-private fun rowMeta(session: SessionRepository.SessionView): String = buildString {
-    append(formatSessionTimestamp(session.startedAt))
-    session.durationSeconds?.let {
-        append(" · ")
-        append("${it / 60}m ${(it % 60).toString().padStart(2, '0')}s")
-    }
-}

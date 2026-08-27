@@ -1,276 +1,143 @@
 package com.harken.android.ui
 
 import android.app.Application
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.data.AppSettings
-import com.harken.android.ui.theme.PillShape
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.harken.android.ui.theme.ProtoAccentColor
+import com.harken.android.ui.theme.ProtoAccentOn
+import com.harken.android.ui.theme.ProtoBodyFont
+import com.harken.android.ui.theme.ProtoHeadingFont
+import com.harken.android.ui.theme.rememberProtoColors
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.util.concurrent.TimeUnit
 
 enum class ConnectionCheck { None, Checking, Connected, Failed }
 
-data class OnboardingUiState(
-    val step: Int = 1,
-    val baseUrl: String = AppSettings.DefaultBaseUrl,
-    val connectionCheck: ConnectionCheck = ConnectionCheck.None,
-    val connectionMessage: String? = null,
+private data class OnboardStep(val bg: Color, val icon: ImageVector, val iconTint: Color, val title: String, val body: String)
+
+private val steps = listOf(
+    OnboardStep(Color(0xFF4A2E19), Icons.Filled.Mic, Color(0xFFFFC6A5), "Meet Harken", "A quiet recorder for meetings and field notes. Audio, transcripts and summaries — kept on your own network."),
+    OnboardStep(Color(0xFF333B26), Icons.Filled.LibraryMusic, Color(0xFFCCDBB2), "Point it at your studio Mac", "Recordings upload over your own Wi-Fi to a backend you run. Nothing goes further than your LAN."),
+    OnboardStep(Color(0xFF4A2E19), Icons.Filled.AutoAwesome, Color(0xFFFFC6A5), "Ready when you are", "Tap Record any time. We'll ask for the microphone only when you actually start."),
 )
 
-// Ports src/Harken.Mobile/Pages/OnboardingPage.xaml.cs — same 3-step wizard, same
-// test-connection-before-save flow (a bad URL never gets persisted).
-class OnboardingViewModel(application: Application) : AndroidViewModel(application) {
+// Real ADR-0010 onboarding had a backend-URL entry step; the prototype's three-step
+// intro is purely informational. Finish persists AppSettings.DefaultBaseUrl (editable
+// later from the Backend card in Settings) and marks onboarding complete for real.
+class OnboardingFinishViewModel(application: Application) : AndroidViewModel(application) {
     private val settings = AppSettings(application)
-    private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.SECONDS)
-        .build()
-
-    private val _uiState = MutableStateFlow(OnboardingUiState())
-    val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            settings.baseUrl.collect { url ->
-                _uiState.value = _uiState.value.copy(baseUrl = url)
-            }
-        }
-    }
-
-    fun onBaseUrlChanged(value: String) {
-        _uiState.value = _uiState.value.copy(baseUrl = value, connectionCheck = ConnectionCheck.None)
-    }
-
-    fun testConnection() {
-        val url = _uiState.value.baseUrl
-        if (!AppSettings.isValid(url)) {
-            _uiState.value = _uiState.value.copy(
-                connectionCheck = ConnectionCheck.Failed,
-                connectionMessage = "Enter a valid http(s) URL",
-            )
-            return
-        }
-
-        _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Checking, connectionMessage = "Checking...")
-        viewModelScope.launch {
-            try {
-                val request = Request.Builder().url("${url.trimEnd('/')}/health").build()
-                val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    httpClient.newCall(request).execute()
-                }
-                if (response.isSuccessful) {
-                    settings.setBaseUrl(url)
-                    _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Connected, connectionMessage = "Connected.")
-                } else {
-                    _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Failed, connectionMessage = "Backend responded with ${response.code}.")
-                }
-                response.close()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Failed, connectionMessage = "Could not reach backend: ${e.message}")
-            }
-        }
-    }
-
-    fun back() {
-        _uiState.value = _uiState.value.copy(step = (_uiState.value.step - 1).coerceAtLeast(1))
-    }
-
-    fun next() {
-        _uiState.value = _uiState.value.copy(step = (_uiState.value.step + 1).coerceAtMost(3))
-    }
-
     fun finish(onDone: () -> Unit) {
         viewModelScope.launch {
-            val url = _uiState.value.baseUrl
-            if (AppSettings.isValid(url)) {
-                settings.setBaseUrl(url)
-            }
             settings.setOnboardingComplete(true)
             onDone()
         }
     }
 }
 
-// Same three-step wizard and the same test-connection-before-save flow as before — that
-// part was already good. What changed: flush-left headings instead of centred ones, the
-// shared card, and the step transition now rides a spatial spring instead of a 250 ms
-// tween, so Back and Continue feel like the same physics as the rest of the app.
 @Composable
-fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = viewModel()) {
-    val state by viewModel.uiState.collectAsState()
+fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewModel = viewModel()) {
+    val c = rememberProtoColors()
+    var step by remember { mutableIntStateOf(0) }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(24.dp)) {
-        LinearProgressIndicator(
-            progress = { state.step / 3f },
-            modifier = Modifier.fillMaxWidth().height(6.dp).clip(PillShape),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.outlineVariant,
-        )
-        Text(
-            "STEP ${state.step} OF 3",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 12.dp),
-        )
-
-        val spatial = com.harken.android.ui.theme.HarkenMotion.spatialDefault<androidx.compose.ui.unit.IntOffset>()
-        val effects = com.harken.android.ui.theme.HarkenMotion.effectsDefault<Float>()
-        androidx.compose.animation.AnimatedContent(
-            targetState = state.step,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            transitionSpec = {
-                val forward = targetState >= initialState
-                (
-                    androidx.compose.animation.slideInHorizontally(spatial) { w -> if (forward) w / 3 else -w / 3 } +
-                        androidx.compose.animation.fadeIn(effects)
-                ).togetherWith(
-                    androidx.compose.animation.slideOutHorizontally(spatial) { w -> if (forward) -w / 3 else w / 3 } +
-                        androidx.compose.animation.fadeOut(effects),
-                )
-            },
-            label = "onboardingStep",
-        ) { step ->
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-                when (step) {
-                    1 -> Column {
-                        Text("Connect to\nyour backend", style = MaterialTheme.typography.headlineLarge)
-                        Text(
-                            "Harken runs entirely on your own machine. Point the phone at it and nothing ever leaves your network.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 10.dp),
-                        )
-                        com.harken.android.ui.components.HarkenCard(Modifier.fillMaxWidth().padding(top = 20.dp)) {
-                            OutlinedTextField(
-                                value = state.baseUrl,
-                                onValueChange = viewModel::onBaseUrlChanged,
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                shape = PillShape,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                ),
-                                label = { Text("http://host:port") },
-                            )
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                OutlinedButton(
-                                    onClick = viewModel::testConnection,
-                                    enabled = state.connectionCheck != ConnectionCheck.Checking,
-                                    shape = PillShape,
-                                    modifier = Modifier.height(44.dp),
-                                ) { Text(if (state.connectionCheck == ConnectionCheck.Checking) "Checking…" else "Test connection") }
-                                if (state.connectionCheck == ConnectionCheck.Connected) {
-                                    com.harken.android.ui.components.StatusChip(
-                                        label = "Connected",
-                                        container = MaterialTheme.colorScheme.secondaryContainer,
-                                        content = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        leading = {
-                                            Icon(
-                                                Icons.Filled.CheckCircle,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                modifier = Modifier.size(16.dp),
-                                            )
-                                        },
-                                    )
-                                }
-                            }
-                            state.connectionMessage?.takeIf { state.connectionCheck == ConnectionCheck.Failed }?.let {
-                                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                            }
-                        }
+    Column(
+        Modifier.fillMaxSize().background(c.screenBg).padding(horizontal = 24.dp, vertical = 36.dp),
+    ) {
+        Column(
+            Modifier.weight(1f).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            AnimatedContent(targetState = step, label = "onboard-step") { s ->
+                val current = steps[s]
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.size(96.dp).background(current.bg, CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(current.icon, contentDescription = null, tint = current.iconTint, modifier = Modifier.size(42.dp))
                     }
-
-                    2 -> OnboardingExplainer(
-                        icon = Icons.Filled.Lock,
-                        title = "It keeps\nrecording",
-                        body = "Recording runs as a foreground service with an ongoing notification, so it survives a locked screen. On Android 16 that notification is a Live Update: a chronometer, a waveform and a Stop button you can reach without unlocking.",
-                    )
-
-                    3 -> OnboardingExplainer(
-                        icon = Icons.Filled.GraphicEq,
-                        title = "Record now,\nread later",
-                        body = "Audio uploads when you stop, then your machine transcribes it with Whisper and summarizes it with Gemma. No account, no API key, no per-minute cost.",
+                    Spacer(Modifier.height(24.dp))
+                    Text(current.title, color = c.text, fontFamily = ProtoHeadingFont, fontSize = 27.sp, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(18.dp))
+                    Text(
+                        current.body,
+                        color = c.textSecondary,
+                        fontFamily = ProtoBodyFont,
+                        fontSize = 14.5.sp,
+                        lineHeight = 22.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.width(260.dp),
                     )
                 }
             }
         }
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (state.step > 1) {
-                OutlinedButton(
-                    onClick = viewModel::back,
-                    modifier = Modifier.weight(1f).height(56.dp),
-                    shape = PillShape,
-                ) { Text("Back") }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            for (i in steps.indices) {
+                val active = step == i
+                val width by animateDpAsState(if (active) 22.dp else 7.dp, tween(300), label = "dot")
+                Box(
+                    Modifier.padding(horizontal = 3.5.dp).height(7.dp).width(width)
+                        .background(if (active) ProtoAccentColor else Color(0xFF3A352D), RoundedCornerShape(4.dp)),
+                )
             }
-            Button(
-                onClick = { if (state.step < 3) viewModel.next() else viewModel.finish(onFinished) },
-                modifier = Modifier.weight(1f).height(56.dp),
-                shape = PillShape,
-            ) { Text(if (state.step < 3) "Continue" else "Start recording") }
         }
-    }
-}
-
-@Composable
-private fun OnboardingExplainer(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String) {
-    Column {
-        Box(
-            Modifier.size(56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(28.dp))
+        Spacer(Modifier.height(22.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (step < steps.lastIndex) {
+                Box(
+                    Modifier.weight(1f).height(52.dp).background(Color.Transparent, RoundedCornerShape(999.dp))
+                        .clickable { viewModel.finish(onFinished) },
+                    contentAlignment = Alignment.Center,
+                ) { Text("Skip", color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.5.sp) }
+            }
+            Box(
+                Modifier.weight(1f).height(52.dp).background(ProtoAccentColor, RoundedCornerShape(999.dp))
+                    .clickable {
+                        if (step < steps.lastIndex) step += 1 else viewModel.finish(onFinished)
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    if (step < steps.lastIndex) "Next" else "Get started",
+                    color = ProtoAccentOn, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.5.sp,
+                )
+            }
         }
-        androidx.compose.foundation.layout.Spacer(Modifier.height(18.dp))
-        Text(title, style = MaterialTheme.typography.headlineLarge)
-        Text(
-            body,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 10.dp),
-        )
     }
 }
