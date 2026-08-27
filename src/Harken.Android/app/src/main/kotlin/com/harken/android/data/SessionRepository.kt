@@ -9,6 +9,7 @@ import com.harken.android.network.SessionDetail
 import com.harken.android.network.SessionListItem
 import com.harken.android.speech.LocalTranscribedSegment
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
@@ -91,12 +92,6 @@ class SessionRepository(
         refreshDetail(id).getOrThrow()
     }
 
-    suspend fun softDelete(id: UUID): Result<Unit> = runCatching {
-        val response = api.deleteSession(id)
-        if (!response.isSuccessful) error("deleteSession returned ${response.code()}")
-        dao.deleteSession(id)
-    }
-
     /**
      * Creates a fresh local-only session row (ADR-0011) for a recording that will be
      * transcribed entirely on-device — never synced from/to the backend. Mirrors the
@@ -145,6 +140,10 @@ class SessionRepository(
     suspend fun failLocal(id: UUID, reason: String) = dao.failLocalTranscription(id, reason)
 
     suspend fun purge(id: UUID): Result<Unit> = runCatching {
+        if (observeSession(id).first()?.isLocalOnly == true) {
+            dao.deleteSession(id)
+            return@runCatching
+        }
         val response = api.purgeSession(id)
         if (!response.isSuccessful) error("purgeSession returned ${response.code()}")
         dao.deleteSession(id)
