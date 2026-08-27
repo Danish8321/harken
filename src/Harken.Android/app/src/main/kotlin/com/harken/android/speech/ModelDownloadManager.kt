@@ -129,6 +129,6 @@ class ModelDownloadManager(
         const val ModelFileName = "ggml-base.en.bin"
 
         const val MODEL_DOWNLOAD_URL =
-            "https://github.com/danish/harken/releases/download/models-v1/ggml-base.en.bin"
+            "https://github.com/Danish8321/harken/releases/download/models-v1/ggml-base.en.bin"
     }
 }
