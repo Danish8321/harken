@@ -40,10 +40,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.data.AppSettings
+import com.harken.android.speech.ModelDownloadManager
 import com.harken.android.ui.theme.PillShape
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -51,23 +54,36 @@ import java.util.concurrent.TimeUnit
 
 enum class ConnectionCheck { None, Checking, Connected, Failed }
 
+enum class ModelDownloadState { NotStarted, Downloading, Ready, Failed }
+
 data class OnboardingUiState(
     val step: Int = 1,
     val baseUrl: String = AppSettings.DefaultBaseUrl,
     val connectionCheck: ConnectionCheck = ConnectionCheck.None,
     val connectionMessage: String? = null,
+    val modelDownloadState: ModelDownloadState = ModelDownloadState.NotStarted,
+    val modelDownloadProgress: Int = 0,
+    val modelDownloadError: String? = null,
 )
 
-// Ports src/Harken.Mobile/Pages/OnboardingPage.xaml.cs — same 3-step wizard, same
-// test-connection-before-save flow (a bad URL never gets persisted).
+// Ports src/Harken.Mobile/Pages/OnboardingPage.xaml.cs — same wizard shape, same
+// test-connection-before-save flow (a bad URL never gets persisted). Step 4 (model
+// download) is new: on-device transcription (ADR-0011) needs the whisper model fetched
+// once, and doing it here — explicit, with progress — beats the old silent
+// first-recording download the user found confusing ("nothing was happening").
 class OnboardingViewModel(application: Application) : AndroidViewModel(application) {
     private val settings = AppSettings(application)
+    private val modelDownloadManager = ModelDownloadManager(application)
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(5, TimeUnit.SECONDS)
         .build()
 
-    private val _uiState = MutableStateFlow(OnboardingUiState())
+    private val _uiState = MutableStateFlow(
+        OnboardingUiState(
+            modelDownloadState = if (modelDownloadManager.isModelPresent()) ModelDownloadState.Ready else ModelDownloadState.NotStarted,
+        ),
+    )
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
     init {
@@ -75,6 +91,28 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             settings.baseUrl.collect { url ->
                 _uiState.value = _uiState.value.copy(baseUrl = url)
             }
+        }
+    }
+
+    fun downloadModel() {
+        if (_uiState.value.modelDownloadState == ModelDownloadState.Downloading) return
+        _uiState.value = _uiState.value.copy(modelDownloadState = ModelDownloadState.Downloading, modelDownloadError = null)
+        viewModelScope.launch {
+            modelDownloadManager.downloadProgress()
+                .catch { e ->
+                    _uiState.value = _uiState.value.copy(
+                        modelDownloadState = ModelDownloadState.Failed,
+                        modelDownloadError = e.message ?: "Download failed",
+                    )
+                }
+                .onCompletion { failure ->
+                    if (failure == null && _uiState.value.modelDownloadState != ModelDownloadState.Failed) {
+                        _uiState.value = _uiState.value.copy(modelDownloadState = ModelDownloadState.Ready, modelDownloadProgress = 100)
+                    }
+                }
+                .collect { percent ->
+                    _uiState.value = _uiState.value.copy(modelDownloadProgress = percent)
+                }
         }
     }
 
@@ -117,7 +155,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun next() {
-        _uiState.value = _uiState.value.copy(step = (_uiState.value.step + 1).coerceAtMost(3))
+        _uiState.value = _uiState.value.copy(step = (_uiState.value.step + 1).coerceAtMost(4))
     }
 
     fun finish(onDone: () -> Unit) {
@@ -142,13 +180,13 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(24.dp)) {
         LinearProgressIndicator(
-            progress = { state.step / 3f },
+            progress = { state.step / 4f },
             modifier = Modifier.fillMaxWidth().height(6.dp).clip(PillShape),
             color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.outlineVariant,
         )
         Text(
-            "STEP ${state.step} OF 3",
+            "STEP ${state.step} OF 4",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 12.dp),
@@ -238,6 +276,69 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                         title = "Record now,\nread later",
                         body = "Recording transcribes right there on your phone the moment you stop — no upload, no account, no per-minute cost. If you connected a backend in the first step, you also get cloud transcription and AI-generated summaries.",
                     )
+
+                    4 -> Column {
+                        Text("Get the\nspeech model", style = MaterialTheme.typography.headlineLarge)
+                        Text(
+                            "On-device transcription needs a one-time download (about 140 MB). You can also do this later from Settings.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 10.dp),
+                        )
+                        com.harken.android.ui.components.HarkenCard(Modifier.fillMaxWidth().padding(top = 20.dp)) {
+                            when (state.modelDownloadState) {
+                                ModelDownloadState.NotStarted -> Button(
+                                    onClick = viewModel::downloadModel,
+                                    shape = PillShape,
+                                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                                ) { Text("Download model") }
+
+                                ModelDownloadState.Downloading -> Column {
+                                    LinearProgressIndicator(
+                                        progress = { state.modelDownloadProgress / 100f },
+                                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(PillShape),
+                                    )
+                                    Text(
+                                        "Downloading… ${state.modelDownloadProgress}%",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 8.dp),
+                                    )
+                                }
+
+                                ModelDownloadState.Ready -> com.harken.android.ui.components.StatusChip(
+                                    label = "Model ready",
+                                    container = MaterialTheme.colorScheme.secondaryContainer,
+                                    content = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    leading = {
+                                        Icon(
+                                            Icons.Filled.CheckCircle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    },
+                                )
+
+                                ModelDownloadState.Failed -> Column {
+                                    Text(
+                                        state.modelDownloadError ?: "Download failed",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                    OutlinedButton(
+                                        onClick = viewModel::downloadModel,
+                                        shape = PillShape,
+                                        modifier = Modifier.padding(top = 8.dp),
+                                    ) { Text("Retry") }
+                                }
+                            }
+                        }
+                        androidx.compose.material3.TextButton(
+                            onClick = { viewModel.finish(onFinished) },
+                            modifier = Modifier.padding(top = 4.dp),
+                        ) { Text("Skip for now") }
+                    }
                 }
             }
         }
@@ -251,10 +352,10 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                 ) { Text("Back") }
             }
             Button(
-                onClick = { if (state.step < 3) viewModel.next() else viewModel.finish(onFinished) },
+                onClick = { if (state.step < 4) viewModel.next() else viewModel.finish(onFinished) },
                 modifier = Modifier.weight(1f).height(56.dp),
                 shape = PillShape,
-            ) { Text(if (state.step < 3) "Continue" else "Start recording") }
+            ) { Text(if (state.step < 4) "Continue" else "Start recording") }
         }
     }
 }

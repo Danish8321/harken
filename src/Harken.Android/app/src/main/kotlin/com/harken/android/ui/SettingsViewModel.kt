@@ -4,9 +4,12 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.harken.android.data.AppSettings
+import com.harken.android.speech.ModelDownloadManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -19,6 +22,9 @@ data class SettingsUiState(
     val savedMessage: String? = null,
     val themeMode: ThemeMode = ThemeMode.System,
     val dynamicColor: Boolean = false,
+    val modelDownloadState: ModelDownloadState = ModelDownloadState.NotStarted,
+    val modelDownloadProgress: Int = 0,
+    val modelDownloadError: String? = null,
 )
 
 // Ports src/Harken.Mobile/Pages/SettingsPage.xaml.cs — same validate-then-save, and
@@ -26,12 +32,17 @@ data class SettingsUiState(
 // entry points behave identically.
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val settings = AppSettings(application)
+    private val modelDownloadManager = ModelDownloadManager(application)
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(5, TimeUnit.SECONDS)
         .build()
 
-    private val _uiState = MutableStateFlow(SettingsUiState())
+    private val _uiState = MutableStateFlow(
+        SettingsUiState(
+            modelDownloadState = if (modelDownloadManager.isModelPresent()) ModelDownloadState.Ready else ModelDownloadState.NotStarted,
+        ),
+    )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
@@ -62,6 +73,30 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setDynamicColor(enabled: Boolean) {
         viewModelScope.launch { settings.setDynamicColor(enabled) }
+    }
+
+    /** Re-downloads the model even if one is already present — the Settings "update" action. */
+    fun updateModel() {
+        if (_uiState.value.modelDownloadState == ModelDownloadState.Downloading) return
+        modelDownloadManager.deleteModel()
+        _uiState.value = _uiState.value.copy(modelDownloadState = ModelDownloadState.Downloading, modelDownloadError = null)
+        viewModelScope.launch {
+            modelDownloadManager.downloadProgress()
+                .catch { e ->
+                    _uiState.value = _uiState.value.copy(
+                        modelDownloadState = ModelDownloadState.Failed,
+                        modelDownloadError = e.message ?: "Download failed",
+                    )
+                }
+                .onCompletion { failure ->
+                    if (failure == null && _uiState.value.modelDownloadState != ModelDownloadState.Failed) {
+                        _uiState.value = _uiState.value.copy(modelDownloadState = ModelDownloadState.Ready, modelDownloadProgress = 100)
+                    }
+                }
+                .collect { percent ->
+                    _uiState.value = _uiState.value.copy(modelDownloadProgress = percent)
+                }
+        }
     }
 
     fun testConnection() {

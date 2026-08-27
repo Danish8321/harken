@@ -30,6 +30,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.ui.components.ErrorState
@@ -102,6 +103,35 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                     ?: "Nothing answered. Check the machine is awake, on this Wi-Fi, and started with --urls http://0.0.0.0:5057.",
                 onRetry = viewModel::testConnection,
             )
+        }
+
+        HarkenCard(Modifier.fillMaxWidth()) {
+            Text("SPEECH MODEL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        when (state.modelDownloadState) {
+                            ModelDownloadState.Ready -> "Ready — used for on-device transcription"
+                            ModelDownloadState.Downloading -> "Downloading… ${state.modelDownloadProgress}%"
+                            ModelDownloadState.Failed -> state.modelDownloadError ?: "Download failed"
+                            ModelDownloadState.NotStarted -> "Not downloaded yet"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                OutlinedButton(
+                    onClick = viewModel::updateModel,
+                    enabled = state.modelDownloadState != ModelDownloadState.Downloading,
+                    shape = PillShape,
+                    modifier = Modifier.height(40.dp),
+                ) { Text(if (state.modelDownloadState == ModelDownloadState.Ready) "Update" else "Download") }
+            }
+            if (state.modelDownloadState == ModelDownloadState.Downloading) {
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = { state.modelDownloadProgress / 100f },
+                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp)),
+                )
+            }
         }
 
         HarkenCard(Modifier.fillMaxWidth()) {

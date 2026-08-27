@@ -32,6 +32,15 @@ class ModelDownloadManager(
     fun isModelPresent(): Boolean = modelFile.exists()
 
     /**
+     * Deletes the current model file so the next [ensureModel]/[downloadProgress] call
+     * re-downloads it. Used by the Settings "update model" action — same model URL today,
+     * but this is also the path a future model-version bump would use.
+     */
+    fun deleteModel() {
+        modelFile.delete()
+    }
+
+    /**
      * Returns the absolute path to the model file, downloading it first if missing.
      * Safe to call repeatedly — a no-op once the model is present.
      */
@@ -119,10 +128,6 @@ class ModelDownloadManager(
     companion object {
         const val ModelFileName = "ggml-base.en.bin"
 
-        // Placeholder: points at this repo's GitHub Releases, where a real ggml-base.en.bin
-        // asset is expected to be uploaded before this is used against a device. The
-        // download-manager mechanics (tmp-then-rename, no partial files) don't depend on
-        // the asset existing yet.
         const val MODEL_DOWNLOAD_URL =
             "https://github.com/danish/harken/releases/download/models-v1/ggml-base.en.bin"
     }
