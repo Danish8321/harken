@@ -2,15 +2,26 @@ package com.harken.android.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Icon
@@ -21,7 +32,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
@@ -34,6 +44,7 @@ import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.rememberProtoColors
 import kotlinx.coroutines.launch
+import kotlin.math.sin
 
 private val EnterExit = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 
@@ -60,26 +71,34 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
         return
     }
 
-    // 0..0.35 enter (mark + wordmark fade/scale in) · 0.35..0.65 hold · 0.65..1 exit
+    // 0..0.15 enter (mark + wordmark fade/scale in) · 0.15..0.85 hold · 0.85..1 exit
     // (mark dissolves; wordmark morphs to Record's slot, or the whole thing fades).
     val t = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        t.animateTo(1f, tween(1800, easing = EnterExit))
+        // Linear over wall-clock time — the phase math below depends on t.value tracking
+        // elapsed time proportionally. EnterExit is applied locally to each sub-phase's own
+        // fraction instead: driving the whole 1800ms through that ease-out curve made the
+        // raw value race to ~0.9 early and crawl the rest of the way, so the hard-cut phase
+        // boundaries below fired well before animateTo actually completed, leaving a long
+        // blank tail before onFinished().
+        t.animateTo(1f, tween(1800, easing = LinearEasing))
         onFinished()
     }
 
-    val enterT = (t.value / 0.35f).coerceIn(0f, 1f)
-    val exitT = ((t.value - 0.65f) / 0.35f).coerceIn(0f, 1f)
+    val enterT = EnterExit.transform((t.value / 0.15f).coerceIn(0f, 1f))
+    val exitT = EnterExit.transform(((t.value - 0.85f) / 0.15f).coerceIn(0f, 1f))
     val morphT = if (destinationIsRecord) exitT else 0f
     val fadeOutT = if (destinationIsRecord) 0f else exitT
 
     Box(
+        // Background stays fully opaque through exit — only the content fades. Fading the
+        // background too let the raw (white) activity ground show through for the tail of
+        // the exit before Onboarding composed in, reading as a stray blank flash.
         Modifier
             .fillMaxSize()
             .background(c.screenBg)
-            .alpha(1f - fadeOutT)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -93,28 +112,79 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
                 }
             },
     ) {
-        Box(
-            Modifier
-                .align(Alignment.Center)
-                .padding(bottom = 64.dp)
-                .size(72.dp)
-                .alpha((enterT * (1f - exitT)))
-                .scale(0.7f + 0.3f * enterT)
-                .background(c.accent, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Filled.Mic, contentDescription = null, tint = c.onAccent, modifier = Modifier.size(28.dp))
-        }
+        // The mic itself just fades/scales in — the motion that actually reads as "an
+        // instrument that's listening" is the waveform underneath it: bars rise in
+        // staggered left-to-right on entry, breathe like a live input meter through the
+        // hold (same visual language as RecordScreen's IdleMeter), then collapse
+        // staggered right-to-left on exit. A bare fading circle read as a static logo.
+        val loop = rememberInfiniteTransition(label = "splashWaveform")
+        val loopT by loop.animateFloat(
+            initialValue = 0f,
+            targetValue = (2 * Math.PI).toFloat(),
+            animationSpec = infiniteRepeatable(tween(2600, easing = LinearEasing)),
+            label = "splashWaveformT",
+        )
+        val barCount = 10
 
-        val bias = BiasAlignment(morphT * -1f, morphT * -1f)
-        Box(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp)) {
+        // Small and centered on an otherwise empty ground — the mark, the waveform and the
+        // wordmark together read as one compact instrument, not a full-bleed logo lockup.
+        Column(
+            Modifier.align(Alignment.Center).padding(bottom = 60.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                Modifier
+                    .size(48.dp)
+                    .alpha(enterT * (1f - exitT))
+                    .scale(0.7f + 0.3f * enterT)
+                    .background(c.accent, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Mic, contentDescription = null, tint = c.onAccent, modifier = Modifier.size(18.dp))
+            }
+            Row(
+                Modifier.padding(top = 10.dp).height(16.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                for (i in 0 until barCount) {
+                    val barEnter = ((enterT * barCount) - i).coerceIn(0f, 1f)
+                    val barExit = ((exitT * barCount) - (barCount - 1 - i)).coerceIn(0f, 1f)
+                    val breathe = sin(loopT + i * 0.45f) * 0.5f + 0.5f
+                    val h = (3.dp + 11.dp * breathe) * barEnter * (1f - barExit)
+                    Box(
+                        Modifier
+                            .padding(horizontal = 1.75.dp)
+                            .width(3.5.dp)
+                            .height(h)
+                            .background(c.accent, RoundedCornerShape(2.dp)),
+                    )
+                }
+            }
             Text(
                 stringResource(R.string.record_wordmark),
                 color = c.text,
                 fontFamily = ProtoHeadingFont,
-                fontSize = (40 - 20 * morphT).sp,
-                modifier = Modifier.align(bias).graphicsLayer { alpha = enterT },
+                fontSize = 24.sp,
+                modifier = Modifier
+                    .padding(top = 14.dp)
+                    .graphicsLayer { alpha = enterT * (1f - fadeOutT) * (1f - morphT) },
             )
+        }
+
+        // Only when landing on Record does the wordmark leave the small mark behind and
+        // settle into Record's own header slot — a second, independently-positioned copy
+        // cross-fades in as the compact one fades out, rather than one element visually
+        // leaping from mid-screen to the corner.
+        if (destinationIsRecord) {
+            Box(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp)) {
+                Text(
+                    stringResource(R.string.record_wordmark),
+                    color = c.text,
+                    fontFamily = ProtoHeadingFont,
+                    fontSize = 20.sp,
+                    modifier = Modifier.align(Alignment.TopStart).graphicsLayer { alpha = morphT },
+                )
+            }
         }
     }
 }

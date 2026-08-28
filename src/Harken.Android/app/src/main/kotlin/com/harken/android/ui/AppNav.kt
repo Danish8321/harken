@@ -96,25 +96,33 @@ fun AppNav() {
     // return visit to this composable within the same process (e.g. system dark-mode
     // toggle recomposing AppNav) doesn't replay it.
     var showSplash by remember { mutableStateOf(true) }
-    if (showSplash) {
-        SplashScreen(destinationIsRecord = onboardingComplete == true, onFinished = { showSplash = false })
-        return
-    }
-
     val navController = rememberNavController()
 
-    NavHost(
-        navController = navController,
-        startDestination = if (onboardingComplete == true) Routes.Record else Routes.Onboarding,
-    ) {
-        composable(Routes.Onboarding) {
-            OnboardingScreen(onFinished = {
-                navController.navigate(Routes.Record) { popUpTo(Routes.Onboarding) { inclusive = true } }
-            })
+    // A hard swap from the splash composable to NavHost read as an abrupt screen switch
+    // even with the splash's own content fade — the ROOT changed, not just its content.
+    // Crossfade holds both across a short overlap so the handoff itself is continuous.
+    androidx.compose.animation.Crossfade(
+        targetState = showSplash,
+        animationSpec = androidx.compose.animation.core.tween(220),
+        label = "splashToApp",
+    ) { splash ->
+        if (splash) {
+            SplashScreen(destinationIsRecord = onboardingComplete == true, onFinished = { showSplash = false })
+        } else {
+            NavHost(
+                navController = navController,
+                startDestination = if (onboardingComplete == true) Routes.Record else Routes.Onboarding,
+            ) {
+                composable(Routes.Onboarding) {
+                    OnboardingScreen(onFinished = {
+                        navController.navigate(Routes.Record) { popUpTo(Routes.Onboarding) { inclusive = true } }
+                    })
+                }
+                composable(Routes.Record) { MainHost(navController) { open -> RecordScreen(onOpenSession = open) } }
+                composable(Routes.Library) { MainHost(navController) { open -> LibraryScreen(onOpenSession = open) } }
+                composable(Routes.Settings) { MainHost(navController) { SettingsScreen() } }
+            }
         }
-        composable(Routes.Record) { MainHost(navController) { open -> RecordScreen(onOpenSession = open) } }
-        composable(Routes.Library) { MainHost(navController) { open -> LibraryScreen(onOpenSession = open) } }
-        composable(Routes.Settings) { MainHost(navController) { SettingsScreen() } }
     }
 }
 
