@@ -160,7 +160,10 @@ fun HarkenTheme(
         InkColors(Organic.InkLight, Organic.OnInk, Organic.OnInk.copy(alpha = 0.6f))
     }
 
-    CompositionLocalProvider(LocalInk provides ink) {
+    CompositionLocalProvider(
+        LocalInk provides ink,
+        LocalReducedMotion provides rememberReducedMotion(),
+    ) {
         MaterialTheme(
             colorScheme = scheme,
             typography = HarkenTypography,

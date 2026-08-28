@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.PillShape
 
 // Empty, error and loading are the SAME card at the SAME radius as a populated row, so a
@@ -111,8 +112,11 @@ fun SkeletonRow(modifier: Modifier = Modifier) {
         animationSpec = infiniteRepeatable(tween(700), repeatMode = RepeatMode.Reverse),
         label = "skeletonAlpha",
     )
+    // The pulse is an infinite transition, so no motion token can snap it — under
+    // reduced motion the skeleton simply holds its dim state.
+    val steady = if (LocalReducedMotion.current) 0.35f else alpha
     HarkenCard(modifier = modifier.fillMaxWidth()) {
-        Column(Modifier.alpha(alpha), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(Modifier.alpha(steady), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Bar(0.62f, 15.dp)
             Bar(0.40f, 11.dp)
             Bar(1f, 6.dp)

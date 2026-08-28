@@ -78,6 +78,8 @@ fun RecordScreen(
     viewModel: CaptureViewModel = viewModel(),
 ) {
     val c = rememberProtoColors()
+    // Banner fades resolved once here: enter/exit params are not a composable scope.
+    val fade = HarkenMotion.effectsDefault<Float>()
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
 
@@ -144,7 +146,7 @@ fun RecordScreen(
             Spacer(Modifier.height(18.dp))
             LiveMeter(c, formatElapsed(elapsed))
 
-            AnimatedVisibility(elapsed >= 10500, enter = fadeIn(), exit = fadeOut()) {
+            AnimatedVisibility(elapsed >= 10500, enter = fadeIn(fade), exit = fadeOut(fade)) {
                 Column {
                     Spacer(Modifier.height(14.dp))
                     Row(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(22.dp)).padding(14.dp)) {
@@ -159,7 +161,7 @@ fun RecordScreen(
             }
         }
 
-        AnimatedVisibility(state.uploadStatus == UploadStatus.Succeeded && state.lastSessionId != null, enter = fadeIn(), exit = fadeOut()) {
+        AnimatedVisibility(state.uploadStatus == UploadStatus.Succeeded && state.lastSessionId != null, enter = fadeIn(fade), exit = fadeOut(fade)) {
             Column {
                 Spacer(Modifier.height(14.dp))
                 Row(
@@ -180,7 +182,7 @@ fun RecordScreen(
             }
         }
 
-        AnimatedVisibility(state.uploadStatus == UploadStatus.Failed, enter = fadeIn(), exit = fadeOut()) {
+        AnimatedVisibility(state.uploadStatus == UploadStatus.Failed, enter = fadeIn(fade), exit = fadeOut(fade)) {
             Column {
                 Spacer(Modifier.height(14.dp))
                 Row(

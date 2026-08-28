@@ -2,6 +2,11 @@ package com.harken.android.ui
 
 import android.app.Application
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -43,6 +48,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.data.AppSettings
+import com.harken.android.ui.theme.HarkenMotion
+import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.ProtoAccentColor
 import com.harken.android.ui.theme.ProtoAccentOn
 import com.harken.android.ui.theme.ProtoBodyFont
@@ -79,6 +86,7 @@ class OnboardingFinishViewModel(application: Application) : AndroidViewModel(app
 @Composable
 fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewModel = viewModel()) {
     val c = rememberProtoColors()
+    val reduced = LocalReducedMotion.current
     var step by remember { mutableIntStateOf(0) }
 
     Column(
@@ -89,7 +97,22 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewMode
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            AnimatedContent(targetState = step, label = "onboard-step") { s ->
+            // transitionSpec is not a composable scope, so the spec is resolved out here.
+            val fade = HarkenMotion.effectsDefault<Float>()
+            AnimatedContent(
+                targetState = step,
+                label = "onboard-step",
+                // A cross-fade is an enter/exit transition, not a value animation, so a
+                // motion token cannot snap it — under reduced motion the step is replaced
+                // outright.
+                transitionSpec = {
+                    if (reduced) {
+                        EnterTransition.None togetherWith ExitTransition.None
+                    } else {
+                        fadeIn(fade) togetherWith fadeOut(fade)
+                    }
+                },
+            ) { s ->
                 val current = steps[s]
                 val badgeBg = if (current.tone == StepTone.Warm) c.accentFill else c.accentFill2
                 val badgeFg = if (current.tone == StepTone.Warm) c.accentFillFg else c.accentFill2Fg
@@ -116,7 +139,7 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewMode
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             for (i in steps.indices) {
                 val active = step == i
-                val width by animateDpAsState(if (active) 22.dp else 7.dp, tween(300), label = "dot")
+                val width by animateDpAsState(if (active) 22.dp else 7.dp, HarkenMotion.spatialFast(), label = "dot")
                 Box(
                     Modifier.padding(horizontal = 3.5.dp).height(7.dp).width(width)
                         .background(if (active) ProtoAccentColor else c.cardBorder, RoundedCornerShape(4.dp)),

@@ -89,5 +89,9 @@ fun rememberRecordShape(recording: Boolean): Shape {
         animationSpec = infiniteRepeatable(tween(durationMillis = 14_000)),
         label = "recordShapeRotation",
     )
-    return MorphShape(morph, progress, if (recording) rotation else 0f)
+    // The spin is an infinite transition, so it cannot be snapped by a motion token —
+    // under reduced motion the cookie holds still and the shape change alone carries
+    // "recording".
+    val reduced = LocalReducedMotion.current
+    return MorphShape(morph, progress, if (recording && !reduced) rotation else 0f)
 }
