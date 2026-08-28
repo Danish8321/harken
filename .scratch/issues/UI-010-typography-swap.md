@@ -1,7 +1,7 @@
 # UI-010 — Typography swap
 
 - **Severity:** medium
-- **Status:** open
+- **Status:** fixed
 - **Area:** `ui/theme/Theme.kt`, `ui/theme/ProtoColors.kt` (font declarations)
 
 ## Problem
@@ -34,3 +34,36 @@ still be duplicated across the two files).
 - On-device: every screen, confirm no Caprasimo glyphs remain (check
   headline text render), confirm mono face renders on the recording timer
   and meter readouts specifically.
+
+## Resolution
+
+`HeadingFont` (Theme.kt) and `ProtoHeadingFont` (ProtoColors.kt) both
+Caprasimo -> Space Grotesk (Normal/Medium/Bold weights declared). Figtree
+body font untouched. New `ProtoMonoFont` (IBM Plex Mono, Normal/Medium)
+added to ProtoColors.kt, applied in RecordScreen.kt to the numeric/
+technical readouts only — format line (`16 kHz mono · caps at 3h`), idle
+elapsed (`0:00`), live elapsed counter, cap countdown (`cap 3:00:00`) —
+while labels around them (`INPUT IDLE`, `tap to start`, `LIVE INPUT`)
+stay on Figtree, since those are words, not readouts.
+
+Confirmed both `HeadingFont`/`ProtoHeadingFont` were in fact still
+separately declared (UI-002 merged the color systems, not the font
+declarations) — both needed the swap, done identically.
+
+**Verified:**
+- `bash .claude/scripts/check.sh` -> `== check: OK ==`
+- `grep -rn Caprasimo` across `app/src/main/kotlin/` -> only the two
+  explanatory comments left, no font declarations
+- `uninstallDebug` + `installDebug` clean install
+- On-device, confirmed foreground via `dumpsys window | grep
+  mCurrentFocus`: Onboarding ("Meet Harken" renders Space Grotesk, not
+  the Caprasimo slab), Record idle ("Harken" wordmark + "Ready when you
+  are" in Space Grotesk; "16 kHz mono · caps at 3 h" and "0:00" render
+  in IBM Plex Mono, visibly monospace against the Figtree "INPUT IDLE" /
+  "tap to start" labels beside them)
+
+**Not verified:** Record live/capturing state's mono readouts (elapsed
+counter, cap countdown) — would need an active recording, not triggered
+this pass; Library and Settings screens (neither uses ProtoMonoFont, and
+their Space Grotesk headings weren't separately re-screenshotted — same
+font family object as Record's, no reason to expect divergence).

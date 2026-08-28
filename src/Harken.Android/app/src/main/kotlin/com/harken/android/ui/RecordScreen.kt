@@ -63,6 +63,7 @@ import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
 import com.harken.android.ui.theme.ProtoHeadingFont
+import com.harken.android.ui.theme.ProtoMonoFont
 import com.harken.android.ui.theme.rememberProtoColors
 import com.harken.android.ui.theme.rememberRecordShape
 import java.util.UUID
@@ -128,12 +129,12 @@ fun RecordScreen(
             Spacer(Modifier.height(18.dp))
             Text(stringResource(R.string.record_idle_headline), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 32.sp, lineHeight = 37.sp)
             Spacer(Modifier.height(10.dp))
-            Text(stringResource(R.string.record_format_line), color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 15.sp)
+            Text(stringResource(R.string.record_format_line), color = c.textSecondary, fontFamily = ProtoMonoFont, fontSize = 14.sp)
             Spacer(Modifier.height(22.dp))
             IdleMeter(c)
         } else {
             Spacer(Modifier.height(14.dp))
-            Text(formatElapsed(elapsed), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 36.sp)
+            Text(formatElapsed(elapsed), color = c.text, fontFamily = ProtoMonoFont, fontWeight = FontWeight.Medium, fontSize = 36.sp)
             Spacer(Modifier.height(6.dp))
             Row(
                 Modifier.background(c.stateLive, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
@@ -246,7 +247,7 @@ private fun IdleMeter(c: ProtoColors) {
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.record_meter_idle_elapsed), color = c.inkSubtle, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
+            Text(stringResource(R.string.record_meter_idle_elapsed), color = c.inkSubtle, fontFamily = ProtoMonoFont, fontSize = 12.5.sp)
             Text(stringResource(R.string.record_meter_idle_hint), color = c.inkSubtle, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
         }
     }
@@ -289,8 +290,8 @@ private fun LiveMeter(c: ProtoColors, elapsed: String) {
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(elapsed, color = c.inkStrong, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
-            Text(stringResource(R.string.record_meter_cap), color = c.inkStrong, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
+            Text(elapsed, color = c.inkStrong, fontFamily = ProtoMonoFont, fontSize = 12.5.sp)
+            Text(stringResource(R.string.record_meter_cap), color = c.inkStrong, fontFamily = ProtoMonoFont, fontSize = 12.5.sp)
         }
     }
 }

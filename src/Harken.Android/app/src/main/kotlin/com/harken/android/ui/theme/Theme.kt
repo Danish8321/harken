@@ -30,8 +30,11 @@ private val fontProvider = GoogleFont.Provider(
     certificates = R.array.com_google_android_gms_fonts_certs,
 )
 
+// Caprasimo replaced with Space Grotesk (UI-010) — matches ProtoColors.kt's ProtoHeadingFont.
 private val HeadingFont = FontFamily(
-    Font(googleFont = GoogleFont("Caprasimo"), fontProvider = fontProvider, weight = FontWeight.Normal),
+    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = fontProvider, weight = FontWeight.Normal),
+    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = fontProvider, weight = FontWeight.Medium),
+    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = fontProvider, weight = FontWeight.Bold),
 )
 private val BodyFont = FontFamily(
     Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.Normal),

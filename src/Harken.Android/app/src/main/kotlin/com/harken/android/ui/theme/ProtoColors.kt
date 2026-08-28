@@ -28,8 +28,13 @@ private val protoFontProvider = GoogleFont.Provider(
     certificates = R.array.com_google_android_gms_fonts_certs,
 )
 
+// Caprasimo (a rounded bubblegum slab) replaced with Space Grotesk (UI-010) — geometric
+// and technical, matching the Wire palette's precision-instrument direction rather than
+// fighting it. Figtree stays for body copy; it was never the mismatch.
 val ProtoHeadingFont = FontFamily(
-    Font(googleFont = GoogleFont("Caprasimo"), fontProvider = protoFontProvider, weight = FontWeight.Normal),
+    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = protoFontProvider, weight = FontWeight.Normal),
+    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = protoFontProvider, weight = FontWeight.Medium),
+    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = protoFontProvider, weight = FontWeight.Bold),
 )
 val ProtoBodyFont = FontFamily(
     Font(googleFont = GoogleFont("Figtree"), fontProvider = protoFontProvider, weight = FontWeight.Normal),
@@ -37,6 +42,11 @@ val ProtoBodyFont = FontFamily(
     Font(googleFont = GoogleFont("Figtree"), fontProvider = protoFontProvider, weight = FontWeight.SemiBold),
     Font(googleFont = GoogleFont("Figtree"), fontProvider = protoFontProvider, weight = FontWeight.Bold),
     Font(googleFont = GoogleFont("Figtree"), fontProvider = protoFontProvider, weight = FontWeight.ExtraBold),
+)
+/** Numeric/technical readouts only — recording timer, meter labels, cap countdown. */
+val ProtoMonoFont = FontFamily(
+    Font(googleFont = GoogleFont("IBM Plex Mono"), fontProvider = protoFontProvider, weight = FontWeight.Normal),
+    Font(googleFont = GoogleFont("IBM Plex Mono"), fontProvider = protoFontProvider, weight = FontWeight.Medium),
 )
 
 val ProtoEaseOut = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)

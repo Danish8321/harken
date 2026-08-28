@@ -18,7 +18,7 @@ relative-luminance formula.
 | [UI-007](UI-007-no-strings-xml.md) | No strings.xml — all copy inlined in Kotlin | medium | fixed |
 | [UI-008](UI-008-protocolors-flat-token-bag.md) | ProtoColors is a flat token bag with positional names | medium | fixed |
 | [UI-009](UI-009-repalette-wire.md) | Re-palette to Wire | high | fixed |
-| [UI-010](UI-010-typography-swap.md) | Typography swap (Space Grotesk / IBM Plex Mono) | medium | open |
+| [UI-010](UI-010-typography-swap.md) | Typography swap (Space Grotesk / IBM Plex Mono) | medium | fixed |
 | [UI-011](UI-011-splash-screen.md) | Splash screen with mark-to-wordmark continuity | high | open |
 | [UI-012](UI-012-screen-transitions.md) | Screen-to-screen transition motion | high | open |
 | [UI-013](UI-013-record-screen-motion.md) | Record screen micro-interactions | medium | open |
