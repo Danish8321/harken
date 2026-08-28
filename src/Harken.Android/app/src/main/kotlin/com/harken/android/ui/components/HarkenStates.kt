@@ -33,8 +33,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.harken.android.R
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.PillShape
+import com.harken.android.ui.theme.ProtoBodyFont
 
 // Empty, error and loading are the SAME card at the SAME radius as a populated row, so a
 // list that is empty, broken or loading still reads as the same screen. The previous
@@ -93,10 +96,21 @@ fun ErrorState(
         Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (onRetry != null) {
-                androidx.compose.material3.OutlinedButton(onClick = onRetry, shape = PillShape, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.state_retry)) }
+                androidx.compose.material3.OutlinedButton(
+                    onClick = onRetry,
+                    shape = PillShape,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant),
+                ) { Text(stringResource(R.string.state_retry), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
             }
             if (secondaryLabel != null && onSecondary != null) {
-                TextButton(onClick = onSecondary, shape = PillShape, modifier = Modifier.heightIn(min = 48.dp)) { Text(secondaryLabel) }
+                TextButton(
+                    onClick = onSecondary,
+                    shape = PillShape,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                ) { Text(secondaryLabel, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
             }
         }
     }
