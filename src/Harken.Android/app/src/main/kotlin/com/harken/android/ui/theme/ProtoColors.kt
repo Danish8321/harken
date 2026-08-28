@@ -104,10 +104,10 @@ data class ProtoColors(
     val inkStrong: Color,
 )
 
-// Wire: cool slate neutrals, a single oscilloscope-cyan accent, amber reserved
-// for the live/recording state only. Picked over two other directions (Signal —
-// mint-on-near-black; Tape — brick-red-on-warm-graphite) in a side-by-side
-// comparison; replaces the prior warm-cream + terracotta palette (UI-009).
+// Wire: cool slate neutrals, a single warm tan/gold accent used for both the resting
+// brand color and the live/recording state (UI-020) — error and success stay their
+// own distinct hues (red/green) since those are safety-relevant status signals, not
+// decoration.
 private val darkInk = Color(0xFFE7EEF0)
 private val lightInk = Color(0xFF10161A)
 
@@ -124,10 +124,13 @@ val ProtoDarkColors = ProtoColors(
     grabber = Color(0xFFE7EEF0),
     rowHighlight = Color(0xFF161C1F),
     skeleton = Color(0xFF212A2E),
-    accent = Color(0xFF4FC3D6),
-    onAccent = Color(0xFF04262B),
-    stateLive = Color(0xFF332711),
-    stateLiveFg = Color(0xFFF0A93E),
+    accent = Color(0xFFCBAA85),
+    onAccent = Color(0xFF2B1B0A),
+    // Recording-live now rides the same accent as everything else (UI-020) — same
+    // solid-tan-fill / dark-brown-icon pattern as the resting mic circle, so "live"
+    // and "idle" read as the same instrument rather than two different color systems.
+    stateLive = Color(0xFFCBAA85),
+    stateLiveFg = Color(0xFF2B1B0A),
     stateDone = Color(0xFF1A2A1F),
     stateDoneFg = Color(0xFF7FB88A),
     stateDoneSoft = Color(0xFF152219),
@@ -154,10 +157,10 @@ val ProtoLightColors = ProtoColors(
     grabber = Color(0xFF10161A),
     rowHighlight = Color(0xFFEDF2F3),
     skeleton = Color(0xFFDDE6E8),
-    accent = Color(0xFF1F9CB0),
-    onAccent = Color(0xFFEAFBFD),
-    stateLive = Color(0xFFF0A93E),
-    stateLiveFg = Color(0xFF3A2708),
+    accent = Color(0xFF8A744A),
+    onAccent = Color(0xFFFDF4E8),
+    stateLive = Color(0xFF8A744A),
+    stateLiveFg = Color(0xFFFDF4E8),
     stateDone = Color(0xFFDCEBDF),
     stateDoneFg = Color(0xFF1F4A2B),
     stateDoneSoft = Color(0xFFC9E0CE),

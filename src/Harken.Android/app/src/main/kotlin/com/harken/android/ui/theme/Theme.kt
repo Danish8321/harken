@@ -55,8 +55,10 @@ private fun protoColorScheme(c: ProtoColors, darkTheme: Boolean): ColorScheme {
     return base.copy(
         primary = c.accent,
         onPrimary = c.onAccent,
-        primaryContainer = c.stateLive,
-        onPrimaryContainer = c.stateLiveFg,
+        // Selected-tab / chip container — a decorative "selected" tint, not the live/
+        // recording signal, so it rides the brand accent rather than stateLive (UI-020).
+        primaryContainer = c.accent,
+        onPrimaryContainer = c.onAccent,
         secondary = c.stateDone,
         onSecondary = c.stateDoneFg,
         secondaryContainer = c.stateDoneSoft,

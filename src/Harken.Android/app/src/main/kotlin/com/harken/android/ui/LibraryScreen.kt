@@ -177,8 +177,8 @@ private fun FilterChipProto(c: ProtoColors, selected: Boolean, @StringRes label:
         colors = FilterChipDefaults.filterChipColors(
             containerColor = c.pillTrack,
             labelColor = c.textSecondary,
-            selectedContainerColor = c.stateLive,
-            selectedLabelColor = c.stateLiveFg,
+            selectedContainerColor = c.accent,
+            selectedLabelColor = c.onAccent,
         ),
         border = FilterChipDefaults.filterChipBorder(
             enabled = true,

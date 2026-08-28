@@ -186,8 +186,8 @@ private fun CaptureLimitDivider(c: ProtoColors) {
 
 @Composable
 private fun protoSwitchColors(c: ProtoColors) = SwitchDefaults.colors(
-    checkedThumbColor = c.accent,
-    checkedTrackColor = c.stateLive,
+    checkedThumbColor = c.onAccent,
+    checkedTrackColor = c.accent,
     checkedBorderColor = Color.Transparent,
     uncheckedThumbColor = c.textSecondary,
     uncheckedTrackColor = c.pillTrack,
@@ -196,8 +196,8 @@ private fun protoSwitchColors(c: ProtoColors) = SwitchDefaults.colors(
 
 @Composable
 private fun protoSegmentedColors(c: ProtoColors) = SegmentedButtonDefaults.colors(
-    activeContainerColor = c.stateLive,
-    activeContentColor = c.stateLiveFg,
+    activeContainerColor = c.accent,
+    activeContentColor = c.onAccent,
     inactiveContainerColor = c.pillTrack,
     inactiveContentColor = c.textSecondary,
     activeBorderColor = Color.Transparent,

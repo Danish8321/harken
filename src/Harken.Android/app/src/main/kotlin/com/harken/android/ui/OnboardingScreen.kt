@@ -129,8 +129,8 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewMode
                 },
             ) { s ->
                 val current = steps[s]
-                val badgeBg = if (current.tone == StepTone.Warm) c.stateLive else c.stateDone
-                val badgeFg = if (current.tone == StepTone.Warm) c.stateLiveFg else c.stateDoneFg
+                val badgeBg = if (current.tone == StepTone.Warm) c.accent else c.stateDone
+                val badgeFg = if (current.tone == StepTone.Warm) c.onAccent else c.stateDoneFg
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(Modifier.size(96.dp).background(badgeBg, CircleShape), contentAlignment = Alignment.Center) {
                         Icon(current.icon, contentDescription = null, tint = badgeFg, modifier = Modifier.size(42.dp))
