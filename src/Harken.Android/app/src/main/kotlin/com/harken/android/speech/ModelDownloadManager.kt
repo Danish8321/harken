@@ -107,11 +107,11 @@ class ModelDownloadManager(
 
             val body = response.body ?: throw IOException("Model download response had no body")
             val contentLength = body.contentLength()
+            var bytesRead: Long = 0
 
             destination.outputStream().use { output ->
                 body.byteStream().use { input ->
                     val buffer = ByteArray(8 * 1024)
-                    var bytesRead: Long = 0
                     var read: Int
                     while (input.read(buffer).also { read = it } != -1) {
                         output.write(buffer, 0, read)
@@ -121,6 +121,15 @@ class ModelDownloadManager(
                         }
                     }
                 }
+            }
+
+            // A dropped connection can end the stream early without OkHttp surfacing an
+            // error; without this, a truncated file gets renamed into place and is then
+            // indistinguishable from a real model until whisper.cpp fails to load it.
+            if (contentLength > 0 && bytesRead != contentLength) {
+                throw IOException(
+                    "Model download incomplete: got $bytesRead of $contentLength bytes",
+                )
             }
         }
     }

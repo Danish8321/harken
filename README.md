@@ -163,9 +163,12 @@ service.
 
 ### Configure
 
-First launch runs a 3-step onboarding wizard: enter the backend base URL as
-`http://<your-pc-LAN-IP>:5057` and tap **Test connection** before it saves. Change it
-later from **Settings**.
+First launch runs a 4-step onboarding wizard (ADR-0011: on-device transcription, backend
+optional). The backend connect step is skippable — the app works standalone, transcribing
+on-device via a bundled Whisper model (downloaded once, in its own onboarding step). To
+also get cloud transcription/summaries, enter the backend base URL as
+`http://<your-pc-LAN-IP>:5057` and tap **Test connection**. Change either choice later from
+**Settings**.
 
 ### Run
 
@@ -188,10 +191,12 @@ never blocks recording.
 No sign-in step (ADR-0009) — the app opens straight on **Record**, one of three tabs
 reachable from a bottom navigation bar: **Record**, **Recordings**, **Settings**.
 
-- **Record → Stop.** Audio is captured to a WAV file in the app's private storage, then
-  uploaded on stop. A **View transcript** button appears once the upload succeeds and
-  opens that session's detail screen. ADR-0007 keeps all transcription on the backend, so
-  the phone never runs a model itself.
+- **Record → Stop.** Audio is captured to a WAV file in the app's private storage. If no
+  backend is configured (or WhisperLocal is chosen in Settings), the recording is saved
+  locally as "Recorded" and nothing uploads; transcription is a separate, explicit
+  **Transcribe** action the user taps from the Library, run on-device via whisper.cpp
+  (ADR-0011). With a backend configured and cloud transcription selected, the file uploads
+  on stop instead and a **View transcript** button appears once the upload succeeds.
 - **Session detail screen** (opened from Record's "View transcript" or by tapping a row in
   Recordings): shows the transcript, polling while transcription is still running, and a
   **Summarize** button (needs Ollama running on the backend host, same as the console

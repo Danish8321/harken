@@ -4,7 +4,7 @@ Opened 2026-08-28. Two-axis review of `git diff master...HEAD` (fixed point `mas
 2f8c21a, 16 commits, 32 non-vendored files). Vendored `src/Harken.Android/app/src/main/cpp/whisper`
 excluded — third-party, not ours to review.
 
-Status: open, none actioned yet.
+Status: partially actioned. S1, S3, SP3, SP6 fixed 2026-08-28 (see commit). Rest open.
 
 ---
 
@@ -12,7 +12,7 @@ Status: open, none actioned yet.
 
 ### Hard violations (documented repo standards)
 
-#### S1. `README.md` stale, now contradicts the branch's own architecture
+#### S1. `README.md` stale, now contradicts the branch's own architecture — FIXED
 Still states "ADR-0007 keeps all transcription on the backend, so the phone never runs a
 model itself" and "First launch runs a 3-step onboarding wizard: enter the backend base URL
 … before it saves". Branch makes on-device the default and onboarding 4 steps,
@@ -25,7 +25,10 @@ instrumented and therefore excluded from `test-fast.sh`. `TranscriptionCoordinat
 `ModelDownloadManager`, and `OnDeviceTranscriber` are all pure-JVM-testable and ship with
 zero tests. CLAUDE.md's "tests at every tier crossed" is not met.
 
-#### S3. Model download has no integrity check
+#### S3. Model download has no integrity check — PARTIALLY FIXED
+Content-Length vs bytes-actually-written is now validated (throws on mismatch). No
+checksum against a known-good hash yet — the release asset has none published to check
+against.
 `ModelDownloadManager.MODEL_DOWNLOAD_URL` is fetched with no checksum and no size
 validation. A truncated 200 response is renamed straight to `ggml-base.en.bin` and is then
 indistinguishable from a good model — a plausible contributor to native crashes.
@@ -101,7 +104,7 @@ contradictions:
 Follow-up #1 in `slice-09-followups.md` marks the onboarding step "done" but doesn't record
 that the plan/ADR text is now wrong.
 
-#### SP3. Onboarding step-3 copy asserts removed behaviour
+#### SP3. Onboarding step-3 copy asserts removed behaviour — FIXED
 Still reads "Recording transcribes right there on your phone the moment you stop" — false
 since `6300f16`.
 
@@ -122,7 +125,7 @@ and `docs/design/claude-design-modernization/` (~2,900 lines including two `.dc.
 
 ### Implemented but wrong
 
-#### SP6. `durationSeconds` computed from the wrong value — user-visible
+#### SP6. `durationSeconds` computed from the wrong value — user-visible — FIXED
 `TranscriptionCoordinator`: `durationSeconds = segments.maxOfOrNull { it.offsetSeconds }`.
 That's the *start offset of the last segment*, not the recording length. Drives the Library
 duration bar and the player's "of MM:SS". Worst finding on this axis.

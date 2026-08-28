@@ -274,7 +274,7 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                     3 -> OnboardingExplainer(
                         icon = Icons.Filled.GraphicEq,
                         title = "Record now,\nread later",
-                        body = "Recording transcribes right there on your phone the moment you stop — no upload, no account, no per-minute cost. If you connected a backend in the first step, you also get cloud transcription and AI-generated summaries.",
+                        body = "Recordings transcribe right there on your phone, whenever you tap Transcribe — no upload, no account, no per-minute cost. If you connected a backend in the first step, you also get cloud transcription and AI-generated summaries.",
                     )
 
                     4 -> Column {
