@@ -3,15 +3,10 @@ package com.harken.android.ui
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -115,7 +110,7 @@ fun AppNav() {
     // Crossfade holds both across a short overlap so the handoff itself is continuous.
     androidx.compose.animation.Crossfade(
         targetState = showSplash,
-        animationSpec = androidx.compose.animation.core.tween(220),
+        animationSpec = HarkenMotion.effectsDefault(),
         label = "splashToApp",
     ) { splash ->
         if (splash) {
@@ -193,17 +188,7 @@ private fun MainHost(
             targetState = tabIndex,
             label = "tab-switch",
             modifier = Modifier.padding(padding),
-            transitionSpec = {
-                if (reduced) {
-                    EnterTransition.None togetherWith ExitTransition.None
-                } else {
-                    val forward = targetState > initialState
-                    val enterOffset = if (forward) { w: Int -> w / 4 } else { w: Int -> -w / 4 }
-                    val exitOffset = if (forward) { w: Int -> -w / 4 } else { w: Int -> w / 4 }
-                    (slideInHorizontally(slide, enterOffset) + fadeIn(fade)) togetherWith
-                        (slideOutHorizontally(slide, exitOffset) + fadeOut(fade))
-                }
-            },
+            transitionSpec = com.harken.android.ui.theme.sharedAxisTransition(reduced, fade, slide, offsetDivisor = 4),
         ) {
             Box { content { id -> openSessionId = id } }
         }
@@ -286,9 +271,9 @@ private fun FloatingTabBar(
                             exit = scaleOut(HarkenMotion.spatialFast()) + fadeOut(HarkenMotion.effectsFast()),
                             modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-2).dp),
                         ) {
-                            Box(Modifier.size(8.dp).background(c.stateLive, CircleShape).padding(1.dp)) {
-                                Box(Modifier.fillMaxSize().background(c.accent, CircleShape))
-                            }
+                            // stateLive and accent are the same color since UI-020 (recording-live
+                            // rides the resting brand accent) — one filled dot, not a two-layer ring.
+                            Box(Modifier.size(8.dp).background(c.stateLive, CircleShape))
                         }
                     }
                     // Decorative: the visible label sits directly next to the icon and the

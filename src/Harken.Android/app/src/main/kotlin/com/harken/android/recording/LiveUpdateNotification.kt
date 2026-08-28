@@ -31,7 +31,7 @@ object LiveUpdateNotification {
         val stop = PendingIntent.getService(context, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE)
 
         return NotificationCompat.Builder(context, channelId)
-            .setContentTitle("Recording — $title")
+            .setContentTitle(context.getString(R.string.notification_recording_title, title))
             .setSmallIcon(R.drawable.ic_notification_mic)
             .setOngoing(true)
             .setUsesChronometer(true)

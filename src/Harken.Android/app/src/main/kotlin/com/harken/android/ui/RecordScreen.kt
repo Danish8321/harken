@@ -160,13 +160,16 @@ fun RecordScreen(
         Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.record_wordmark), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 20.sp)
             Spacer(Modifier.weight(1f))
+            // Neutral, not stateDone — this names the configured target, it doesn't claim
+            // it's reachable. Painting it "Connected" green regardless of the backend's
+            // actual state was the same class of lie the hardcoded host used to tell.
             Row(
-                Modifier.background(c.stateDone, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
+                Modifier.background(c.pillTrack, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(Modifier.size(7.dp).background(c.stateDoneFg, CircleShape))
+                Box(Modifier.size(7.dp).background(c.textSecondary, CircleShape))
                 Spacer(Modifier.width(6.dp))
-                Text(backendLabel, color = c.stateDoneFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text(backendLabel, color = c.textSecondary, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
 
@@ -230,7 +233,7 @@ fun RecordScreen(
         AnimatedVisibility(state.uploadStatus != UploadStatus.Idle, enter = fadeIn(fade), exit = fadeOut(fade)) {
             Column {
                 Spacer(Modifier.height(14.dp))
-                UploadStatusCard(c, state.uploadStatus, state.lastSessionId, state.lastError, onOpenSession, viewModel::retryUpload)
+                UploadStatusCard(c, state.uploadStatus, state.lastSessionId, state.lastError, backendLabel, onOpenSession, viewModel::retryUpload)
             }
         }
 
@@ -278,15 +281,18 @@ private fun IdleMeter(c: ProtoColors) {
         animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing)),
         label = "idleBreatheT",
     )
-    Column(
-        Modifier.fillMaxWidth().height(150.dp).background(c.meterBg, RoundedCornerShape(30.dp)).padding(20.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
+    MeterCard(
+        c = c,
+        height = 150.dp,
+        iconTint = c.inkSubtle,
+        label = stringResource(R.string.record_meter_idle),
+        labelColor = c.inkSubtle,
+        footerLeft = stringResource(R.string.record_meter_idle_elapsed),
+        footerRight = stringResource(R.string.record_meter_idle_hint),
+        footerColor = c.inkSubtle,
+        footerLeftFont = ProtoMonoFont,
+        footerRightFont = ProtoBodyFont,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Mic, contentDescription = null, tint = c.inkSubtle, modifier = Modifier.size(15.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.record_meter_idle), color = c.inkSubtle, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
-        }
         // Marching wave mirrored around center, same language as SplashScreen's waveform —
         // the crest visibly travels left-to-right rather than every bar breathing in place,
         // and in the same accent, so the splash's wave and this one are one motif.
@@ -301,9 +307,42 @@ private fun IdleMeter(c: ProtoColors) {
                 )
             }
         }
+    }
+}
+
+/**
+ * Shared chrome for the idle/live meter cards: rounded [c.meterBg] surface, an icon+label
+ * header row, and a footer row of two labels — [content] is the middle band each meter
+ * fills with its own waveform. Extracted because IdleMeter and LiveMeter differed only in
+ * that middle band; the surrounding padding/shape/header/footer structure was identical.
+ */
+@Composable
+private fun MeterCard(
+    c: ProtoColors,
+    height: androidx.compose.ui.unit.Dp,
+    iconTint: androidx.compose.ui.graphics.Color,
+    label: String,
+    labelColor: androidx.compose.ui.graphics.Color,
+    footerLeft: String,
+    footerRight: String,
+    footerColor: androidx.compose.ui.graphics.Color,
+    footerLeftFont: androidx.compose.ui.text.font.FontFamily,
+    footerRightFont: androidx.compose.ui.text.font.FontFamily,
+    content: @Composable () -> Unit,
+) {
+    Column(
+        Modifier.fillMaxWidth().height(height).background(c.meterBg, RoundedCornerShape(30.dp)).padding(20.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Mic, contentDescription = null, tint = iconTint, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(label, color = labelColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
+        }
+        content()
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.record_meter_idle_elapsed), color = c.inkSubtle, fontFamily = ProtoMonoFont, fontSize = 12.5.sp)
-            Text(stringResource(R.string.record_meter_idle_hint), color = c.inkSubtle, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
+            Text(footerLeft, color = footerColor, fontFamily = footerLeftFont, fontSize = 12.5.sp)
+            Text(footerRight, color = footerColor, fontFamily = footerRightFont, fontSize = 12.5.sp)
         }
     }
 }
@@ -320,6 +359,7 @@ private fun UploadStatusCard(
     status: UploadStatus,
     lastSessionId: UUID?,
     lastError: String?,
+    backendLabel: String,
     onOpenSession: (UUID) -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -392,7 +432,7 @@ private fun UploadStatusCard(
             when (status) {
                 UploadStatus.Uploading -> {
                     Text(stringResource(R.string.record_upload_uploading_title), color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text(stringResource(R.string.record_upload_uploading_body), color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp)
+                    Text(stringResource(R.string.record_upload_uploading_body, backendLabel), color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp)
                 }
                 UploadStatus.Succeeded -> {
                     Text(stringResource(R.string.record_upload_ok_title), color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -426,15 +466,18 @@ private fun LiveMeter(c: ProtoColors, elapsed: String) {
         }
     }
 
-    Column(
-        Modifier.fillMaxWidth().height(180.dp).background(c.meterBg, RoundedCornerShape(30.dp)).padding(20.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
+    MeterCard(
+        c = c,
+        height = 180.dp,
+        iconTint = c.accent,
+        label = stringResource(R.string.record_meter_live),
+        labelColor = c.inkStrong,
+        footerLeft = elapsed,
+        footerRight = stringResource(R.string.record_meter_cap),
+        footerColor = c.inkStrong,
+        footerLeftFont = ProtoMonoFont,
+        footerRightFont = ProtoMonoFont,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Mic, contentDescription = null, tint = c.accent, modifier = Modifier.size(15.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.record_meter_live), color = c.inkStrong, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
-        }
         Row(Modifier.fillMaxWidth().height(44.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
             bars.forEach { value ->
                 Box(
@@ -443,13 +486,9 @@ private fun LiveMeter(c: ProtoColors, elapsed: String) {
                         .width(5.dp)
                         .height(40.dp)
                         .scale(scaleX = 1f, scaleY = value)
-                        .background(c.accent, RoundedCornerShape(3.dp)),
+                        .background(c.accent, HarkenWaveform.BarShape),
                 )
             }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(elapsed, color = c.inkStrong, fontFamily = ProtoMonoFont, fontSize = 12.5.sp)
-            Text(stringResource(R.string.record_meter_cap), color = c.inkStrong, fontFamily = ProtoMonoFont, fontSize = 12.5.sp)
         }
     }
 }

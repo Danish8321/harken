@@ -6,11 +6,13 @@
 
     <!-- Splash -->
     <string name="splash_tagline">Listen back to everything.</string>
+    <string name="splash_skip">Skip</string>
+    <string name="notification_recording_title">Recording — %1$s</string>
 
     <!-- Onboarding -->
     <string name="onboarding_step1_title">Meet Harken</string>
     <string name="onboarding_step1_body">A quiet recorder for meetings and field notes. Audio, transcripts and summaries — kept on your own network.</string>
-    <string name="onboarding_step2_title">Point it at your studio Mac</string>
+    <string name="onboarding_step2_title">Point it at your backend</string>
     <string name="onboarding_step2_body">Recordings upload over your own Wi-Fi to a backend you run. Nothing goes further than your LAN.</string>
     <string name="onboarding_step3_title">Ready when you are</string>
     <string name="onboarding_step3_body">Tap Record any time. We\'ll ask for the microphone only when you actually start.</string>
@@ -30,7 +32,7 @@
     <string name="record_capturing">CAPTURING</string>
     <string name="record_cap_warning">Approaching the 3-hour cap — it\'ll stop and upload on its own.</string>
     <string name="record_upload_uploading_title">Uploading…</string>
-    <string name="record_upload_uploading_body">Sending the recording to studio-mac</string>
+    <string name="record_upload_uploading_body">Sending the recording to %1$s</string>
     <string name="record_upload_ok_title">Uploaded · transcribing</string>
     <string name="record_upload_ok_body">Tap to follow the transcript</string>
     <string name="record_upload_failed_title">Upload failed · tap to retry</string>

@@ -184,17 +184,9 @@ fun SessionSheet(
                 }
 
                 itemsIndexed(state.segments, key = { _, it -> it.id }) { index, segment ->
-                    val alreadyRevealed = segment.id in revealedSegmentIds
-                    var shown by remember(segment.id) { mutableStateOf(alreadyRevealed || reducedMotion) }
-                    LaunchedEffect(segment.id) {
-                        if (!alreadyRevealed) {
-                            if (!reducedMotion) {
-                                kotlinx.coroutines.delay(index.coerceAtMost(TRANSCRIPT_STAGGER_CAP) * TRANSCRIPT_STAGGER_STEP_MS)
-                                shown = true
-                            }
-                            revealedSegmentIds += segment.id
-                        }
-                    }
+                    val shown = com.harken.android.ui.components.rememberStaggerShown(
+                        segment.id, index, revealedSegmentIds, reducedMotion, TRANSCRIPT_STAGGER_CAP, TRANSCRIPT_STAGGER_STEP_MS,
+                    )
                     androidx.compose.animation.AnimatedVisibility(
                         visible = shown,
                         enter = fadeIn(com.harken.android.ui.theme.HarkenMotion.effectsFast()) +

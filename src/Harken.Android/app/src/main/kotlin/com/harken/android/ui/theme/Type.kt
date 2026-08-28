@@ -42,4 +42,3 @@ val ProtoMonoFont = FontFamily(
 )
 
 val ProtoEaseOut = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
-val ProtoOvershoot = CubicBezierEasing(0.34f, 1.56f, 0.64f, 1f)

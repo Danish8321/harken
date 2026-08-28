@@ -105,7 +105,7 @@ Space Grotesk replaced Caprasimo in UI-010. Geometric and technical suits a prec
 
 No dedicated logo asset exists yet. The app identifies itself two ways:
 
-- The **wordmark** "Harken" in Space Grotesk — 34sp on the splash, 20sp top-left of Record. On a cold launch into Record the splash wordmark travels into the header slot, so the two are one object, not two.
+- The **wordmark** "Harken" in Space Grotesk — 34sp on the splash, 20sp top-left of Record. On a cold launch into Record, the large splash wordmark fades out as a second, independently-positioned copy cross-fades in at the Record header slot — the handoff reads as one continuous object settling into place, not a literal single view moving on screen.
 - The **mic mark** — an 88dp accent circle with a 32dp `Icons.Filled.Mic`, identical on the splash and as the Record FAB. Same instrument, same weight, both places.
 
 Treat both as placeholders until a standalone logo is designed.

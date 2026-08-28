@@ -13,8 +13,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -52,14 +53,17 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     val c = rememberProtoColors()
     val state by viewModel.uiState.collectAsState()
 
-    LazyColumn(
-        Modifier.fillMaxSize().background(c.screenBg).padding(horizontal = 20.dp, vertical = 6.dp),
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(c.screenBg)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { Text(stringResource(R.string.settings_title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 26.sp) }
+        Text(stringResource(R.string.settings_title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 26.sp)
 
-        item {
-            SettingsCard(c) {
+        SettingsCard(c) {
                 Eyebrow(c, stringResource(R.string.settings_backend_header))
                 OutlinedTextField(
                     value = state.baseUrl,
@@ -100,12 +104,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         ConnectionCheck.None -> {}
                     }
                 }
-            }
         }
 
-        item {
-            SettingsCard(c) {
-                Eyebrow(c, stringResource(R.string.settings_capture_header))
+        SettingsCard(c) {
+            Eyebrow(c, stringResource(R.string.settings_capture_header))
                 CaptureLimitRow(c, stringResource(R.string.settings_session_cap), stringResource(R.string.settings_session_cap_value))
                 CaptureLimitDivider(c)
                 CaptureLimitRow(c, stringResource(R.string.settings_silence_timeout), stringResource(R.string.settings_silence_timeout_value))
@@ -119,12 +121,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                     lineHeight = 17.sp,
                     modifier = Modifier.padding(top = 10.dp),
                 )
-            }
         }
 
-        item {
-            SettingsCard(c) {
-                Eyebrow(c, stringResource(R.string.settings_appearance_header))
+        SettingsCard(c) {
+            Eyebrow(c, stringResource(R.string.settings_appearance_header))
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     val modes = ThemeMode.entries
                     modes.forEachIndexed { index, mode ->
@@ -145,10 +145,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                     }
                     Switch(checked = state.dynamicColor, onCheckedChange = viewModel::setDynamicColor, colors = protoSwitchColors(c))
                 }
-            }
         }
 
-        item { Spacer(Modifier.height(8.dp)) }
+        Spacer(Modifier.height(8.dp))
     }
 }
 

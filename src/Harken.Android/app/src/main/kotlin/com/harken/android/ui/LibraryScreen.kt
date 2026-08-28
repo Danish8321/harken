@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -50,13 +51,13 @@ import com.harken.android.data.SessionRepository
 import com.harken.android.ui.components.EmptyState
 import com.harken.android.ui.components.ErrorState
 import com.harken.android.ui.components.SkeletonRow
+import com.harken.android.ui.components.rememberStaggerShown
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
 import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.rememberProtoColors
 import java.util.UUID
-import kotlinx.coroutines.delay
 
 // Prototype card visuals wired to the real LibraryViewModel — real Room+network session
 // list, real refresh, real tag-based filtering. The prototype's fake "pending upload
@@ -142,17 +143,7 @@ fun LibraryScreen(
                 val reduced = com.harken.android.ui.theme.LocalReducedMotion.current
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     itemsIndexed(visible, key = { _, it -> it.id }) { index, session ->
-                        val alreadyAnimated = session.id in animatedIds
-                        var shown by remember(session.id) { mutableStateOf(alreadyAnimated || reduced) }
-                        LaunchedEffect(session.id) {
-                            if (!alreadyAnimated) {
-                                if (!reduced) {
-                                    delay(index.coerceAtMost(STAGGER_CAP) * STAGGER_STEP_MS)
-                                    shown = true
-                                }
-                                animatedIds += session.id
-                            }
-                        }
+                        val shown = rememberStaggerShown(session.id, index, animatedIds, reduced, STAGGER_CAP, STAGGER_STEP_MS)
                         AnimatedVisibility(
                             visible = shown,
                             enter = fadeIn(HarkenMotion.effectsFast()) +
@@ -173,6 +164,7 @@ private fun FilterChipProto(c: ProtoColors, selected: Boolean, @StringRes label:
     FilterChip(
         selected = selected,
         onClick = onClick,
+        modifier = Modifier.heightIn(min = 48.dp),
         label = { Text(stringResource(label), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) },
         colors = FilterChipDefaults.filterChipColors(
             containerColor = c.pillTrack,

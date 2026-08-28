@@ -1,7 +1,6 @@
 package com.harken.android.ui
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -40,19 +39,19 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.harken.android.R
 import com.harken.android.ui.theme.HarkenWaveform
 import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.ProtoBodyFont
+import com.harken.android.ui.theme.ProtoEaseOut
 import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.rememberProtoColors
 import kotlinx.coroutines.launch
 import kotlin.math.pow
 import kotlin.math.sin
-
-private val EnterExit = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 
 // Standard "back" overshoot curve (c1=1.70158) — bars spring past full height before
 // settling, reading as a livelier pluck than a flat rise.
@@ -92,7 +91,7 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
 
     LaunchedEffect(Unit) {
         // Linear over wall-clock time — the phase math below depends on t.value tracking
-        // elapsed time proportionally. EnterExit is applied locally to each sub-phase's own
+        // elapsed time proportionally. ProtoEaseOut is applied locally to each sub-phase's own
         // fraction instead: driving the whole 1800ms through that ease-out curve made the
         // raw value race to ~0.9 early and crawl the rest of the way, so the hard-cut phase
         // boundaries below fired well before animateTo actually completed, leaving a long
@@ -101,8 +100,8 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
         onFinished()
     }
 
-    val enterT = EnterExit.transform((t.value / 0.15f).coerceIn(0f, 1f))
-    val exitT = EnterExit.transform(((t.value - 0.85f) / 0.15f).coerceIn(0f, 1f))
+    val enterT = ProtoEaseOut.transform((t.value / 0.15f).coerceIn(0f, 1f))
+    val exitT = ProtoEaseOut.transform(((t.value - 0.85f) / 0.15f).coerceIn(0f, 1f))
     val morphT = if (destinationIsRecord) exitT else 0f
     val fadeOutT = if (destinationIsRecord) 0f else exitT
 
@@ -116,6 +115,8 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
+                role = Role.Button,
+                onClickLabel = stringResource(R.string.splash_skip),
             ) {
                 // A second animateTo on the same Animatable cancels the LaunchedEffect's
                 // in-flight one (CancellationException, silently absorbed) — this call

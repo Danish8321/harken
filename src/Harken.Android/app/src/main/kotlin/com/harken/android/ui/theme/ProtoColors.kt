@@ -27,26 +27,20 @@ import com.harken.android.ui.ThemeMode
  * `ProtoAccentOn`) identical in both themes — moving them here doesn't change either
  * theme's rendering, but it means a restyle only ever touches this file.
  *
- * The `ink*` ramp is four opacities of the same ink color, ordered faint -> strong.
- * They used to be named after their dark-theme alpha (`ink28`, `ink55`, `ink7`), but
- * the light theme uses different alphas for the same roles (0.32/0.60/0.72), which
- * made three of the four names wrong in light mode. Naming by tier instead of number
- * stays true in both themes, since the ordering (faint < muted < subtle < strong) holds
- * either way.
+ * The `ink*` ramp is opacities of the same ink color, ordered subtle -> strong. They
+ * used to be named after their dark-theme alpha (`ink28`, `ink7`), but the light theme
+ * uses different alphas for the same roles, which made the numeric names wrong in
+ * light mode. Naming by tier instead of number stays true in both themes.
  */
 @Immutable
 data class ProtoColors(
     val screenBg: Color,
-    val sheetBg: Color,
     val card: Color,
     val cardBorder: Color,
     val text: Color,
     val textSecondary: Color,
     val navBg: Color,
-    val navBorder: Color,
     val pillTrack: Color,
-    val grabber: Color,
-    val rowHighlight: Color,
     val skeleton: Color,
     /** Theme-aware solid accent — the only true brand primitive; same hex in both themes today. */
     val accent: Color,
@@ -63,8 +57,6 @@ data class ProtoColors(
     val stateError: Color,
     val stateErrorFg: Color,
     val meterBg: Color,
-    val inkFaint: Color,
-    val inkMuted: Color,
     val inkSubtle: Color,
     val inkStrong: Color,
 )
@@ -89,18 +81,12 @@ private val lightInk = Color(0xFF10161A)
 
 val ProtoDarkColors = ProtoColors(
     screenBg = Color(0xFF2C313A),
-    // One step up from the ground so a sheet reads as lifted above the screen behind it
-    // rather than seamless with it — at this lightness an identical fill loses the edge.
-    sheetBg = Color(0xFF333944),
     card = Color(0xFF3C414A),
     cardBorder = Color(0xFF464D56),
     text = Color(0xFFD1C9BE),
     textSecondary = Color(0xFFA0A6AD),
     navBg = Color(0xFF3C414A),
-    navBorder = Color(0xFF464D56),
     pillTrack = Color(0xFF464D56),
-    grabber = Color(0xFFD1C9BE),
-    rowHighlight = Color(0xFF464D56),
     skeleton = Color(0xFF828A94),
     accent = Color(0xFFBFA789),
     onAccent = Color(0xFF2B2016),
@@ -118,24 +104,18 @@ val ProtoDarkColors = ProtoColors(
     // The one surface that still goes darker than the ground — the meter is a readout
     // behind the signal, and it has to sit under the card tier, not float above it.
     meterBg = Color(0xFF232830),
-    inkFaint = darkInk.copy(alpha = 0.32f),
-    inkMuted = darkInk.copy(alpha = 0.45f),
     inkSubtle = darkInk.copy(alpha = 0.60f),
     inkStrong = darkInk.copy(alpha = 0.75f),
 )
 
 val ProtoLightColors = ProtoColors(
     screenBg = Color(0xFFF3F6F7),
-    sheetBg = Color(0xFFFFFFFF),
     card = Color(0xFFFFFFFF),
     cardBorder = Color(0xFFDDE6E8),
     text = Color(0xFF10161A),
     textSecondary = Color(0xFF5B676C),
     navBg = Color(0xFFFFFFFF),
-    navBorder = Color(0xFFDDE6E8),
     pillTrack = Color(0xFFE4EAEC),
-    grabber = Color(0xFF10161A),
-    rowHighlight = Color(0xFFEDF2F3),
     skeleton = Color(0xFFDDE6E8),
     accent = Color(0xFF8A744A),
     onAccent = Color(0xFFFDF4E8),
@@ -148,8 +128,6 @@ val ProtoLightColors = ProtoColors(
     stateError = Color(0xFFC7392F),
     stateErrorFg = Color(0xFFFFFFFF),
     meterBg = Color(0xFFE4EAEC),
-    inkFaint = lightInk.copy(alpha = 0.32f),
-    inkMuted = lightInk.copy(alpha = 0.40f),
     inkSubtle = lightInk.copy(alpha = 0.60f),
     inkStrong = lightInk.copy(alpha = 0.72f),
 )
