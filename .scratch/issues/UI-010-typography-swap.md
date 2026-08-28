@@ -1,8 +1,14 @@
 # UI-010 — Typography swap
 
 - **Severity:** medium
-- **Status:** fixed
-- **Area:** `ui/theme/Theme.kt`, `ui/theme/ProtoColors.kt` (font declarations)
+- **Status:** fixed, partly superseded
+- **Area:** `ui/theme/Theme.kt`, `ui/theme/Type.kt` (font declarations)
+
+> **The font choice below still holds** — Space Grotesk / Figtree / IBM Plex
+> Mono are what ships. The *location* moved: the families left
+> `ProtoColors.kt` for `ui/theme/Type.kt` (UI-029), and the duplicate
+> declaration in `Theme.kt` is gone. Any colour values quoted below are
+> superseded by UI-020/UI-024.
 
 ## Problem
 

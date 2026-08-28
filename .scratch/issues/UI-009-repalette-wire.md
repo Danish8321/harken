@@ -1,8 +1,12 @@
 # UI-009 — Re-palette to Wire
 
 - **Severity:** high
-- **Status:** fixed
+- **Status:** fixed, superseded
 - **Area:** `src/Harken.Android/app/src/main/kotlin/com/harken/android/ui/theme/ProtoColors.kt`
+
+> **Superseded by UI-020 (warm tan/gold accent) and UI-024 (slate ground).**
+> The Wire palette described below no longer exists in the code. Read this
+> as history; `docs/brand-guidelines.md` v2.0 has the shipped values.
 
 ## Problem
 

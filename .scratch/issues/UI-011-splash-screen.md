@@ -1,8 +1,14 @@
 # UI-011 — Splash screen with mark-to-wordmark continuity
 
 - **Severity:** high
-- **Status:** fixed
+- **Status:** fixed, superseded
 - **Area:** new — `ui/SplashScreen.kt`; wiring in `AppNav.kt`
+
+> **The mark-to-wordmark continuity below still ships**, but the screen
+> around it was rewritten three times after this ticket: UI-019 (waveform
+> + crossfade to app root), UI-021 (full-width marching waveform, tagline,
+> bigger wordmark), UI-025 (bar density) and UI-026 (glow re-parented onto
+> the mic, 88dp circle). Read the layout details here as history.
 
 ## Problem
 

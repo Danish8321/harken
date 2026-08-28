@@ -1,7 +1,6 @@
 package com.harken.android.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.collectAsState
@@ -9,48 +8,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.googlefonts.Font
-import androidx.compose.ui.text.googlefonts.GoogleFont
-import com.harken.android.R
 import com.harken.android.data.AppSettings
 import com.harken.android.ui.ThemeMode
 
-// Color/type system carried over from the Claude Design prototype port
-// (formerly ui/prototype/ProtoTheme.kt) — this is now the merged app's visual
-// language for Record/Library/Settings/Onboarding content. Every hex value below
-// is copied verbatim from the .dc.html's renderVals() theme object.
+// Color system carried over from the Claude Design prototype port (formerly
+// ui/prototype/ProtoTheme.kt) — this is now the merged app's visual language for
+// Record/Library/Settings/Onboarding content.
 
-private val protoFontProvider = GoogleFont.Provider(
-    providerAuthority = "com.google.android.gms.fonts",
-    providerPackage = "com.google.android.gms",
-    certificates = R.array.com_google_android_gms_fonts_certs,
-)
-
-// Caprasimo (a rounded bubblegum slab) replaced with Space Grotesk (UI-010) — geometric
-// and technical, matching the Wire palette's precision-instrument direction rather than
-// fighting it. Figtree stays for body copy; it was never the mismatch.
-val ProtoHeadingFont = FontFamily(
-    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = protoFontProvider, weight = FontWeight.Normal),
-    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = protoFontProvider, weight = FontWeight.Medium),
-    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = protoFontProvider, weight = FontWeight.Bold),
-)
-val ProtoBodyFont = FontFamily(
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = protoFontProvider, weight = FontWeight.Normal),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = protoFontProvider, weight = FontWeight.Medium),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = protoFontProvider, weight = FontWeight.SemiBold),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = protoFontProvider, weight = FontWeight.Bold),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = protoFontProvider, weight = FontWeight.ExtraBold),
-)
-/** Numeric/technical readouts only — recording timer, meter labels, cap countdown. */
-val ProtoMonoFont = FontFamily(
-    Font(googleFont = GoogleFont("IBM Plex Mono"), fontProvider = protoFontProvider, weight = FontWeight.Normal),
-    Font(googleFont = GoogleFont("IBM Plex Mono"), fontProvider = protoFontProvider, weight = FontWeight.Medium),
-)
-
-val ProtoEaseOut = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
-val ProtoOvershoot = CubicBezierEasing(0.34f, 1.56f, 0.64f, 1f)
+// Fonts and easings live in Type.kt — this file is colour only (UI-029).
 
 /**
  * Semantic color roles for the app's visual language. Fields are named for what they

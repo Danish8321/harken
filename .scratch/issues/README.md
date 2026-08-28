@@ -28,11 +28,12 @@ relative-luminance formula.
 | [UI-017](UI-017-haptics.md) | Haptic feedback pairing | low | fixed |
 | [UI-018](UI-018-uniformity-audit.md) | Component uniformity audit | medium | fixed |
 | [UI-028](UI-028-review-regressions.md) | Regressions found by branch review | high | fixed |
+| [UI-029](UI-029-duplicate-declarations.md) | Duplicated waveform and font declarations | medium | fixed |
 
 UI-019..UI-027 were driven by direct interactive requests and have no
-ticket files — see UI-028's follow-ups. UI-009, UI-010 and UI-011 are
-still marked fixed but describe palettes and a splash that later commits
-replaced; read them as history, not as the current state.
+ticket files — see UI-028's follow-ups. UI-009, UI-010 and UI-011 each
+carry a superseded note (UI-029) naming the commit that replaced them;
+read them as history, not as the current state.
 
 ## Suggested order
 

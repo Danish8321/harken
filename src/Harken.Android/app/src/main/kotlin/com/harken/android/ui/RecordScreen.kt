@@ -82,12 +82,12 @@ import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
+import com.harken.android.ui.theme.HarkenWaveform
 import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.ProtoMonoFont
 import com.harken.android.ui.theme.rememberProtoColors
 import com.harken.android.ui.theme.rememberRecordShape
 import java.util.UUID
-import kotlin.math.sin
 import kotlinx.coroutines.launch
 
 // Prototype visuals (Claude Design .dc.html port), wired to the real CaptureViewModel:
@@ -291,13 +291,14 @@ private fun IdleMeter(c: ProtoColors) {
         // the crest visibly travels left-to-right rather than every bar breathing in place,
         // and in the same accent, so the splash's wave and this one are one motif.
         Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            // Bar count is what sets the gap: SpaceBetween divides the full width, so 18
-            // bars left them scattered rather than reading as one continuous trace. The
-            // phase step drops with the count so the crest keeps its on-screen wavelength.
-            for (i in 0 until 34) {
-                val travel = if (reduced) 0f else (sin(t * 1.6154f - i * 0.4f) * 0.5f + 0.5f)
-                val h = 4.dp + (32.dp * travel)
-                Box(Modifier.width(3.5.dp).height(h).background(c.accent, RoundedCornerShape(2.dp)))
+            for (i in 0 until HarkenWaveform.BarCount) {
+                val h = HarkenWaveform.barHeight(t, i, moving = !reduced)
+                Box(
+                    Modifier
+                        .width(HarkenWaveform.BarWidth)
+                        .height(h)
+                        .background(c.accent, HarkenWaveform.BarShape),
+                )
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

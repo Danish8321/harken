@@ -16,33 +16,15 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.googlefonts.Font
-import androidx.compose.ui.text.googlefonts.GoogleFont
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.harken.android.R
 
-private val fontProvider = GoogleFont.Provider(
-    providerAuthority = "com.google.android.gms.fonts",
-    providerPackage = "com.google.android.gms",
-    certificates = R.array.com_google_android_gms_fonts_certs,
-)
-
-// Caprasimo replaced with Space Grotesk (UI-010) — matches ProtoColors.kt's ProtoHeadingFont.
-private val HeadingFont = FontFamily(
-    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = fontProvider, weight = FontWeight.Normal),
-    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = fontProvider, weight = FontWeight.Medium),
-    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = fontProvider, weight = FontWeight.Bold),
-)
-private val BodyFont = FontFamily(
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.Normal),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.Medium),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.SemiBold),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.Bold),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.ExtraBold),
-)
+// The families come from Type.kt. This file used to declare its own identical copy of
+// Space Grotesk and Figtree for the Typography below (UI-029) — the same font stack
+// written twice, which agrees only until one side is edited.
+private val HeadingFont = ProtoHeadingFont
+private val BodyFont = ProtoBodyFont
 
 // Material's ColorScheme, built from ProtoColors rather than a separate Organic-based
 // palette (UI-002): the app used to run two independent color systems nested inside one
