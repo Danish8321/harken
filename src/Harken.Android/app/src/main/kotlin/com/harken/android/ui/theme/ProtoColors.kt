@@ -104,44 +104,59 @@ data class ProtoColors(
     val inkStrong: Color,
 )
 
-// Wire: cool slate neutrals, a single warm tan/gold accent used for both the resting
+// Wire: slate neutrals, a single warm tan/gold accent used for both the resting
 // brand color and the live/recording state (UI-020) — error and success stay their
 // own distinct hues (red/green) since those are safety-relevant status signals, not
 // decoration.
-private val darkInk = Color(0xFFE7EEF0)
+//
+// UI-024 lifts the dark theme off near-black onto the four-swatch reference strip
+// (#2C313A ground / #BFA789 accent / #464D56 border / #A0A6AD muted ink). The strip is
+// flat, authored color, so it's the spec; the per-role values below come from the
+// rendered mockup screens where they agree with it. Two roles deliberately don't:
+//   - inactive nav (#828A94 in the mockup) is only 3.7:1 on the new ground, which passes
+//     for an icon but not for the label sitting under it — nav uses textSecondary
+//     (#A0A6AD, 5.3:1) instead, and #828A94 survives as the skeleton/ink tone.
+//   - the ink ramp's alphas step up across the board: the same 0.28 that read as a
+//     visible hairline on #0E1316 nearly vanishes against a ground this light, which
+//     would have quietly erased the idle meter's waveform bars.
+private val darkInk = Color(0xFFD1C9BE)
 private val lightInk = Color(0xFF10161A)
 
 val ProtoDarkColors = ProtoColors(
-    screenBg = Color(0xFF0E1316),
-    sheetBg = Color(0xFF0E1316),
-    card = Color(0xFF161C1F),
-    cardBorder = Color(0xFF212A2E),
-    text = Color(0xFFE7EEF0),
-    textSecondary = Color(0xFF7C8A8F),
-    navBg = Color(0xFF161C1F),
-    navBorder = Color(0xFF212A2E),
-    pillTrack = Color(0xFF161C1F),
-    grabber = Color(0xFFE7EEF0),
-    rowHighlight = Color(0xFF161C1F),
-    skeleton = Color(0xFF212A2E),
-    accent = Color(0xFFCBAA85),
-    onAccent = Color(0xFF2B1B0A),
+    screenBg = Color(0xFF2C313A),
+    // One step up from the ground so a sheet reads as lifted above the screen behind it
+    // rather than seamless with it — at this lightness an identical fill loses the edge.
+    sheetBg = Color(0xFF333944),
+    card = Color(0xFF3C414A),
+    cardBorder = Color(0xFF464D56),
+    text = Color(0xFFD1C9BE),
+    textSecondary = Color(0xFFA0A6AD),
+    navBg = Color(0xFF3C414A),
+    navBorder = Color(0xFF464D56),
+    pillTrack = Color(0xFF464D56),
+    grabber = Color(0xFFD1C9BE),
+    rowHighlight = Color(0xFF464D56),
+    skeleton = Color(0xFF828A94),
+    accent = Color(0xFFBFA789),
+    onAccent = Color(0xFF2B2016),
     // Recording-live now rides the same accent as everything else (UI-020) — same
     // solid-tan-fill / dark-brown-icon pattern as the resting mic circle, so "live"
     // and "idle" read as the same instrument rather than two different color systems.
-    stateLive = Color(0xFFCBAA85),
-    stateLiveFg = Color(0xFF2B1B0A),
-    stateDone = Color(0xFF1A2A1F),
-    stateDoneFg = Color(0xFF7FB88A),
-    stateDoneSoft = Color(0xFF152219),
-    success = Color(0xFF7FB88A),
-    stateError = Color(0xFFE2584F),
+    stateLive = Color(0xFFBFA789),
+    stateLiveFg = Color(0xFF2B2016),
+    stateDone = Color(0xFF2E3D33),
+    stateDoneFg = Color(0xFF8FBF9A),
+    stateDoneSoft = Color(0xFF28352C),
+    success = Color(0xFF8FBF9A),
+    stateError = Color(0xFFE74C3C),
     stateErrorFg = Color(0xFF2B0B08),
-    meterBg = Color(0xFF0A0D0F),
-    inkFaint = darkInk.copy(alpha = 0.28f),
-    inkMuted = darkInk.copy(alpha = 0.40f),
-    inkSubtle = darkInk.copy(alpha = 0.55f),
-    inkStrong = darkInk.copy(alpha = 0.70f),
+    // The one surface that still goes darker than the ground — the meter is a readout
+    // behind the signal, and it has to sit under the card tier, not float above it.
+    meterBg = Color(0xFF232830),
+    inkFaint = darkInk.copy(alpha = 0.32f),
+    inkMuted = darkInk.copy(alpha = 0.45f),
+    inkSubtle = darkInk.copy(alpha = 0.60f),
+    inkStrong = darkInk.copy(alpha = 0.75f),
 )
 
 val ProtoLightColors = ProtoColors(
