@@ -13,15 +13,17 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -48,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -254,14 +257,23 @@ private fun FloatingTabBar(
                     HarkenMotion.effectsFast(),
                     label = "tabItemFg",
                 )
+                // selectable, not clickable: it carries Role.Tab and the selected state
+                // into the semantics tree, which is what NavigationBarItem gave us for
+                // free before this bar replaced it (UI-005). A bare clickable announced
+                // these as unlabelled text and never said which tab you were on. The
+                // 48dp floor is UI-004's — icon plus padding alone came to 40dp, and
+                // these are the most-tapped controls in the app.
                 Row(
                     Modifier
                         .clip(RoundedCornerShape(24.dp))
-                        .clickable(
+                        .selectable(
+                            selected = selected,
                             interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
+                            indication = LocalIndication.current,
+                            role = Role.Tab,
                         ) { if (!selected) onSelect(tab) }
                         .background(itemBg, RoundedCornerShape(24.dp))
+                        .heightIn(min = 48.dp)
                         .padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -280,7 +292,7 @@ private fun FloatingTabBar(
                         }
                     }
                     // Decorative: the visible label sits directly next to the icon and the
-                    // Row's clickable already announces the tab, so a contentDescription
+                    // Row's selectable already announces the tab, so a contentDescription
                     // here would make TalkBack read the tab name twice.
                     Text(
                         stringResource(tab.label),

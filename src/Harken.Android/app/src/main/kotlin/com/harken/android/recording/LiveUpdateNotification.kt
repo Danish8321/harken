@@ -70,9 +70,12 @@ object LiveUpdateNotification {
             }
             .build()
 
-    // Organic.Accent500 and Accent2_500 as ARGB ints — the notification API predates
+    // ProtoDarkColors.accent and .success as ARGB ints — the notification API predates
     // Compose Color, so these are the one place a literal is unavoidable. Keep in step
-    // with ui/theme/Color.kt.
-    private const val RECORDING_ACCENT = 0xFFC67139.toInt()
-    private const val DONE_ACCENT = 0xFF7A8A5E.toInt()
+    // with ui/theme/ProtoColors.kt; they named the deleted Organic palette until UI-028
+    // and were still painting the notification terracotta and sage after the re-palette.
+    // The dark values are used in both themes: the shade renders on its own ground, not
+    // the app's, and these read on either.
+    private const val RECORDING_ACCENT = 0xFFBFA789.toInt()
+    private const val DONE_ACCENT = 0xFF8FBF9A.toInt()
 }
