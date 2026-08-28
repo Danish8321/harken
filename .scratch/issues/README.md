@@ -29,9 +29,12 @@ relative-luminance formula.
 | [UI-018](UI-018-uniformity-audit.md) | Component uniformity audit | medium | fixed |
 | [UI-028](UI-028-review-regressions.md) | Regressions found by branch review | high | fixed |
 | [UI-029](UI-029-duplicate-declarations.md) | Duplicated waveform and font declarations | medium | fixed |
+| [UI-030](UI-030-interactive-pass-backfill.md) | Backfill: the interactive pass, UI-019..UI-027 | low | fixed |
 
 UI-019..UI-027 were driven by direct interactive requests and have no
-ticket files — see UI-028's follow-ups. UI-009, UI-010 and UI-011 each
+ticket files of their own — [UI-030](UI-030-interactive-pass-backfill.md)
+indexes them and says why they weren't reverse-derived into nine specs.
+UI-009, UI-010 and UI-011 each
 carry a superseded note (UI-029) naming the commit that replaced them;
 read them as history, not as the current state.
 
