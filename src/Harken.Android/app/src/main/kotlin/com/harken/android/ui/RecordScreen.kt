@@ -190,9 +190,12 @@ fun RecordScreen(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     Icon(Icons.Filled.CloudDone, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                     Column(Modifier.weight(1f)) {
-                        Text("Uploaded · transcribing", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Tap to follow the transcript",
+                            if (state.lastSavedLocally) "Saved" else "Uploaded · transcribing",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            if (state.lastSavedLocally) "Transcribe it from the Library when you're ready" else "Tap to follow the transcript",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

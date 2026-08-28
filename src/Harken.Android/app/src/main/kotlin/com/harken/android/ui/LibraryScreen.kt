@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -143,6 +144,8 @@ fun LibraryScreen(
                         session = session,
                         longestSeconds = longest,
                         onOpen = { onOpenSession(session.id) },
+                        onTranscribe = { viewModel.transcribe(session) },
+                        transcribeEnabled = state.transcribingSessionId == null,
                         modifier = Modifier.animateItem(),
                     )
                 }
@@ -158,9 +161,12 @@ private fun SessionRowCard(
     session: SessionRepository.SessionView,
     longestSeconds: Int,
     onOpen: () -> Unit,
+    onTranscribe: () -> Unit,
+    transcribeEnabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val transcribing = session.status == "Pending" || session.status == "Running"
+    val recorded = session.status == "Recorded"
     val failed = session.status == "Failed"
 
     HarkenCard(modifier = modifier.fillMaxWidth(), onClick = onOpen) {
@@ -178,6 +184,12 @@ private fun SessionRowCard(
                 transcribing -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.secondary)
                     Text("Transcribing", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, maxLines = 1)
+                }
+
+                // Recorded but not yet transcribed — the user decides when, and only one
+                // session transcribes at a time app-wide (see TranscriptionCoordinator).
+                recorded -> Button(onClick = onTranscribe, enabled = transcribeEnabled) {
+                    Text("Transcribe")
                 }
 
                 failed -> StatusChip(

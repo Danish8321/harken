@@ -49,6 +49,9 @@ class SessionRepository(
 
     fun observeSummary(id: UUID) = dao.observeSummary(id)
 
+    /** Flips a "Recorded" (recorded, not yet transcribed) session to "Running". */
+    suspend fun startLocalTranscription(id: UUID) = dao.markLocalTranscriptionStarted(id)
+
     /** Local rename. Passing null restores the derived name. */
     suspend fun rename(id: UUID, title: String?) = dao.setTitle(id, title?.trim()?.ifBlank { null })
 
@@ -96,10 +99,11 @@ class SessionRepository(
      * Creates a fresh local-only session row (ADR-0011) for a recording that will be
      * transcribed entirely on-device — never synced from/to the backend. Mirrors the
      * shape `refresh()` would have produced for an uploaded session, except
-     * `isLocalOnly = true` and a `"Running"` status the caller settles via
-     * [completeLocal] or [failLocal].
+     * `isLocalOnly = true` and a `"Recorded"` status: the audio is saved but transcription
+     * does not start until the user explicitly asks for it (see [startLocalTranscription],
+     * [completeLocal], [failLocal]) — recording no longer auto-triggers native inference.
      */
-    suspend fun createLocalSession(id: UUID, startedAt: String, source: String) {
+    suspend fun createLocalSession(id: UUID, startedAt: String, source: String, filePath: String) {
         dao.insertLocalOnly(
             SessionRow(
                 id = id,
@@ -108,11 +112,12 @@ class SessionRepository(
                 source = source,
                 segmentCount = 0,
                 hasSummary = false,
-                transcriptionStatus = "Running",
+                transcriptionStatus = "Recorded",
                 transcriptionFailureReason = null,
                 durationSeconds = null,
                 syncedAt = System.currentTimeMillis(),
                 isLocalOnly = true,
+                pendingUploadPath = filePath,
             ),
         )
     }

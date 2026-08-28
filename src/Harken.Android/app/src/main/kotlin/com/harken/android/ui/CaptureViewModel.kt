@@ -12,8 +12,6 @@ import com.harken.android.network.HarkenApi
 import com.harken.android.network.NetworkModule
 import com.harken.android.recording.RecordingController
 import com.harken.android.recording.RecordingState
-import com.harken.android.speech.ModelDownloadManager
-import com.harken.android.speech.OnDeviceTranscriber
 import java.io.File
 import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,15 +23,16 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
-// DownloadingModel/Transcribing are the on-device (WhisperLocal) equivalents of
-// Uploading — no network call happens in either state, unlike Uploading.
-enum class UploadStatus { Idle, DownloadingModel, Transcribing, Uploading, Succeeded, Failed }
+enum class UploadStatus { Idle, Uploading, Succeeded, Failed }
 
 data class CaptureUiState(
     val isRecording: Boolean = false,
     val uploadStatus: UploadStatus = UploadStatus.Idle,
     val lastError: String? = null,
     val lastSessionId: java.util.UUID? = null,
+    // True when the last Succeeded save was on-device (WhisperLocal): nothing was
+    // uploaded and nothing is transcribing yet, unlike the backend path.
+    val lastSavedLocally: Boolean = false,
 )
 
 // Ports the upload half of src/Harken.Mobile's CapturePageViewModel: every stop routes
@@ -46,19 +45,10 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
         db = HarkenDatabase.get(application),
         api = NetworkModule.create { cachedBaseUrl },
     )
-    private val modelDownloadManager = ModelDownloadManager(application)
-    private val onDeviceTranscriber = OnDeviceTranscriber()
-
     private var cachedBaseUrl: String = AppSettings.DefaultBaseUrl
     private var cachedProvider: TranscriptionProviderChoice = TranscriptionProviderChoice.WhisperLocal
     private var lastRecordingId: java.util.UUID? = null
     private var lastFilePath: String? = null
-
-    // A retry re-enters transcribeOnDevice with the same recordingId as the failed
-    // attempt (see retryUpload) — that's expected, not the id collision insertLocalOnly's
-    // plain @Insert is meant to guard against. Track which ids already have a local
-    // session row so a retry skips re-creating it instead of hitting that guard.
-    private val localSessionsCreated = mutableSetOf<java.util.UUID>()
 
     private val _uiState = MutableStateFlow(CaptureUiState())
     val uiState: StateFlow<CaptureUiState> = _uiState.asStateFlow()
@@ -104,36 +94,31 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(lastError = null)
             if (cachedProvider == TranscriptionProviderChoice.WhisperLocal) {
-                transcribeOnDevice(recordingId, filePath)
+                saveLocal(recordingId, filePath)
             } else {
                 uploadToBackend(recordingId, filePath)
             }
         }
     }
 
-    // WhisperLocal (ADR-0011): the whole path below — model download, native inference,
-    // Room write — never makes a network call. api.upload(...) is never reached here.
-    private suspend fun transcribeOnDevice(recordingId: java.util.UUID, filePath: String) {
-        _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.DownloadingModel)
+    // WhisperLocal (ADR-0011): saves the recording as a local-only session with no
+    // network call. Transcription itself is a separate, explicit action the user takes
+    // from the Library (see TranscriptionCoordinator) — recording no longer auto-triggers
+    // native inference, and at most one session transcribes at a time app-wide.
+    private suspend fun saveLocal(recordingId: java.util.UUID, filePath: String) {
         try {
-            if (localSessionsCreated.add(recordingId)) {
-                repository.createLocalSession(
-                    id = recordingId,
-                    startedAt = Instant.now().toString(),
-                    source = AudioSource.Microphone.name,
-                )
-            }
-
-            val modelPath = modelDownloadManager.ensureModel().getOrThrow()
-
-            _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Transcribing)
-            val segments = onDeviceTranscriber.transcribe(filePath, modelPath)
-            val durationSeconds = segments.maxOfOrNull { it.offsetSeconds } ?: 0
-
-            repository.completeLocal(recordingId, segments, durationSeconds)
-            _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Succeeded, lastSessionId = recordingId)
+            repository.createLocalSession(
+                id = recordingId,
+                startedAt = Instant.now().toString(),
+                source = AudioSource.Microphone.name,
+                filePath = filePath,
+            )
+            _uiState.value = _uiState.value.copy(
+                uploadStatus = UploadStatus.Succeeded,
+                lastSessionId = recordingId,
+                lastSavedLocally = true,
+            )
         } catch (e: Exception) {
-            repository.failLocal(recordingId, e.message ?: "On-device transcription failed")
             _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Failed, lastError = e.message)
         }
     }
@@ -150,7 +135,11 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
 
             val response = api.upload(audioPart, sourcePart, recordingIdPart)
             _uiState.value = if (response.isSuccessful) {
-                _uiState.value.copy(uploadStatus = UploadStatus.Succeeded, lastSessionId = response.body()?.id)
+                _uiState.value.copy(
+                    uploadStatus = UploadStatus.Succeeded,
+                    lastSessionId = response.body()?.id,
+                    lastSavedLocally = false,
+                )
             } else {
                 _uiState.value.copy(uploadStatus = UploadStatus.Failed, lastError = "HTTP ${response.code()}")
             }

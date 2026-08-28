@@ -112,6 +112,9 @@ interface SessionDao {
         replaceSegments(segments)
     }
 
+    @Query("UPDATE sessions SET transcriptionStatus = 'Running' WHERE id = :id")
+    suspend fun markLocalTranscriptionStarted(id: UUID)
+
     @Query(
         """
         UPDATE sessions SET
