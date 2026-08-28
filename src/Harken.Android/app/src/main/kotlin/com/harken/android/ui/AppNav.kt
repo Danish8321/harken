@@ -2,17 +2,23 @@ package com.harken.android.ui
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Mic
@@ -35,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -44,6 +51,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.harken.android.R
 import com.harken.android.data.AppSettings
+import com.harken.android.recording.RecordingState
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.ProtoHeadingFont
@@ -131,12 +139,20 @@ private fun MainHost(
     val currentRoute = backStackEntry?.destination?.route
     var openSessionId by remember { mutableStateOf<UUID?>(null) }
 
+    val c = rememberProtoColors()
+    val isRecording by RecordingState.isRecording.collectAsState()
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                 tabs.forEach { tab ->
                     val selected = currentRoute == tab.route
+                    // Live pill rides along on the Record tab's icon whenever a capture
+                    // is active and the user isn't already looking at the live view —
+                    // the real record button subsumes it there, so a second live dot on
+                    // top of the tab would be redundant rather than reassuring.
+                    val showLiveDot = tab.route == Routes.Record && isRecording && !selected
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
@@ -151,7 +167,21 @@ private fun MainHost(
                         // Decorative: the visible label sits directly under the icon and
                         // NavigationBarItem already announces it, so a description here
                         // would make TalkBack read the tab name twice.
-                        icon = { Icon(tab.icon, contentDescription = null) },
+                        icon = {
+                            Box {
+                                Icon(tab.icon, contentDescription = null)
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = showLiveDot,
+                                    enter = scaleIn(HarkenMotion.spatialFast()) + fadeIn(HarkenMotion.effectsFast()),
+                                    exit = scaleOut(HarkenMotion.spatialFast()) + fadeOut(HarkenMotion.effectsFast()),
+                                    modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-2).dp),
+                                ) {
+                                    Box(Modifier.size(8.dp).background(c.stateLive, CircleShape).padding(1.dp)) {
+                                        Box(Modifier.fillMaxSize().background(c.accent, CircleShape))
+                                    }
+                                }
+                            }
+                        },
                         // labelMedium is now explicitly Figtree Bold. The old build left it
                         // un-overridden, which quietly rendered these three labels in Roboto
                         // while the rest of the app used Figtree.

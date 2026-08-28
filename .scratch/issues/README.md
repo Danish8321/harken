@@ -22,7 +22,7 @@ relative-luminance formula.
 | [UI-011](UI-011-splash-screen.md) | Splash screen with mark-to-wordmark continuity | high | fixed |
 | [UI-012](UI-012-screen-transitions.md) | Screen-to-screen transition motion | high | fixed |
 | [UI-013](UI-013-record-screen-motion.md) | Record screen micro-interactions | medium | fixed |
-| [UI-014](UI-014-persistent-recording-indicator.md) | Persistent recording indicator across tabs | medium | open |
+| [UI-014](UI-014-persistent-recording-indicator.md) | Persistent recording indicator across tabs | medium | fixed |
 | [UI-015](UI-015-library-stagger.md) | Library list stagger-in | low | open |
 | [UI-016](UI-016-transcript-reveal.md) | SessionSheet transcript reveal | low | open |
 | [UI-017](UI-017-haptics.md) | Haptic feedback pairing | low | open |
