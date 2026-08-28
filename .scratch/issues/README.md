@@ -19,7 +19,7 @@ relative-luminance formula.
 | [UI-008](UI-008-protocolors-flat-token-bag.md) | ProtoColors is a flat token bag with positional names | medium | fixed |
 | [UI-009](UI-009-repalette-wire.md) | Re-palette to Wire | high | fixed |
 | [UI-010](UI-010-typography-swap.md) | Typography swap (Space Grotesk / IBM Plex Mono) | medium | fixed |
-| [UI-011](UI-011-splash-screen.md) | Splash screen with mark-to-wordmark continuity | high | open |
+| [UI-011](UI-011-splash-screen.md) | Splash screen with mark-to-wordmark continuity | high | fixed |
 | [UI-012](UI-012-screen-transitions.md) | Screen-to-screen transition motion | high | open |
 | [UI-013](UI-013-record-screen-motion.md) | Record screen micro-interactions | medium | open |
 | [UI-014](UI-014-persistent-recording-indicator.md) | Persistent recording indicator across tabs | medium | open |

@@ -73,6 +73,16 @@ fun AppNav() {
         return
     }
 
+    // The real, designed splash (UI-011) — shown once per process on every cold
+    // launch, after the DataStore read above resolves. showSplash defaults true so a
+    // return visit to this composable within the same process (e.g. system dark-mode
+    // toggle recomposing AppNav) doesn't replay it.
+    var showSplash by remember { mutableStateOf(true) }
+    if (showSplash) {
+        SplashScreen(destinationIsRecord = onboardingComplete == true, onFinished = { showSplash = false })
+        return
+    }
+
     val navController = rememberNavController()
 
     NavHost(
