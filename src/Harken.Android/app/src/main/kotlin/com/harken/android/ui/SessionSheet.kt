@@ -2,6 +2,8 @@ package com.harken.android.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,7 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -62,6 +64,9 @@ import com.harken.android.ui.theme.LocalInk
 import com.harken.android.ui.theme.PillShape
 import java.util.UUID
 
+private const val TRANSCRIPT_STAGGER_CAP = 10
+private const val TRANSCRIPT_STAGGER_STEP_MS = 30L
+
 // Renamed from SessionDetailScreen. Same modal-sheet presentation as before (a session is
 // content to review and hand off, not a stack frame), rebuilt on the shared card and ink
 // surfaces so it stops being the only screen in the app with a bordered elevated card.
@@ -104,6 +109,8 @@ fun SessionSheet(
                 }
             }
 
+            val revealedSegmentIds = remember { androidx.compose.runtime.mutableStateSetOf<java.util.UUID>() }
+            val reducedMotion = com.harken.android.ui.theme.LocalReducedMotion.current
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, bottom = 118.dp),
@@ -176,13 +183,30 @@ fun SessionSheet(
                     }
                 }
 
-                items(state.segments, key = { it.id }) { segment ->
-                    TranscriptRow(
-                        segment = segment,
-                        active = segment.id == state.activeSegmentId && state.playing,
-                        showVoice = state.voiceCount > 1,
-                        onSeek = { viewModel.seekTo(segment.offsetSeconds) },
-                    )
+                itemsIndexed(state.segments, key = { _, it -> it.id }) { index, segment ->
+                    val alreadyRevealed = segment.id in revealedSegmentIds
+                    var shown by remember(segment.id) { mutableStateOf(alreadyRevealed || reducedMotion) }
+                    LaunchedEffect(segment.id) {
+                        if (!alreadyRevealed) {
+                            if (!reducedMotion) {
+                                kotlinx.coroutines.delay(index.coerceAtMost(TRANSCRIPT_STAGGER_CAP) * TRANSCRIPT_STAGGER_STEP_MS)
+                                shown = true
+                            }
+                            revealedSegmentIds += segment.id
+                        }
+                    }
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = shown,
+                        enter = fadeIn(com.harken.android.ui.theme.HarkenMotion.effectsFast()) +
+                            slideInVertically(com.harken.android.ui.theme.HarkenMotion.spatialFast()) { it / 8 },
+                    ) {
+                        TranscriptRow(
+                            segment = segment,
+                            active = segment.id == state.activeSegmentId && state.playing,
+                            showVoice = state.voiceCount > 1,
+                            onSeek = { viewModel.seekTo(segment.offsetSeconds) },
+                        )
+                    }
                 }
             }
 
