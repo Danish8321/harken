@@ -1,6 +1,14 @@
 package com.harken.android.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,6 +44,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.harken.android.R
 import com.harken.android.data.AppSettings
+import com.harken.android.ui.theme.HarkenMotion
+import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.rememberProtoColors
 import java.util.UUID
@@ -158,10 +168,34 @@ private fun MainHost(
             }
         },
     ) { padding ->
-        // No Crossfade here. The old build crossfaded on currentRoute, which meant the pane
-        // faded on EVERY back-stack change, including opening the sheet. Each screen now
-        // owns its own entry transition on a spatial spring.
-        Box(Modifier.padding(padding)) { content { id -> openSessionId = id } }
+        // Shared-axis slide+fade, keyed on tab index rather than route — reading the
+        // index lets the transition pick a consistent left/right direction that matches
+        // the tapped tab's position in the bar, the same way it would for a ViewPager.
+        // Not a plain Crossfade: the old build crossfaded on currentRoute, which meant the
+        // pane faded on EVERY back-stack change, including opening the sheet — this only
+        // fires when currentRoute actually changes, since that's what's keyed.
+        val reduced = LocalReducedMotion.current
+        val fade = HarkenMotion.effectsDefault<Float>()
+        val slide = HarkenMotion.spatialDefault<androidx.compose.ui.unit.IntOffset>()
+        val tabIndex = tabs.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
+        AnimatedContent(
+            targetState = tabIndex,
+            label = "tab-switch",
+            modifier = Modifier.padding(padding),
+            transitionSpec = {
+                if (reduced) {
+                    EnterTransition.None togetherWith ExitTransition.None
+                } else {
+                    val forward = targetState > initialState
+                    val enterOffset = if (forward) { w: Int -> w / 4 } else { w: Int -> -w / 4 }
+                    val exitOffset = if (forward) { w: Int -> -w / 4 } else { w: Int -> w / 4 }
+                    (slideInHorizontally(slide, enterOffset) + fadeIn(fade)) togetherWith
+                        (slideOutHorizontally(slide, exitOffset) + fadeOut(fade))
+                }
+            },
+        ) {
+            Box { content { id -> openSessionId = id } }
+        }
     }
 
     openSessionId?.let { id ->

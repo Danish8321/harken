@@ -5,11 +5,13 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -103,19 +105,26 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewMode
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            // transitionSpec is not a composable scope, so the spec is resolved out here.
+            // transitionSpec is not a composable scope, so the specs are resolved out here.
             val fade = HarkenMotion.effectsDefault<Float>()
+            val slide = HarkenMotion.spatialDefault<androidx.compose.ui.unit.IntOffset>()
             AnimatedContent(
                 targetState = step,
                 label = "onboard-step",
-                // A cross-fade is an enter/exit transition, not a value animation, so a
-                // motion token cannot snap it — under reduced motion the step is replaced
+                // A cross-fade/slide is an enter/exit transition, not a value animation, so
+                // a motion token cannot snap it — under reduced motion the step is replaced
                 // outright.
                 transitionSpec = {
                     if (reduced) {
                         EnterTransition.None togetherWith ExitTransition.None
                     } else {
-                        fadeIn(fade) togetherWith fadeOut(fade)
+                        // Shared-axis: forward advances slide from the right, back slides
+                        // from the left — same direction the step dots move in.
+                        val forward = targetState > initialState
+                        val enterOffset = if (forward) { w: Int -> w / 3 } else { w: Int -> -w / 3 }
+                        val exitOffset = if (forward) { w: Int -> -w / 3 } else { w: Int -> w / 3 }
+                        (slideInHorizontally(slide, enterOffset) + fadeIn(fade)) togetherWith
+                            (slideOutHorizontally(slide, exitOffset) + fadeOut(fade))
                     }
                 },
             ) { s ->

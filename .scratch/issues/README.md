@@ -20,7 +20,7 @@ relative-luminance formula.
 | [UI-009](UI-009-repalette-wire.md) | Re-palette to Wire | high | fixed |
 | [UI-010](UI-010-typography-swap.md) | Typography swap (Space Grotesk / IBM Plex Mono) | medium | fixed |
 | [UI-011](UI-011-splash-screen.md) | Splash screen with mark-to-wordmark continuity | high | fixed |
-| [UI-012](UI-012-screen-transitions.md) | Screen-to-screen transition motion | high | open |
+| [UI-012](UI-012-screen-transitions.md) | Screen-to-screen transition motion | high | fixed |
 | [UI-013](UI-013-record-screen-motion.md) | Record screen micro-interactions | medium | open |
 | [UI-014](UI-014-persistent-recording-indicator.md) | Persistent recording indicator across tabs | medium | open |
 | [UI-015](UI-015-library-stagger.md) | Library list stagger-in | low | open |
