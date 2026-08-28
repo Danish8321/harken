@@ -130,7 +130,7 @@ Derived directly from shipped copy — Harken's actual voice is calm, specific, 
 | **Technically precise** | Gives exact numbers, not vague reassurance | "16 kHz mono · caps at 3 h", "Both limits end the recording and upload it, so a forgotten session lands on the backend rather than on the phone." |
 | **Unpatronizing on errors** | Explains cause + what happens next, no apology theatre | "Nothing answered at localhost:5057. Check the machine is awake and on this Wi-Fi — recordings keep saving locally meanwhile." |
 
-Labels name the real thing. The Record header pill shows the configured backend's host, read from settings — it read a hardcoded "studio-mac" until UI-023, which was a plausible-looking lie on every device that wasn't the author's.
+Labels name the real thing. The Record header pill shows the configured backend's host, read from settings — it read a hardcoded "studio-mac" until UI-023, which was a plausible-looking lie on every device that wasn't the author's. The pill's fill is neutral (`pillTrack`/`textSecondary`), not the "Connected" sage fill (UI-031): the app has no live reachability signal for that host, so painting it green would have been the same class of lie under a different name.
 
 ### Tone by Context
 
@@ -197,5 +197,6 @@ One motif, three places: the splash, the idle meter, and the live meter. Bars ma
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.1 | 2026-08-28 | Corrected after UI-031's Standards/Spec review: §3's splash→Record handoff description fixed to match the actual cross-fade (was asserting the wordmark "travels" as one object); §4 backend-pill note updated — the pill's fill is neutral, not a false "Connected" claim. |
 | 2.0 | 2026-08-28 | Brought back in line with the code after UI-009 (Wire palette), UI-010 (Space Grotesk), UI-020/UI-024 (tan accent, slate ground), UI-022 (floating nav) and UI-019–UI-027 (splash, waveform). Every colour, font and radius updated; added the launch-window rule, the waveform motif, and the touch-target/role rule for hand-rolled controls. |
 | 1.0 | 2026-08-27 | Initial guidelines, reverse-derived from the merged prototype UI (`ui/theme/ProtoColors.kt`, Record/Library/Settings/Onboarding screens) after the prototype-to-main promotion. |
