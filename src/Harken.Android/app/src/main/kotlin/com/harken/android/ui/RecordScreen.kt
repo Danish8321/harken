@@ -103,6 +103,7 @@ fun RecordScreen(
     val c = rememberProtoColors()
     // Banner fades resolved once here: enter/exit params are not a composable scope.
     val fade = HarkenMotion.effectsDefault<Float>()
+    val reduced = LocalReducedMotion.current
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
     val haptics = LocalHapticFeedback.current
@@ -169,38 +170,58 @@ fun RecordScreen(
             }
         }
 
-        if (!state.isRecording) {
-            Spacer(Modifier.height(18.dp))
-            Text(stringResource(R.string.record_idle_headline), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 32.sp, lineHeight = 37.sp)
-            Spacer(Modifier.height(10.dp))
-            Text(stringResource(R.string.record_format_line), color = c.textSecondary, fontFamily = ProtoMonoFont, fontSize = 14.sp)
-            Spacer(Modifier.height(22.dp))
-            IdleMeter(c)
-        } else {
-            Spacer(Modifier.height(14.dp))
-            Text(formatElapsed(elapsed), color = c.text, fontFamily = ProtoMonoFont, fontWeight = FontWeight.Medium, fontSize = 36.sp)
-            Spacer(Modifier.height(6.dp))
-            Row(
-                Modifier.background(c.stateLive, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.size(7.dp).background(c.accent, CircleShape))
-                Spacer(Modifier.width(7.dp))
-                Text(stringResource(R.string.record_capturing), color = c.stateLiveFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
-            }
-            Spacer(Modifier.height(18.dp))
-            LiveMeter(c, formatElapsed(elapsed))
-
-            AnimatedVisibility(elapsed >= 10500, enter = fadeIn(fade), exit = fadeOut(fade)) {
+        // Idle <-> live crossfades as one block instead of a hard cut — IdleMeter's wave
+        // is a fresh infinite-transition each time it recomposes in, so an instant swap
+        // popped its bars straight to their mid-loop heights, reading as a jarring reset
+        // rather than a state change.
+        AnimatedContent(
+            targetState = state.isRecording,
+            label = "idleLiveMeter",
+            transitionSpec = {
+                if (reduced) {
+                    EnterTransition.None togetherWith ExitTransition.None
+                } else {
+                    fadeIn(fade) togetherWith fadeOut(fade)
+                }
+            },
+        ) { recording ->
+            if (!recording) {
+                Column {
+                    Spacer(Modifier.height(18.dp))
+                    Text(stringResource(R.string.record_idle_headline), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 32.sp, lineHeight = 37.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Text(stringResource(R.string.record_format_line), color = c.textSecondary, fontFamily = ProtoMonoFont, fontSize = 14.sp)
+                    Spacer(Modifier.height(22.dp))
+                    IdleMeter(c)
+                }
+            } else {
                 Column {
                     Spacer(Modifier.height(14.dp))
-                    Row(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(24.dp)).padding(16.dp)) {
-                        Icon(Icons.Filled.Warning, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            stringResource(R.string.record_cap_warning),
-                            color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp, lineHeight = 18.sp,
-                        )
+                    Text(formatElapsed(elapsed), color = c.text, fontFamily = ProtoMonoFont, fontWeight = FontWeight.Medium, fontSize = 36.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        Modifier.background(c.stateLive, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(7.dp).background(c.accent, CircleShape))
+                        Spacer(Modifier.width(7.dp))
+                        Text(stringResource(R.string.record_capturing), color = c.stateLiveFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    LiveMeter(c, formatElapsed(elapsed))
+
+                    AnimatedVisibility(elapsed >= 10500, enter = fadeIn(fade), exit = fadeOut(fade)) {
+                        Column {
+                            Spacer(Modifier.height(14.dp))
+                            Row(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(24.dp)).padding(16.dp)) {
+                                Icon(Icons.Filled.Warning, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    stringResource(R.string.record_cap_warning),
+                                    color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp, lineHeight = 18.sp,
+                                )
+                            }
+                        }
                     }
                 }
             }
