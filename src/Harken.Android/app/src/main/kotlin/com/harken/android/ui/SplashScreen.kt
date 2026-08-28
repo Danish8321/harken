@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,18 +36,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.harken.android.R
 import com.harken.android.ui.theme.LocalReducedMotion
+import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.rememberProtoColors
 import kotlinx.coroutines.launch
+import kotlin.math.pow
 import kotlin.math.sin
 
 private val EnterExit = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+
+// Standard "back" overshoot curve (c1=1.70158) — bars spring past full height before
+// settling, reading as a livelier pluck than a flat rise.
+private fun easeOutBack(t: Float): Float {
+    val c1 = 1.70158f
+    val c3 = c1 + 1f
+    return 1f + c3 * (t - 1f).pow(3) + c1 * (t - 1f).pow(2)
+}
 
 /**
  * Shown on every cold launch (~1.8s, tap-to-skip), before Onboarding or Record.
@@ -112,11 +125,9 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
                 }
             },
     ) {
-        // The mic itself just fades/scales in — the motion that actually reads as "an
-        // instrument that's listening" is the waveform underneath it: bars rise in
-        // staggered left-to-right on entry, breathe like a live input meter through the
-        // hold (same visual language as RecordScreen's IdleMeter), then collapse
-        // staggered right-to-left on exit. A bare fading circle read as a static logo.
+        // Ambient glow behind the mark — reinforces "listening" without competing for
+        // attention; a radial pulse rather than a moving shape, so it reads as atmosphere
+        // rather than a second animated element.
         val loop = rememberInfiniteTransition(label = "splashWaveform")
         val loopT by loop.animateFloat(
             initialValue = 0f,
@@ -124,14 +135,34 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
             animationSpec = infiniteRepeatable(tween(2600, easing = LinearEasing)),
             label = "splashWaveformT",
         )
-        val barCount = 10
+        val glowPulse = sin(loopT * 0.923f) * 0.5f + 0.5f // slightly detuned from bar breathe so it doesn't lock-step
+        Box(
+            Modifier
+                .align(Alignment.Center)
+                .size(260.dp)
+                .alpha((0.08f + 0.14f * glowPulse) * enterT * (1f - exitT))
+                .background(Brush.radialGradient(listOf(c.accent, c.accent.copy(alpha = 0f)))),
+        )
 
-        // Small and centered on an otherwise empty ground — the mark, the waveform and the
-        // wordmark together read as one compact instrument, not a full-bleed logo lockup.
+        // The mic itself just fades/scales in — the motion that actually reads as "an
+        // instrument that's listening" is the waveform underneath it: a traveling wave
+        // whose crest marches left-to-right across the full width, mirrored around the
+        // row's vertical center (an oscilloscope trace, not a bar chart growing from a
+        // floor) — each bar springing in with a slight overshoot rather than a flat rise.
+        // A bare fading circle read as a static logo.
+        val barCount = 24
+
+        // Truly centered on the screen — the earlier bottom padding was a hand-tuned
+        // offset for the smaller pre-UI-020 block, but with the full-width waveform,
+        // bigger wordmark and tagline it just pushed the whole thing off-center.
         Column(
-            Modifier.align(Alignment.Center).padding(bottom = 60.dp),
+            Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // Same mic glyph ratio as RecordScreen's RecordButton (32dp icon / 88dp FAB =
+            // 36.4%) scaled to this 48dp circle (17.5dp) — same instrument, same weight,
+            // not a bulkier standalone icon. Centers cleanly via Box's own
+            // contentAlignment, same as the FAB does, with no manual nudge needed.
             Box(
                 Modifier
                     .size(48.dp)
@@ -140,20 +171,21 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
                     .background(c.accent, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Filled.Mic, contentDescription = null, tint = c.onAccent, modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.Mic, contentDescription = null, tint = c.onAccent, modifier = Modifier.size(17.5.dp))
             }
             Row(
-                Modifier.padding(top = 10.dp).height(16.dp),
-                verticalAlignment = Alignment.Bottom,
+                Modifier.padding(top = 10.dp).fillMaxWidth().padding(horizontal = 32.dp).height(36.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 for (i in 0 until barCount) {
-                    val barEnter = ((enterT * barCount) - i).coerceIn(0f, 1f)
+                    val barEnterRaw = ((enterT * barCount) - i).coerceIn(0f, 1f)
+                    val barEnter = easeOutBack(barEnterRaw)
                     val barExit = ((exitT * barCount) - (barCount - 1 - i)).coerceIn(0f, 1f)
-                    val breathe = sin(loopT + i * 0.45f) * 0.5f + 0.5f
-                    val h = (3.dp + 11.dp * breathe) * barEnter * (1f - barExit)
+                    val travel = sin(loopT * 1.6154f - i * 0.75f) * 0.5f + 0.5f
+                    val h = (4.dp + 32.dp * travel) * barEnter * (1f - barExit)
                     Box(
                         Modifier
-                            .padding(horizontal = 1.75.dp)
                             .width(3.5.dp)
                             .height(h)
                             .background(c.accent, RoundedCornerShape(2.dp)),
@@ -164,9 +196,18 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
                 stringResource(R.string.record_wordmark),
                 color = c.text,
                 fontFamily = ProtoHeadingFont,
-                fontSize = 24.sp,
+                fontSize = 34.sp,
                 modifier = Modifier
                     .padding(top = 14.dp)
+                    .graphicsLayer { alpha = enterT * (1f - fadeOutT) * (1f - morphT) },
+            )
+            Text(
+                stringResource(R.string.splash_tagline),
+                color = c.textSecondary,
+                fontFamily = ProtoBodyFont,
+                fontSize = 13.5.sp,
+                modifier = Modifier
+                    .padding(top = 2.dp)
                     .graphicsLayer { alpha = enterT * (1f - fadeOutT) * (1f - morphT) },
             )
         }
