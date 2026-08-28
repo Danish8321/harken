@@ -150,7 +150,7 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
         // row's vertical center (an oscilloscope trace, not a bar chart growing from a
         // floor) — each bar springing in with a slight overshoot rather than a flat rise.
         // A bare fading circle read as a static logo.
-        val barCount = 24
+        val barCount = 34
 
         // Truly centered on the screen — the earlier bottom padding was a hand-tuned
         // offset for the smaller pre-UI-020 block, but with the full-width waveform,
@@ -182,7 +182,7 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
                     val barEnterRaw = ((enterT * barCount) - i).coerceIn(0f, 1f)
                     val barEnter = easeOutBack(barEnterRaw)
                     val barExit = ((exitT * barCount) - (barCount - 1 - i)).coerceIn(0f, 1f)
-                    val travel = sin(loopT * 1.6154f - i * 0.75f) * 0.5f + 0.5f
+                    val travel = sin(loopT * 1.6154f - i * 0.4f) * 0.5f + 0.5f
                     val h = (4.dp + 32.dp * travel) * barEnter * (1f - barExit)
                     Box(
                         Modifier

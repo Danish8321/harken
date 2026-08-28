@@ -267,12 +267,16 @@ private fun IdleMeter(c: ProtoColors) {
             Text(stringResource(R.string.record_meter_idle), color = c.inkSubtle, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
         }
         // Marching wave mirrored around center, same language as SplashScreen's waveform —
-        // the crest visibly travels left-to-right rather than every bar breathing in place.
+        // the crest visibly travels left-to-right rather than every bar breathing in place,
+        // and in the same accent, so the splash's wave and this one are one motif.
         Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            for (i in 0 until 18) {
-                val travel = if (reduced) 0f else (sin(t * 1.6154f - i * 0.75f) * 0.5f + 0.5f)
+            // Bar count is what sets the gap: SpaceBetween divides the full width, so 18
+            // bars left them scattered rather than reading as one continuous trace. The
+            // phase step drops with the count so the crest keeps its on-screen wavelength.
+            for (i in 0 until 34) {
+                val travel = if (reduced) 0f else (sin(t * 1.6154f - i * 0.4f) * 0.5f + 0.5f)
                 val h = 4.dp + (32.dp * travel)
-                Box(Modifier.width(3.5.dp).height(h).background(c.inkFaint, RoundedCornerShape(2.dp)))
+                Box(Modifier.width(3.5.dp).height(h).background(c.accent, RoundedCornerShape(2.dp)))
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
