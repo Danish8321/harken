@@ -185,7 +185,7 @@ fun RecordScreen(
             AnimatedVisibility(elapsed >= 10500, enter = fadeIn(fade), exit = fadeOut(fade)) {
                 Column {
                     Spacer(Modifier.height(14.dp))
-                    Row(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(22.dp)).padding(14.dp)) {
+                    Row(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(24.dp)).padding(16.dp)) {
                         Icon(Icons.Filled.Warning, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(10.dp))
                         Text(
@@ -304,7 +304,7 @@ private fun UploadStatusCard(
         Modifier
             .fillMaxWidth()
             .offset(x = shake.value.dp)
-            .background(bg, RoundedCornerShape(22.dp))
+            .background(bg, RoundedCornerShape(24.dp))
             .clickable(role = Role.Button, enabled = status == UploadStatus.Succeeded || status == UploadStatus.Failed) {
                 when (status) {
                     UploadStatus.Succeeded -> lastSessionId?.let(onOpenSession)
@@ -321,7 +321,7 @@ private fun UploadStatusCard(
                     else -> Unit
                 }
             }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // transitionSpec is not a composable scope, so the specs are resolved out here.

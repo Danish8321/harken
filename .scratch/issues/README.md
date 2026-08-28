@@ -26,7 +26,7 @@ relative-luminance formula.
 | [UI-015](UI-015-library-stagger.md) | Library list stagger-in | low | fixed |
 | [UI-016](UI-016-transcript-reveal.md) | SessionSheet transcript reveal | low | fixed |
 | [UI-017](UI-017-haptics.md) | Haptic feedback pairing | low | fixed |
-| [UI-018](UI-018-uniformity-audit.md) | Component uniformity audit | medium | open |
+| [UI-018](UI-018-uniformity-audit.md) | Component uniformity audit | medium | fixed |
 
 ## Suggested order
 
