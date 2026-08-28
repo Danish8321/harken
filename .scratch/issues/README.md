@@ -25,7 +25,7 @@ relative-luminance formula.
 | [UI-014](UI-014-persistent-recording-indicator.md) | Persistent recording indicator across tabs | medium | fixed |
 | [UI-015](UI-015-library-stagger.md) | Library list stagger-in | low | fixed |
 | [UI-016](UI-016-transcript-reveal.md) | SessionSheet transcript reveal | low | fixed |
-| [UI-017](UI-017-haptics.md) | Haptic feedback pairing | low | open |
+| [UI-017](UI-017-haptics.md) | Haptic feedback pairing | low | fixed |
 | [UI-018](UI-018-uniformity-audit.md) | Component uniformity audit | medium | open |
 
 ## Suggested order

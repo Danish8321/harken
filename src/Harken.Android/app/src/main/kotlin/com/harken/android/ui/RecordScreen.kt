@@ -64,7 +64,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -102,6 +104,17 @@ fun RecordScreen(
     val fade = HarkenMotion.effectsDefault<Float>()
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
+    val haptics = LocalHapticFeedback.current
+
+    // Fires exactly once per genuine upload-status transition, not on every recomposition —
+    // LaunchedEffect only restarts when the key (state.uploadStatus) itself changes.
+    LaunchedEffect(state.uploadStatus) {
+        when (state.uploadStatus) {
+            UploadStatus.Succeeded -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            UploadStatus.Failed -> haptics.performHapticFeedback(HapticFeedbackType.Reject)
+            else -> Unit
+        }
+    }
 
     var hasMicPermission by remember {
         mutableStateOf(
@@ -111,7 +124,10 @@ fun RecordScreen(
     }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         hasMicPermission = granted
-        if (granted) viewModel.startRecording()
+        if (granted) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.startRecording()
+        }
     }
 
     var elapsed by remember { mutableIntStateOf(0) }
@@ -203,8 +219,14 @@ fun RecordScreen(
             RecordButton(state.isRecording) {
                 when {
                     !hasMicPermission -> permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                    state.isRecording -> viewModel.stopRecording()
-                    else -> viewModel.startRecording()
+                    state.isRecording -> {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        viewModel.stopRecording()
+                    }
+                    else -> {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.startRecording()
+                    }
                 }
             }
         }
