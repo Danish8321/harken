@@ -35,6 +35,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
+import com.harken.android.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -132,15 +134,16 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
 
     fun testConnection() {
         val url = _uiState.value.baseUrl
+        val res = getApplication<Application>().resources
         if (!AppSettings.isValid(url)) {
             _uiState.value = _uiState.value.copy(
                 connectionCheck = ConnectionCheck.Failed,
-                connectionMessage = "Enter a valid http(s) URL",
+                connectionMessage = res.getString(com.harken.android.R.string.settings_invalid_url),
             )
             return
         }
 
-        _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Checking, connectionMessage = "Checking...")
+        _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Checking, connectionMessage = res.getString(com.harken.android.R.string.settings_check_in_progress))
         viewModelScope.launch {
             try {
                 val request = Request.Builder().url("${url.trimEnd('/')}/health").build()
@@ -149,13 +152,13 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
                 }
                 if (response.isSuccessful) {
                     settings.setBaseUrl(url)
-                    _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Connected, connectionMessage = "Connected.")
+                    _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Connected, connectionMessage = res.getString(com.harken.android.R.string.settings_connected))
                 } else {
-                    _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Failed, connectionMessage = "Backend responded with ${response.code}.")
+                    _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Failed, connectionMessage = res.getString(com.harken.android.R.string.settings_bad_status, response.code))
                 }
                 response.close()
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Failed, connectionMessage = "Could not reach backend: ${e.message}")
+                _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Failed, connectionMessage = res.getString(com.harken.android.R.string.settings_unreachable_reason, e.message ?: ""))
             }
         }
     }
@@ -181,7 +184,7 @@ private fun OnboardingExplainer(icon: androidx.compose.ui.graphics.vector.ImageV
     val c = LocalProtoColors.current
     Column {
         Icon(icon, contentDescription = null, tint = c.accent, modifier = Modifier.size(40.dp))
-        Text(title, color = c.text, fontFamily = ProtoHeadingFont, fontSize = androidx.compose.ui.unit.TextUnit.Unspecified.takeUnless { true } ?: 28.sp)
+        Text(title, color = c.text, fontFamily = ProtoHeadingFont, fontSize = 28.sp)
         Text(
             body,
             color = c.textSecondary,
@@ -206,7 +209,7 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
             trackColor = c.cardBorder,
         )
         Text(
-            "STEP ${state.step} OF 4",
+            stringResource(R.string.onboarding2_step_of, state.step),
             color = c.textSecondary,
             fontFamily = ProtoBodyFont,
             fontWeight = FontWeight.Bold,
@@ -234,9 +237,9 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
                 when (step) {
                     1 -> Column {
-                        Text("Cloud extras\n(optional)", color = c.text, fontFamily = ProtoHeadingFont, fontSize = 27.sp)
+                        Text(stringResource(R.string.onboarding2_step1_title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 27.sp)
                         Text(
-                            "On-device transcription is free, private and works right now, with no setup. Connecting a backend here unlocks Azure cloud transcription and AI-generated summaries. You can skip this and set it up later from Settings.",
+                            stringResource(R.string.onboarding2_step1_body),
                             color = c.textSecondary,
                             fontFamily = ProtoBodyFont,
                             fontSize = 14.5f.sp,
@@ -253,7 +256,7 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                                     focusedContainerColor = c.pillTrack,
                                     unfocusedContainerColor = c.pillTrack,
                                 ),
-                                label = { Text("http://host:port") },
+                                label = { Text(stringResource(R.string.onboarding2_url_hint)) },
                             )
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 OutlinedButton(
@@ -261,10 +264,10 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                                     enabled = state.connectionCheck != ConnectionCheck.Checking,
                                     shape = PillShape,
                                     modifier = Modifier.height(44.dp),
-                                ) { Text(if (state.connectionCheck == ConnectionCheck.Checking) "Checking…" else "Test connection") }
+                                ) { Text(stringResource(if (state.connectionCheck == ConnectionCheck.Checking) R.string.onboarding2_testing else R.string.onboarding2_test_connection)) }
                                 if (state.connectionCheck == ConnectionCheck.Connected) {
                                     StatusChip(
-                                        label = "Connected",
+                                        label = stringResource(R.string.onboarding2_connected_chip),
                                         container = c.stateDone,
                                         content = c.stateDoneFg,
                                         leading = {
@@ -279,31 +282,31 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                                 }
                             }
                             state.connectionMessage?.takeIf { state.connectionCheck == ConnectionCheck.Failed }?.let {
-                                Text(it, color = androidx.compose.ui.graphics.Color.Red, fontFamily = ProtoBodyFont, fontSize = 12.sp)
+                                Text(it, color = c.stateError, fontFamily = ProtoBodyFont, fontSize = 12.sp)
                             }
                         }
                         TextButton(
                             onClick = viewModel::next,
                             modifier = Modifier.padding(top = 4.dp),
-                        ) { Text("Skip for now") }
+                        ) { Text(stringResource(R.string.onboarding2_skip_for_now)) }
                     }
 
                     2 -> OnboardingExplainer(
                         icon = Icons.Filled.Lock,
-                        title = "It keeps\nrecording",
-                        body = "Recording runs as a foreground service with an ongoing notification, so it survives a locked screen. On Android 16 that notification is a Live Update: a chronometer, a waveform and a Stop button you can reach without unlocking.",
+                        title = stringResource(R.string.onboarding2_step2_title),
+                        body = stringResource(R.string.onboarding2_step2_body),
                     )
 
                     3 -> OnboardingExplainer(
                         icon = Icons.Filled.GraphicEq,
-                        title = "Record now,\nread later",
-                        body = "Recording transcribes right there on your phone the moment you stop — no upload, no account, no per-minute cost. If you connected a backend in the first step, you also get cloud transcription and AI-generated summaries.",
+                        title = stringResource(R.string.onboarding2_step3_title),
+                        body = stringResource(R.string.onboarding2_step3_body),
                     )
 
                     4 -> Column {
-                        Text("Get the\nspeech model", color = c.text, fontFamily = ProtoHeadingFont, fontSize = 27.sp)
+                        Text(stringResource(R.string.onboarding2_step4_title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 27.sp)
                         Text(
-                            "On-device transcription needs a one-time download (about 140 MB). You can also do this later from Settings.",
+                            stringResource(R.string.onboarding2_step4_body),
                             color = c.textSecondary,
                             fontFamily = ProtoBodyFont,
                             fontSize = 14.5f.sp,
@@ -315,7 +318,7 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                                     onClick = viewModel::downloadModel,
                                     shape = PillShape,
                                     modifier = Modifier.fillMaxWidth().height(48.dp),
-                                ) { Text("Download model") }
+                                ) { Text(stringResource(R.string.onboarding2_download_model)) }
 
                                 ModelDownloadState.Downloading -> Column {
                                     LinearProgressIndicator(
@@ -323,7 +326,7 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                                         modifier = Modifier.fillMaxWidth().height(6.dp).clip(PillShape),
                                     )
                                     Text(
-                                        "Downloading… ${state.modelDownloadProgress}%",
+                                        stringResource(R.string.onboarding2_downloading, state.modelDownloadProgress),
                                         color = c.textSecondary,
                                         fontFamily = ProtoBodyFont,
                                         fontSize = 12.sp,
@@ -332,7 +335,7 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                                 }
 
                                 ModelDownloadState.Ready -> StatusChip(
-                                    label = "Model ready",
+                                    label = stringResource(R.string.onboarding2_model_ready),
                                     container = c.stateDone,
                                     content = c.stateDoneFg,
                                     leading = {
@@ -347,8 +350,8 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
 
                                 ModelDownloadState.Failed -> Column {
                                     Text(
-                                        state.modelDownloadError ?: "Download failed",
-                                        color = androidx.compose.ui.graphics.Color.Red,
+                                        state.modelDownloadError ?: stringResource(R.string.settings_model_download_failed),
+                                        color = c.stateError,
                                         fontFamily = ProtoBodyFont,
                                         fontSize = 12.sp,
                                     )
@@ -356,14 +359,14 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                                         onClick = viewModel::downloadModel,
                                         shape = PillShape,
                                         modifier = Modifier.padding(top = 8.dp),
-                                    ) { Text("Retry") }
+                                    ) { Text(stringResource(R.string.onboarding2_retry)) }
                                 }
                             }
                         }
                         TextButton(
                             onClick = { viewModel.finish(onFinished) },
                             modifier = Modifier.padding(top = 4.dp),
-                        ) { Text("Skip for now") }
+                        ) { Text(stringResource(R.string.onboarding2_skip_for_now)) }
                     }
                 }
             }
@@ -374,13 +377,13 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                 TextButton(
                     onClick = viewModel::back,
                     modifier = Modifier.weight(1f).height(52.dp),
-                ) { Text("Back") }
+                ) { Text(stringResource(R.string.onboarding2_back)) }
             }
             Button(
                 onClick = { if (state.step < 4) viewModel.next() else viewModel.finish(onFinished) },
                 modifier = Modifier.weight(1f).height(56.dp),
                 shape = PillShape,
-            ) { Text(if (state.step < 4) "Continue" else "Start recording") }
+            ) { Text(stringResource(if (state.step < 4) R.string.onboarding2_continue else R.string.onboarding2_start_recording)) }
         }
     }
 }

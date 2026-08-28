@@ -20,6 +20,29 @@
     <string name="onboarding_next">Next</string>
     <string name="onboarding_finish">Get started</string>
 
+    <!-- Onboarding v2 (on-device transcription wizard) -->
+    <string name="onboarding2_step_of">STEP %1$d OF 4</string>
+    <string name="onboarding2_step1_title">Cloud extras\n(optional)</string>
+    <string name="onboarding2_step1_body">On-device transcription is free, private and works right now, with no setup. Connecting a backend here unlocks Azure cloud transcription and AI-generated summaries. You can skip this and set it up later from Settings.</string>
+    <string name="onboarding2_url_hint">http://host:port</string>
+    <string name="onboarding2_test_connection">Test connection</string>
+    <string name="onboarding2_testing">Checking…</string>
+    <string name="onboarding2_connected_chip">Connected</string>
+    <string name="onboarding2_skip_for_now">Skip for now</string>
+    <string name="onboarding2_step2_title">It keeps\nrecording</string>
+    <string name="onboarding2_step2_body">Recording runs as a foreground service with an ongoing notification, so it survives a locked screen. On Android 16 that notification is a Live Update: a chronometer, a waveform and a Stop button you can reach without unlocking.</string>
+    <string name="onboarding2_step3_title">Record now,\nread later</string>
+    <string name="onboarding2_step3_body">Recording transcribes right there on your phone the moment you stop — no upload, no account, no per-minute cost. If you connected a backend in the first step, you also get cloud transcription and AI-generated summaries.</string>
+    <string name="onboarding2_step4_title">Get the\nspeech model</string>
+    <string name="onboarding2_step4_body">On-device transcription needs a one-time download (about 140 MB). You can also do this later from Settings.</string>
+    <string name="onboarding2_download_model">Download model</string>
+    <string name="onboarding2_downloading">Downloading… %1$d%%</string>
+    <string name="onboarding2_model_ready">Model ready</string>
+    <string name="onboarding2_retry">Retry</string>
+    <string name="onboarding2_back">Back</string>
+    <string name="onboarding2_continue">Continue</string>
+    <string name="onboarding2_start_recording">Start recording</string>
+
     <!-- Navigation -->
     <string name="nav_record">Record</string>
     <string name="nav_library">Library</string>
@@ -35,6 +58,8 @@
     <string name="record_upload_uploading_body">Sending the recording to %1$s</string>
     <string name="record_upload_ok_title">Uploaded · transcribing</string>
     <string name="record_upload_ok_body">Tap to follow the transcript</string>
+    <string name="record_saved_local_title">Saved</string>
+    <string name="record_saved_local_body">Transcribe it from the Library when you\'re ready</string>
     <string name="record_upload_failed_title">Upload failed · tap to retry</string>
     <string name="record_upload_failed_body">Still on this phone at %1$s.</string>
     <string name="record_upload_failed_path_unknown">its original path</string>

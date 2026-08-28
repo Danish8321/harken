@@ -108,6 +108,46 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
         }
 
         SettingsCard(c) {
+            Eyebrow(c, stringResource(R.string.settings_model_header))
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    when (state.modelDownloadState) {
+                        ModelDownloadState.Ready -> stringResource(R.string.settings_model_ready)
+                        ModelDownloadState.Downloading -> stringResource(R.string.settings_model_downloading, state.modelDownloadProgress)
+                        ModelDownloadState.Failed -> state.modelDownloadError ?: stringResource(R.string.settings_model_download_failed)
+                        ModelDownloadState.NotStarted -> stringResource(R.string.settings_model_not_started)
+                    },
+                    color = if (state.modelDownloadState == ModelDownloadState.Failed) c.stateError else c.text,
+                    fontFamily = ProtoBodyFont,
+                    fontSize = 13.5.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedButton(
+                    onClick = viewModel::updateModel,
+                    enabled = state.modelDownloadState != ModelDownloadState.Downloading,
+                    shape = PillShape,
+                    modifier = Modifier.heightIn(min = 40.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = c.text),
+                    border = BorderStroke(1.dp, c.textSecondary),
+                ) {
+                    Text(
+                        stringResource(if (state.modelDownloadState == ModelDownloadState.Ready) R.string.settings_model_update else R.string.settings_model_download),
+                        fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.5.sp,
+                    )
+                }
+            }
+            if (state.modelDownloadState == ModelDownloadState.Downloading) {
+                Spacer(Modifier.height(10.dp))
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = { state.modelDownloadProgress / 100f },
+                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                    color = c.accent,
+                    trackColor = c.pillTrack,
+                )
+            }
+        }
+
+        SettingsCard(c) {
             Eyebrow(c, stringResource(R.string.settings_capture_header))
                 CaptureLimitRow(c, stringResource(R.string.settings_session_cap), stringResource(R.string.settings_session_cap_value))
                 CaptureLimitDivider(c)

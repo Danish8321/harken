@@ -233,7 +233,7 @@ fun RecordScreen(
         AnimatedVisibility(state.uploadStatus != UploadStatus.Idle, enter = fadeIn(fade), exit = fadeOut(fade)) {
             Column {
                 Spacer(Modifier.height(14.dp))
-                UploadStatusCard(c, state.uploadStatus, state.lastSessionId, state.lastError, backendLabel, onOpenSession, viewModel::retryUpload)
+                UploadStatusCard(c, state.uploadStatus, state.lastSessionId, state.lastError, state.lastSavedLocally, backendLabel, onOpenSession, viewModel::retryUpload)
             }
         }
 
@@ -359,6 +359,7 @@ private fun UploadStatusCard(
     status: UploadStatus,
     lastSessionId: UUID?,
     lastError: String?,
+    lastSavedLocally: Boolean,
     backendLabel: String,
     onOpenSession: (UUID) -> Unit,
     onRetry: () -> Unit,
@@ -435,8 +436,14 @@ private fun UploadStatusCard(
                     Text(stringResource(R.string.record_upload_uploading_body, backendLabel), color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp)
                 }
                 UploadStatus.Succeeded -> {
-                    Text(stringResource(R.string.record_upload_ok_title), color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text(stringResource(R.string.record_upload_ok_body), color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp)
+                    Text(
+                        stringResource(if (lastSavedLocally) R.string.record_saved_local_title else R.string.record_upload_ok_title),
+                        color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                    )
+                    Text(
+                        stringResource(if (lastSavedLocally) R.string.record_saved_local_body else R.string.record_upload_ok_body),
+                        color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp,
+                    )
                 }
                 UploadStatus.Failed -> {
                     Text(stringResource(R.string.record_upload_failed_title), color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
