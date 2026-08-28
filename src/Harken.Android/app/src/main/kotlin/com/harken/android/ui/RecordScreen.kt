@@ -4,10 +4,23 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -21,6 +34,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,6 +45,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -43,6 +58,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +76,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
 import com.harken.android.recording.RecordingState
 import com.harken.android.ui.theme.HarkenMotion
+import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
 import com.harken.android.ui.theme.ProtoHeadingFont
@@ -67,6 +84,8 @@ import com.harken.android.ui.theme.ProtoMonoFont
 import com.harken.android.ui.theme.rememberProtoColors
 import com.harken.android.ui.theme.rememberRecordShape
 import java.util.UUID
+import kotlin.math.sin
+import kotlinx.coroutines.launch
 
 // Prototype visuals (Claude Design .dc.html port), wired to the real CaptureViewModel:
 // real mic permission flow, real RecordingController start/stop, real elapsed timer keyed
@@ -162,48 +181,10 @@ fun RecordScreen(
             }
         }
 
-        AnimatedVisibility(state.uploadStatus == UploadStatus.Succeeded && state.lastSessionId != null, enter = fadeIn(fade), exit = fadeOut(fade)) {
+        AnimatedVisibility(state.uploadStatus != UploadStatus.Idle, enter = fadeIn(fade), exit = fadeOut(fade)) {
             Column {
                 Spacer(Modifier.height(14.dp))
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(c.card, RoundedCornerShape(22.dp))
-                        .clickable(role = Role.Button) { state.lastSessionId?.let(onOpenSession) }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = c.success, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.record_upload_ok_title), color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text(stringResource(R.string.record_upload_ok_body), color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-
-        AnimatedVisibility(state.uploadStatus == UploadStatus.Failed, enter = fadeIn(fade), exit = fadeOut(fade)) {
-            Column {
-                Spacer(Modifier.height(14.dp))
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(c.stateError, RoundedCornerShape(22.dp))
-                        .clickable(role = Role.Button) { viewModel.retryUpload() }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Filled.Warning, contentDescription = null, tint = c.stateErrorFg, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.record_upload_failed_title), color = c.stateErrorFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text(
-                            stringResource(R.string.record_upload_failed_body, state.lastError ?: stringResource(R.string.record_upload_failed_path_unknown)),
-                            color = c.stateErrorFg, fontFamily = ProtoBodyFont, fontSize = 12.sp,
-                        )
-                    }
-                }
+                UploadStatusCard(c, state.uploadStatus, state.lastSessionId, state.lastError, onOpenSession, viewModel::retryUpload)
             }
         }
 
@@ -230,8 +211,21 @@ fun RecordScreen(
     }
 }
 
+/**
+ * Idle bars breathe with a gentle per-bar phase offset — a slow ripple, not a pulse —
+ * echoing the splash mark's motif (UI-011) so the app reads as "listening" even at rest.
+ * Frozen under reduced motion: the bars just hold their base height.
+ */
 @Composable
 private fun IdleMeter(c: ProtoColors) {
+    val reduced = LocalReducedMotion.current
+    val transition = rememberInfiniteTransition(label = "idleBreathe")
+    val t by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = if (reduced) 0f else (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing)),
+        label = "idleBreatheT",
+    )
     Column(
         Modifier.fillMaxWidth().height(150.dp).background(c.meterBg, RoundedCornerShape(30.dp)).padding(20.dp),
         verticalArrangement = Arrangement.SpaceBetween,
@@ -241,14 +235,119 @@ private fun IdleMeter(c: ProtoColors) {
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.record_meter_idle), color = c.inkSubtle, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
         }
-        Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            repeat(12) {
-                Box(Modifier.padding(horizontal = 2.5.dp).width(5.dp).height(7.dp).background(c.inkFaint, RoundedCornerShape(3.dp)))
+        Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
+            for (i in 0 until 12) {
+                val breathe = if (reduced) 0f else (sin(t + i * 0.5f) * 0.5f + 0.5f)
+                val h = 7.dp + (6.dp * breathe)
+                Box(Modifier.padding(horizontal = 2.5.dp).width(5.dp).height(h).background(c.inkFaint, RoundedCornerShape(3.dp)))
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(stringResource(R.string.record_meter_idle_elapsed), color = c.inkSubtle, fontFamily = ProtoMonoFont, fontSize = 12.5.sp)
             Text(stringResource(R.string.record_meter_idle_hint), color = c.inkSubtle, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
+        }
+    }
+}
+
+/**
+ * One card whose content morphs in place across the upload lifecycle — a spinner, then a
+ * check-mark or warning glyph, via [AnimatedContent] keyed on [status] — rather than two
+ * disconnected fade-in/fade-out composables that happened to occupy the same slot. Idle
+ * renders nothing; the caller gates visibility.
+ */
+@Composable
+private fun UploadStatusCard(
+    c: ProtoColors,
+    status: UploadStatus,
+    lastSessionId: UUID?,
+    lastError: String?,
+    onOpenSession: (UUID) -> Unit,
+    onRetry: () -> Unit,
+) {
+    val reduced = LocalReducedMotion.current
+    val scope = rememberCoroutineScope()
+    val shake = remember { Animatable(0f) }
+
+    val bg by animateColorAsState(
+        when (status) {
+            UploadStatus.Failed -> c.stateError
+            else -> c.card
+        },
+        HarkenMotion.effectsDefault(),
+        label = "uploadCardBg",
+    )
+    val shakeSpec = HarkenMotion.spatialFast<Float>()
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .offset(x = shake.value.dp)
+            .background(bg, RoundedCornerShape(22.dp))
+            .clickable(role = Role.Button, enabled = status == UploadStatus.Succeeded || status == UploadStatus.Failed) {
+                when (status) {
+                    UploadStatus.Succeeded -> lastSessionId?.let(onOpenSession)
+                    UploadStatus.Failed -> {
+                        onRetry()
+                        if (!reduced) {
+                            scope.launch {
+                                for (target in listOf(10f, -10f, 6f, -6f, 0f)) {
+                                    shake.animateTo(target, shakeSpec)
+                                }
+                            }
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // transitionSpec is not a composable scope, so the specs are resolved out here.
+        val iconSpatial = HarkenMotion.spatialFast<Float>()
+        val iconEffects = HarkenMotion.effectsFast<Float>()
+        AnimatedContent(
+            targetState = status,
+            label = "uploadStatusIcon",
+            transitionSpec = {
+                if (reduced) {
+                    EnterTransition.None togetherWith ExitTransition.None
+                } else {
+                    (scaleIn(iconSpatial) + fadeIn(iconEffects)) togetherWith
+                        (scaleOut(iconSpatial) + fadeOut(iconEffects))
+                }
+            },
+        ) { s ->
+            when (s) {
+                UploadStatus.Uploading -> CircularProgressIndicator(
+                    color = c.textSecondary, strokeWidth = 2.dp, modifier = Modifier.size(20.dp),
+                )
+                UploadStatus.Succeeded -> Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = c.success, modifier = Modifier.size(20.dp))
+                UploadStatus.Failed -> Icon(Icons.Filled.Warning, contentDescription = null, tint = c.stateErrorFg, modifier = Modifier.size(20.dp))
+                UploadStatus.Idle -> Unit
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            val titleColor = if (status == UploadStatus.Failed) c.stateErrorFg else c.text
+            val bodyColor = if (status == UploadStatus.Failed) c.stateErrorFg else c.textSecondary
+            when (status) {
+                UploadStatus.Uploading -> {
+                    Text(stringResource(R.string.record_upload_uploading_title), color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(stringResource(R.string.record_upload_uploading_body), color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp)
+                }
+                UploadStatus.Succeeded -> {
+                    Text(stringResource(R.string.record_upload_ok_title), color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(stringResource(R.string.record_upload_ok_body), color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp)
+                }
+                UploadStatus.Failed -> {
+                    Text(stringResource(R.string.record_upload_failed_title), color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(
+                        stringResource(R.string.record_upload_failed_body, lastError ?: stringResource(R.string.record_upload_failed_path_unknown)),
+                        color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp,
+                    )
+                }
+                UploadStatus.Idle -> Unit
+            }
         }
     }
 }
@@ -306,12 +405,18 @@ private fun RecordButton(recording: Boolean, onTap: () -> Unit) {
         animationSpec = HarkenMotion.spatialFast(),
         label = "recordPress",
     )
+    // Color rides the same state change as the shape morph (MorphShapes.kt) — accent at
+    // rest, the amber reserved for "live" (Wire palette, UI-009) while capturing — so the
+    // button reads as one continuous state transition rather than a shape change plus an
+    // unrelated instant recolor.
+    val container by animateColorAsState(if (recording) c.stateLive else c.accent, HarkenMotion.effectsFast(), label = "recordButtonBg")
+    val content by animateColorAsState(if (recording) c.stateLiveFg else c.onAccent, HarkenMotion.effectsFast(), label = "recordButtonFg")
     FloatingActionButton(
         onClick = onTap,
         modifier = Modifier.size(88.dp).scale(scale),
         shape = rememberRecordShape(recording),
-        containerColor = c.accent,
-        contentColor = c.onAccent,
+        containerColor = container,
+        contentColor = content,
         elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 10.dp, pressedElevation = 4.dp),
         interactionSource = interaction,
     ) {

@@ -27,6 +27,8 @@
     <string name="record_format_line">16 kHz mono · caps at 3 h</string>
     <string name="record_capturing">CAPTURING</string>
     <string name="record_cap_warning">Approaching the 3-hour cap — it\'ll stop and upload on its own.</string>
+    <string name="record_upload_uploading_title">Uploading…</string>
+    <string name="record_upload_uploading_body">Sending the recording to studio-mac</string>
     <string name="record_upload_ok_title">Uploaded · transcribing</string>
     <string name="record_upload_ok_body">Tap to follow the transcript</string>
     <string name="record_upload_failed_title">Upload failed · tap to retry</string>
