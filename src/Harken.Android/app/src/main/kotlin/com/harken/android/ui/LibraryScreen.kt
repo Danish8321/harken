@@ -1,6 +1,9 @@
 package com.harken.android.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
@@ -28,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,6 +41,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -45,16 +50,21 @@ import com.harken.android.data.SessionRepository
 import com.harken.android.ui.components.EmptyState
 import com.harken.android.ui.components.ErrorState
 import com.harken.android.ui.components.SkeletonRow
+import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
 import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.rememberProtoColors
 import java.util.UUID
+import kotlinx.coroutines.delay
 
 // Prototype card visuals wired to the real LibraryViewModel — real Room+network session
 // list, real refresh, real tag-based filtering. The prototype's fake "pending upload
 // queue" and archive button had no backing endpoint and are dropped rather than left
 // pretending to work.
+
+private const val STAGGER_CAP = 8
+private const val STAGGER_STEP_MS = 35L
 
 @Composable
 fun LibraryScreen(
@@ -121,11 +131,38 @@ fun LibraryScreen(
                 onAction = if (filter == LibraryFilter.All) viewModel::goToRecord else null,
             )
 
-            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(visible, key = { it.id }) { session ->
-                    SessionCard(c, session, longest) { onOpenSession(session.id) }
+            else -> {
+                // Rows fade/slide in staggered by index on genuine list-load/tab-arrival —
+                // animatedIds tracks which ones already played so scrolling a row off-screen
+                // and back (LazyColumn disposes/recomposes it) doesn't replay the entrance.
+                // Capped at STAGGER_CAP rows so a long list doesn't visibly take a beat to
+                // finish settling; HarkenMotion collapses to snap() under reduced motion, so
+                // only the artificial per-row delay needs its own skip.
+                val animatedIds = remember { mutableStateSetOf<UUID>() }
+                val reduced = com.harken.android.ui.theme.LocalReducedMotion.current
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    itemsIndexed(visible, key = { _, it -> it.id }) { index, session ->
+                        val alreadyAnimated = session.id in animatedIds
+                        var shown by remember(session.id) { mutableStateOf(alreadyAnimated || reduced) }
+                        LaunchedEffect(session.id) {
+                            if (!alreadyAnimated) {
+                                if (!reduced) {
+                                    delay(index.coerceAtMost(STAGGER_CAP) * STAGGER_STEP_MS)
+                                    shown = true
+                                }
+                                animatedIds += session.id
+                            }
+                        }
+                        AnimatedVisibility(
+                            visible = shown,
+                            enter = fadeIn(HarkenMotion.effectsFast()) +
+                                slideInVertically(HarkenMotion.spatialFast()) { it / 6 },
+                        ) {
+                            SessionCard(c, session, longest) { onOpenSession(session.id) }
+                        }
+                    }
+                    item { Spacer(Modifier.height(8.dp)) }
                 }
-                item { Spacer(Modifier.height(8.dp)) }
             }
         }
     }
