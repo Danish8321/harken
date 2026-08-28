@@ -5,7 +5,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,8 +22,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -32,7 +34,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -124,23 +125,33 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewMode
         }
         Spacer(Modifier.height(22.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Real buttons rather than Box{}.clickable: these are the only way through
+            // onboarding, and as bare boxes TalkBack announced them as plain text with no
+            // hint they were actionable. Button/TextButton bring the role, focus order and
+            // keyboard activation with them.
             if (step < steps.lastIndex) {
-                Box(
-                    Modifier.weight(1f).height(52.dp).background(Color.Transparent, RoundedCornerShape(999.dp))
-                        .clickable { viewModel.finish(onFinished) },
-                    contentAlignment = Alignment.Center,
-                ) { Text("Skip", color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.5.sp) }
+                TextButton(
+                    onClick = { viewModel.finish(onFinished) },
+                    modifier = Modifier.weight(1f).height(52.dp),
+                    shape = RoundedCornerShape(999.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = c.text),
+                ) { Text("Skip", fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.5.sp) }
             }
-            Box(
-                Modifier.weight(1f).height(52.dp).background(ProtoAccentColor, RoundedCornerShape(999.dp))
-                    .clickable {
-                        if (step < steps.lastIndex) step += 1 else viewModel.finish(onFinished)
-                    },
-                contentAlignment = Alignment.Center,
+            Button(
+                onClick = { if (step < steps.lastIndex) step += 1 else viewModel.finish(onFinished) },
+                modifier = Modifier.weight(1f).height(52.dp),
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ProtoAccentColor,
+                    contentColor = ProtoAccentOn,
+                ),
+                // The prototype's buttons are flat; Button's default elevation would put a
+                // shadow under this one that no other control in the app has.
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
             ) {
                 Text(
                     if (step < steps.lastIndex) "Next" else "Get started",
-                    color = ProtoAccentOn, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.5.sp,
+                    fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.5.sp,
                 )
             }
         }

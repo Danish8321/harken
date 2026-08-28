@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -165,7 +166,7 @@ fun RecordScreen(
                     Modifier
                         .fillMaxWidth()
                         .background(c.card, RoundedCornerShape(22.dp))
-                        .clickable { state.lastSessionId?.let(onOpenSession) }
+                        .clickable(role = Role.Button) { state.lastSessionId?.let(onOpenSession) }
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -186,7 +187,7 @@ fun RecordScreen(
                     Modifier
                         .fillMaxWidth()
                         .background(c.dangerFill, RoundedCornerShape(22.dp))
-                        .clickable { viewModel.retryUpload() }
+                        .clickable(role = Role.Button) { viewModel.retryUpload() }
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
