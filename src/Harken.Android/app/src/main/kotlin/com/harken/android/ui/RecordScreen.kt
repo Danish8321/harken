@@ -60,8 +60,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
 import com.harken.android.recording.RecordingState
 import com.harken.android.ui.theme.HarkenMotion
-import com.harken.android.ui.theme.ProtoAccentColor
-import com.harken.android.ui.theme.ProtoAccentOn
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
 import com.harken.android.ui.theme.ProtoHeadingFont
@@ -117,12 +115,12 @@ fun RecordScreen(
             Text(stringResource(R.string.record_wordmark), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 20.sp)
             Spacer(Modifier.weight(1f))
             Row(
-                Modifier.background(c.accentFill2, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
+                Modifier.background(c.stateDone, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(Modifier.size(7.dp).background(c.accentFill2Fg, CircleShape))
+                Box(Modifier.size(7.dp).background(c.stateDoneFg, CircleShape))
                 Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.record_backend_pill), color = c.accentFill2Fg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text(stringResource(R.string.record_backend_pill), color = c.stateDoneFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
 
@@ -138,12 +136,12 @@ fun RecordScreen(
             Text(formatElapsed(elapsed), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 36.sp)
             Spacer(Modifier.height(6.dp))
             Row(
-                Modifier.background(c.accentFill, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
+                Modifier.background(c.stateLive, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(Modifier.size(7.dp).background(ProtoAccentColor, CircleShape))
+                Box(Modifier.size(7.dp).background(c.accent, CircleShape))
                 Spacer(Modifier.width(7.dp))
-                Text(stringResource(R.string.record_capturing), color = c.accentFillFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                Text(stringResource(R.string.record_capturing), color = c.stateLiveFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
             }
             Spacer(Modifier.height(18.dp))
             LiveMeter(c, formatElapsed(elapsed))
@@ -190,18 +188,18 @@ fun RecordScreen(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .background(c.dangerFill, RoundedCornerShape(22.dp))
+                        .background(c.stateError, RoundedCornerShape(22.dp))
                         .clickable(role = Role.Button) { viewModel.retryUpload() }
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Filled.Warning, contentDescription = null, tint = c.dangerFillFg, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Warning, contentDescription = null, tint = c.stateErrorFg, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.record_upload_failed_title), color = c.dangerFillFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(stringResource(R.string.record_upload_failed_title), color = c.stateErrorFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         Text(
                             stringResource(R.string.record_upload_failed_body, state.lastError ?: stringResource(R.string.record_upload_failed_path_unknown)),
-                            color = c.dangerFillFg, fontFamily = ProtoBodyFont, fontSize = 12.sp,
+                            color = c.stateErrorFg, fontFamily = ProtoBodyFont, fontSize = 12.sp,
                         )
                     }
                 }
@@ -238,18 +236,18 @@ private fun IdleMeter(c: ProtoColors) {
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Mic, contentDescription = null, tint = c.ink55, modifier = Modifier.size(15.dp))
+            Icon(Icons.Filled.Mic, contentDescription = null, tint = c.inkSubtle, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.record_meter_idle), color = c.ink55, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
+            Text(stringResource(R.string.record_meter_idle), color = c.inkSubtle, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
         }
         Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             repeat(12) {
-                Box(Modifier.padding(horizontal = 2.5.dp).width(5.dp).height(7.dp).background(c.ink28, RoundedCornerShape(3.dp)))
+                Box(Modifier.padding(horizontal = 2.5.dp).width(5.dp).height(7.dp).background(c.inkFaint, RoundedCornerShape(3.dp)))
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.record_meter_idle_elapsed), color = c.ink55, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
-            Text(stringResource(R.string.record_meter_idle_hint), color = c.ink55, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
+            Text(stringResource(R.string.record_meter_idle_elapsed), color = c.inkSubtle, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
+            Text(stringResource(R.string.record_meter_idle_hint), color = c.inkSubtle, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
         }
     }
 }
@@ -274,9 +272,9 @@ private fun LiveMeter(c: ProtoColors, elapsed: String) {
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Mic, contentDescription = null, tint = ProtoAccentColor, modifier = Modifier.size(15.dp))
+            Icon(Icons.Filled.Mic, contentDescription = null, tint = c.accent, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.record_meter_live), color = c.ink7, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
+            Text(stringResource(R.string.record_meter_live), color = c.inkStrong, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
         }
         Row(Modifier.fillMaxWidth().height(44.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
             bars.forEach { value ->
@@ -286,19 +284,20 @@ private fun LiveMeter(c: ProtoColors, elapsed: String) {
                         .width(5.dp)
                         .height(40.dp)
                         .scale(scaleX = 1f, scaleY = value)
-                        .background(ProtoAccentColor, RoundedCornerShape(3.dp)),
+                        .background(c.accent, RoundedCornerShape(3.dp)),
                 )
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(elapsed, color = c.ink7, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
-            Text(stringResource(R.string.record_meter_cap), color = c.ink7, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
+            Text(elapsed, color = c.inkStrong, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
+            Text(stringResource(R.string.record_meter_cap), color = c.inkStrong, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
         }
     }
 }
 
 @Composable
 private fun RecordButton(recording: Boolean, onTap: () -> Unit) {
+    val c = rememberProtoColors()
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -310,8 +309,8 @@ private fun RecordButton(recording: Boolean, onTap: () -> Unit) {
         onClick = onTap,
         modifier = Modifier.size(88.dp).scale(scale),
         shape = rememberRecordShape(recording),
-        containerColor = ProtoAccentColor,
-        contentColor = ProtoAccentOn,
+        containerColor = c.accent,
+        contentColor = c.onAccent,
         elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 10.dp, pressedElevation = 4.dp),
         interactionSource = interaction,
     ) {

@@ -53,8 +53,6 @@ import com.harken.android.R
 import com.harken.android.data.AppSettings
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalReducedMotion
-import com.harken.android.ui.theme.ProtoAccentColor
-import com.harken.android.ui.theme.ProtoAccentOn
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.rememberProtoColors
@@ -122,8 +120,8 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewMode
                 },
             ) { s ->
                 val current = steps[s]
-                val badgeBg = if (current.tone == StepTone.Warm) c.accentFill else c.accentFill2
-                val badgeFg = if (current.tone == StepTone.Warm) c.accentFillFg else c.accentFill2Fg
+                val badgeBg = if (current.tone == StepTone.Warm) c.stateLive else c.stateDone
+                val badgeFg = if (current.tone == StepTone.Warm) c.stateLiveFg else c.stateDoneFg
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(Modifier.size(96.dp).background(badgeBg, CircleShape), contentAlignment = Alignment.Center) {
                         Icon(current.icon, contentDescription = null, tint = badgeFg, modifier = Modifier.size(42.dp))
@@ -150,7 +148,7 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewMode
                 val width by animateDpAsState(if (active) 22.dp else 7.dp, HarkenMotion.spatialFast(), label = "dot")
                 Box(
                     Modifier.padding(horizontal = 3.5.dp).height(7.dp).width(width)
-                        .background(if (active) ProtoAccentColor else c.cardBorder, RoundedCornerShape(4.dp)),
+                        .background(if (active) c.accent else c.cardBorder, RoundedCornerShape(4.dp)),
                 )
             }
         }
@@ -173,8 +171,8 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewMode
                 modifier = Modifier.weight(1f).height(52.dp),
                 shape = RoundedCornerShape(999.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = ProtoAccentColor,
-                    contentColor = ProtoAccentOn,
+                    containerColor = c.accent,
+                    contentColor = c.onAccent,
                 ),
                 // The prototype's buttons are flat; Button's default elevation would put a
                 // shadow under this one that no other control in the app has.

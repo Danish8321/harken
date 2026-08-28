@@ -72,9 +72,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         unfocusedContainerColor = c.pillTrack,
                         focusedTextColor = c.text,
                         unfocusedTextColor = c.text,
-                        focusedBorderColor = com.harken.android.ui.theme.ProtoAccentColor,
+                        focusedBorderColor = c.accent,
                         unfocusedBorderColor = Color.Transparent,
-                        cursorColor = com.harken.android.ui.theme.ProtoAccentColor,
+                        cursorColor = c.accent,
                     ),
                 )
                 Spacer(Modifier.height(12.dp))
@@ -90,12 +90,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                     Spacer(Modifier.width(10.dp))
                     when (state.connectionCheck) {
                         ConnectionCheck.Checking -> Text(stringResource(R.string.settings_checking), color = c.textSecondary, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
-                        ConnectionCheck.Connected -> Row(Modifier.background(c.accentFill2, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp)) {
-                            Text(state.connectionMessage ?: stringResource(R.string.settings_reachable), color = c.accentFill2Fg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                        ConnectionCheck.Connected -> Row(Modifier.background(c.stateDone, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp)) {
+                            Text(state.connectionMessage ?: stringResource(R.string.settings_reachable), color = c.stateDoneFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
                         }
                         ConnectionCheck.Failed -> Text(
                             state.connectionMessage ?: stringResource(R.string.settings_unreachable),
-                            color = c.dangerFill, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.5.sp,
+                            color = c.stateError, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.5.sp,
                         )
                         ConnectionCheck.None -> {}
                     }
@@ -186,8 +186,8 @@ private fun CaptureLimitDivider(c: ProtoColors) {
 
 @Composable
 private fun protoSwitchColors(c: ProtoColors) = SwitchDefaults.colors(
-    checkedThumbColor = com.harken.android.ui.theme.ProtoAccentColor,
-    checkedTrackColor = c.accentFill,
+    checkedThumbColor = c.accent,
+    checkedTrackColor = c.stateLive,
     checkedBorderColor = Color.Transparent,
     uncheckedThumbColor = c.textSecondary,
     uncheckedTrackColor = c.pillTrack,
@@ -196,8 +196,8 @@ private fun protoSwitchColors(c: ProtoColors) = SwitchDefaults.colors(
 
 @Composable
 private fun protoSegmentedColors(c: ProtoColors) = SegmentedButtonDefaults.colors(
-    activeContainerColor = c.accentFill,
-    activeContentColor = c.accentFillFg,
+    activeContainerColor = c.stateLive,
+    activeContentColor = c.stateLiveFg,
     inactiveContainerColor = c.pillTrack,
     inactiveContentColor = c.textSecondary,
     activeBorderColor = Color.Transparent,

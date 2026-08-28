@@ -140,8 +140,8 @@ private fun FilterChipProto(c: ProtoColors, selected: Boolean, @StringRes label:
         colors = FilterChipDefaults.filterChipColors(
             containerColor = c.pillTrack,
             labelColor = c.textSecondary,
-            selectedContainerColor = c.accentFill,
-            selectedLabelColor = c.accentFillFg,
+            selectedContainerColor = c.stateLive,
+            selectedLabelColor = c.stateLiveFg,
         ),
         border = FilterChipDefaults.filterChipBorder(
             enabled = true,
@@ -163,9 +163,9 @@ private fun SessionCard(
     val transcribing = s.status == "Pending" || s.status == "Running"
     val failed = s.status == "Failed"
     val (chipBg, chipFg, chipLabel) = when {
-        transcribing -> Triple(c.accentFill2, c.accentFill2Fg, R.string.library_chip_transcribing)
-        failed -> Triple(c.dangerFill, c.dangerFillFg, R.string.library_chip_kept_on_device)
-        s.hasSummary -> Triple(c.accentFill2, c.accentFill2Fg, R.string.library_chip_summarized)
+        transcribing -> Triple(c.stateDone, c.stateDoneFg, R.string.library_chip_transcribing)
+        failed -> Triple(c.stateError, c.stateErrorFg, R.string.library_chip_kept_on_device)
+        s.hasSummary -> Triple(c.stateDone, c.stateDoneFg, R.string.library_chip_summarized)
         else -> Triple(c.pillTrack, c.textSecondary, R.string.library_chip_transcribed)
     }
     val metaLine = buildString {

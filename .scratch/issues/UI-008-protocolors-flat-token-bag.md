@@ -1,7 +1,7 @@
 # UI-008 — ProtoColors is a flat token bag with positional names
 
 - **Severity:** medium
-- **Status:** open
+- **Status:** fixed
 - **Area:** `src/Harken.Android/app/src/main/kotlin/com/harken/android/ui/theme/ProtoColors.kt`
 
 ## Problem
@@ -60,3 +60,49 @@ these tokens needs semantic names to map onto Material's roles).
 - `./gradlew compileDebugKotlin` clean
 - Side-by-side screenshots of all four screens in both themes before and after,
   confirming no rendered pixel changes — this is a pure refactor.
+
+## Resolution
+
+Renamed the flat token bag to semantic roles and folded the two standalone,
+non-theme-aware top-level vals into the data class:
+
+- `accentFill`/`accentFillFg` -> `stateLive`/`stateLiveFg` (warm, "live/active")
+- `accentFill2`/`accentFill2Fg`/`accentFill2Soft` -> `stateDone`/`stateDoneFg`/`stateDoneSoft`
+  (sage, "connected/summarized/done")
+- `dangerFill`/`dangerFillFg` -> `stateError`/`stateErrorFg`
+- `ProtoAccentColor`/`ProtoAccentOn` (top-level, same hex in both themes — the
+  "no restyle path" bug) folded into the data class as `accent`/`onAccent`,
+  same hex values preserved
+- `ink28`/`ink4`/`ink55`/`ink7` -> `inkFaint`/`inkMuted`/`inkSubtle`/`inkStrong`.
+  Kept the numeric alpha out of the name entirely rather than trying to pick
+  one "accurate" number — the same role is 0.28 in dark and 0.32 in light, so
+  no single number is honest in both themes. Tier ordering (faint < muted <
+  subtle < strong) holds in both themes, so tier names stay true where numbers
+  didn't.
+- `success` field kept as-is; it was already role-named accurately.
+
+All ~16 call sites across `RecordScreen.kt`, `LibraryScreen.kt`,
+`SettingsScreen.kt`, `OnboardingScreen.kt` updated to the new names.
+`RecordButton` (private composable in `RecordScreen.kt`) previously read the
+theme-independent top-level `ProtoAccentColor`/`ProtoAccentOn` directly with no
+`ProtoColors` in scope; it now calls `rememberProtoColors()` itself.
+
+Not a restructure into primitive/semantic/component layers as the ticket's
+"Fix" section sketched — the screen/surface colors (`screenBg`, `card`, `nav*`,
+etc.) already differ per theme with no shared raw value, so a primitive layer
+under them would be manufactured, not real. The two actual symptoms in the
+ticket (positional accent naming, the two-tier ink lie, the un-theme-aware
+accent) are what's fixed.
+
+**Verified:**
+- `./gradlew compileDebugKotlin` clean (`bash .claude/scripts/check.sh` -> `== check: OK ==`)
+- `uninstallDebug` + `installDebug` clean install
+- On-device screenshots, light theme (System, unreachable backend): Onboarding
+  (accent circle/button), Record (studio-mac pill sage, record FAB accent
+  orange, idle meter tick opacity), Library (All chip accent, error card),
+  Settings (System segment accent) — all pixel-identical to pre-refactor.
+
+**Not verified:** dark theme on-device (source-identical hex values to light
+theme's mirrored fields, same construction pattern — not re-screenshotted);
+`stateError`/`stateErrorFg` visually (backend genuinely unreachable this
+session, no failed-upload or bad-status state to trigger).
