@@ -65,6 +65,7 @@
     <string name="library_chip_kept_on_device">Kept on device</string>
     <string name="library_chip_summarized">Summarized</string>
     <string name="library_chip_transcribed">Transcribed</string>
+    <string name="library_action_transcribe">Transcribe</string>
     <plurals name="library_recording_count">
         <item quantity="one">%1$d recording</item>
         <item quantity="other">%1$d recordings</item>
@@ -98,6 +99,7 @@
     <string name="session_pause">Pause</string>
     <string name="session_playback_of">of %1$s · seek on the wave</string>
     <string name="session_playback_unavailable">Playback needs the audio endpoint</string>
+    <string name="session_playback_ondevice_unavailable">Recorded on-device; no audio file to play back</string>
     <string name="session_add_tag">+ Tag</string>
     <string name="session_voice">VOICE %1$d</string>
     <string name="session_toast_renamed">Renamed</string>
@@ -130,6 +132,13 @@
     <string name="settings_format">Format</string>
     <string name="settings_format_value">16 kHz · 16-bit · mono</string>
     <string name="settings_capture_note">Both limits end the recording and upload it, so a forgotten session lands on the backend rather than on the phone.</string>
+    <string name="settings_model_header">SPEECH MODEL</string>
+    <string name="settings_model_ready">Ready — used for on-device transcription</string>
+    <string name="settings_model_downloading">Downloading… %1$d%%</string>
+    <string name="settings_model_download_failed">Download failed</string>
+    <string name="settings_model_not_started">Not downloaded yet</string>
+    <string name="settings_model_update">Update</string>
+    <string name="settings_model_download">Download</string>
     <string name="settings_appearance_header">APPEARANCE</string>
     <string name="settings_theme_system">System</string>
     <string name="settings_theme_light">Light</string>

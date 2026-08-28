@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -40,7 +41,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -77,7 +81,7 @@ private const val TRANSCRIPT_STAGGER_STEP_MS = 30L
 // — see ui/theme/Motion.kt), so the bottom action bar is a plain Row of IconButtons plus
 // a Button+DropdownMenu pair instead, giving the same actions with stable APIs.
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SessionSheet(
     sessionId: UUID,
@@ -111,8 +115,16 @@ fun SessionSheet(
 
             val revealedSegmentIds = remember { androidx.compose.runtime.mutableStateSetOf<java.util.UUID>() }
             val reducedMotion = com.harken.android.ui.theme.LocalReducedMotion.current
+            // Stretch overscroll at the transcript's scroll boundaries fights the
+            // ModalBottomSheet's own nested-scroll drag handling: hitting the end of the
+            // list forwards leftover drag to the sheet, which briefly reads as the sheet
+            // expanding past its fixed 0.95f height before springing back. Disabling
+            // overscroll here removes the extra delta this sheet has no use for.
+            Box(Modifier.weight(1f)) {
+            @Suppress("DEPRECATION")
+            CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, bottom = 118.dp),
             ) {
                 item {
@@ -201,6 +213,8 @@ fun SessionSheet(
                     }
                 }
             }
+            }
+            }
 
             Surface(color = MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -210,41 +224,46 @@ fun SessionSheet(
                     }) { Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.session_copy_transcript)) }
                     IconButton(onClick = viewModel::share) { Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.session_share_transcript)) }
                     Spacer(Modifier.weight(1f))
-                    Button(
-                        onClick = { viewModel.summarize(sessionId) },
-                        enabled = !state.summarizing,
-                        shape = PillShape,
-                    ) {
-                        if (state.summarizing) {
-                            androidx.compose.material3.CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        } else {
-                            Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(20.dp))
-                        }
-                        Spacer(Modifier.size(8.dp))
-                        Text(
-                            when {
-                                state.summarizing && state.summary == null -> stringResource(R.string.session_summarizing)
-                                state.summarizing -> stringResource(R.string.session_resummarizing)
-                                state.summary == null -> stringResource(R.string.session_summarize)
-                                else -> stringResource(R.string.session_resummarize)
-                            },
-                            maxLines = 1,
-                        )
-                    }
-                    Box {
-                        IconButton(onClick = { summaryMenuOpen = true; viewModel.toggleSummaryOptions(true) }) {
-                            Icon(Icons.Filled.ExpandMore, contentDescription = stringResource(R.string.session_summary_options))
-                        }
-                        androidx.compose.material3.DropdownMenu(
-                            expanded = summaryMenuOpen,
-                            onDismissRequest = { summaryMenuOpen = false; viewModel.toggleSummaryOptions(false) },
+                    // Local-only sessions (ADR-0011) never touch the backend, so
+                    // summarization — a backend-only operation — is hidden rather than
+                    // shown-and-erroring (decision 4).
+                    if (state.canSummarize) {
+                        Button(
+                            onClick = { viewModel.summarize(sessionId) },
+                            enabled = !state.summarizing,
+                            shape = PillShape,
                         ) {
-                            androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text(stringResource(R.string.session_summary_short)) })
-                            androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text(stringResource(R.string.session_summary_detailed)) })
+                            if (state.summarizing) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
+                            } else {
+                                Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.size(8.dp))
+                            Text(
+                                when {
+                                    state.summarizing && state.summary == null -> stringResource(R.string.session_summarizing)
+                                    state.summarizing -> stringResource(R.string.session_resummarizing)
+                                    state.summary == null -> stringResource(R.string.session_summarize)
+                                    else -> stringResource(R.string.session_resummarize)
+                                },
+                                maxLines = 1,
+                            )
+                        }
+                        Box {
+                            IconButton(onClick = { summaryMenuOpen = true; viewModel.toggleSummaryOptions(true) }) {
+                                Icon(Icons.Filled.ExpandMore, contentDescription = stringResource(R.string.session_summary_options))
+                            }
+                            androidx.compose.material3.DropdownMenu(
+                                expanded = summaryMenuOpen,
+                                onDismissRequest = { summaryMenuOpen = false; viewModel.toggleSummaryOptions(false) },
+                            ) {
+                                androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text(stringResource(R.string.session_summary_short)) })
+                                androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text(stringResource(R.string.session_summary_detailed)) })
+                            }
                         }
                     }
                 }
@@ -288,7 +307,7 @@ private fun PlayerCard(
         ScrubbableWaveform(
             bars = state.waveform,
             progress = state.progressFraction,
-            enabled = state.audioAvailable,
+            enabled = state.audioAvailable && state.canPlayAudio,
             onSeekFraction = { onSeek((it * state.durationSeconds).toInt()) },
             modifier = Modifier.fillMaxWidth().height(76.dp),
         )
@@ -300,7 +319,7 @@ private fun PlayerCard(
             )
             Surface(
                 onClick = onTogglePlay,
-                enabled = state.audioAvailable,
+                enabled = state.audioAvailable && state.canPlayAudio,
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(radius.dp),
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(56.dp),
@@ -317,10 +336,10 @@ private fun PlayerCard(
             Column(Modifier.weight(1f)) {
                 Text(formatElapsed(state.playheadSeconds), style = MaterialTheme.typography.titleLarge, color = ink.onInk, maxLines = 1)
                 Text(
-                    if (state.audioAvailable) {
-                        stringResource(R.string.session_playback_of, formatElapsed(state.durationSeconds))
-                    } else {
-                        stringResource(R.string.session_playback_unavailable)
+                    when {
+                        !state.canPlayAudio -> stringResource(R.string.session_playback_ondevice_unavailable)
+                        state.audioAvailable -> stringResource(R.string.session_playback_of, formatElapsed(state.durationSeconds))
+                        else -> stringResource(R.string.session_playback_unavailable)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = ink.onInkDim,

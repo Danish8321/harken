@@ -18,6 +18,20 @@ android {
         versionCode = 1
         versionName = "1.0"
         resValue("string", "app_name", "Harken")
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Single ABI for now — matches minSdk 26+modern-device assumption, avoids
+        // multi-ABI native build time while on-device transcription is unproven
+        // (ADR-0011).
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+        }
     }
 
     buildTypes {
@@ -53,6 +67,9 @@ android {
         getByName("test") {
             kotlin.srcDirs("src/test/kotlin")
         }
+        getByName("androidTest") {
+            kotlin.srcDirs("src/androidTest/kotlin")
+        }
     }
 }
 
@@ -86,4 +103,12 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+
+    // Room migration test (MigrationTestHelper) — no androidTest infra existed for Room
+    // before this, so this is a new instrumented-test-only dependency (does not ship in
+    // the app APK).
+    androidTestImplementation("androidx.room:room-testing:2.7.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:core:1.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }

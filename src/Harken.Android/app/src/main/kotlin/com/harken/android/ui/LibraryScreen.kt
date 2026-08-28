@@ -21,7 +21,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -149,7 +152,14 @@ fun LibraryScreen(
                             enter = fadeIn(HarkenMotion.effectsFast()) +
                                 slideInVertically(HarkenMotion.spatialFast()) { it / 6 },
                         ) {
-                            SessionCard(c, session, longest) { onOpenSession(session.id) }
+                            SessionCard(
+                                c = c,
+                                s = session,
+                                longestSeconds = longest,
+                                onOpen = { onOpenSession(session.id) },
+                                onTranscribe = { viewModel.transcribe(session) },
+                                transcribeEnabled = state.transcribingSessionId == null,
+                            )
                         }
                     }
                     item { Spacer(Modifier.height(8.dp)) }
@@ -188,8 +198,11 @@ private fun SessionCard(
     s: SessionRepository.SessionView,
     longestSeconds: Int,
     onOpen: () -> Unit,
+    onTranscribe: () -> Unit,
+    transcribeEnabled: Boolean,
 ) {
     val transcribing = s.status == "Pending" || s.status == "Running"
+    val recorded = s.status == "Recorded"
     val failed = s.status == "Failed"
     val (chipBg, chipFg, chipLabel) = when {
         transcribing -> Triple(c.stateDone, c.stateDoneFg, R.string.library_chip_transcribing)
@@ -210,24 +223,49 @@ private fun SessionCard(
                 Text(s.title, color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(metaLine, color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
             }
-            Row(
-                Modifier.background(chipBg, RoundedCornerShape(999.dp)).padding(horizontal = 10.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (transcribing) {
-                    CircularProgressIndicator(modifier = Modifier.size(11.dp), strokeWidth = 1.5.dp, color = chipFg)
-                    Spacer(Modifier.width(4.dp))
+            if (recorded) {
+                Button(onClick = onTranscribe, enabled = transcribeEnabled) {
+                    Text(stringResource(R.string.library_action_transcribe))
                 }
-                Text(stringResource(chipLabel), color = chipFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            } else {
+                Row(
+                    Modifier.background(chipBg, RoundedCornerShape(999.dp)).padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (transcribing) {
+                        CircularProgressIndicator(modifier = Modifier.size(11.dp), strokeWidth = 1.5.dp, color = chipFg)
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Text(stringResource(chipLabel), color = chipFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                }
             }
         }
         Spacer(Modifier.height(10.dp))
-        LinearProgressIndicator(
-            progress = { fraction },
-            modifier = Modifier.fillMaxWidth().height(5.dp),
-            color = barColor,
-            trackColor = c.cardBorder,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // A bar scaled to REAL duration, relative to the longest recording in the
+            // list. Honest data in the space the fake waveform used to fill.
+            //
+            // Deliberately unanimated: LazyColumn discards and recreates this composable's
+            // state every time the row scrolls out of view and back, so an animateFloatAsState
+            // here restarted from 0 on every re-entry, reading as a glitch during a scroll.
+            // The duration itself never changes while the row is visible, so there is
+            // nothing to animate.
+            LinearProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier.weight(1f).height(5.dp),
+                color = barColor,
+                trackColor = c.cardBorder,
+            )
+            s.tags.firstOrNull()?.let { tag ->
+                Text(
+                    tag.uppercase(),
+                    color = c.textSecondary,
+                    fontFamily = ProtoBodyFont,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp,
+                )
+            }
+        }
     }
 }
 
