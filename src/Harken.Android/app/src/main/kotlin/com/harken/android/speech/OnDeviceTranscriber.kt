@@ -9,8 +9,8 @@ import java.io.RandomAccessFile
 
 /**
  * A single decoded segment from an on-device whisper.cpp transcription. Deliberately not
- * the backend's `TranscribedSegment` shape (see network/HarkenApi.kt) — this is a
- * local-only, on-device concept with no server counterpart (ADR-0011).
+ * a server-side shape — this is a local-only, on-device concept with no server
+ * counterpart (ADR-0011).
  */
 data class LocalTranscribedSegment(
     val offsetSeconds: Int,

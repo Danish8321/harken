@@ -12,14 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -33,18 +27,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.harken.android.ui.components.ErrorState
 import com.harken.android.ui.components.HarkenCard
-import com.harken.android.ui.components.StatusChip
 import com.harken.android.ui.theme.PillShape
 
-// Same ViewModel as before — this is a presentation change only. What changed is that
-// Settings now uses the SAME card, radius and padding as a Library row, instead of being
-// a bare form with a bottom-pinned CTA that appeared nowhere else in the app.
-//
-// Save is gone as a separate button: a validated URL persists on blur, and Test is the
-// diagnostic it always was. A form with two buttons where one silently double-booked as a
-// network call was the confusing part.
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsState()
@@ -54,56 +39,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Settings", style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(top = 14.dp))
-
-        HarkenCard(Modifier.fillMaxWidth()) {
-            Text("BACKEND", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            OutlinedTextField(
-                value = state.baseUrl,
-                onValueChange = viewModel::onBaseUrlChanged,
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = PillShape,
-                leadingIcon = { Icon(Icons.Filled.Dns, contentDescription = null) },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                ),
-                label = { Text("http://host:port") },
-            )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(
-                    onClick = viewModel::testConnection,
-                    enabled = state.connectionCheck != ConnectionCheck.Checking,
-                    shape = PillShape,
-                    modifier = Modifier.height(44.dp),
-                ) { Text(if (state.connectionCheck == ConnectionCheck.Checking) "Checking…" else "Test") }
-
-                if (state.connectionCheck == ConnectionCheck.Connected) {
-                    StatusChip(
-                        label = state.connectionMessage ?: "Reachable",
-                        container = MaterialTheme.colorScheme.secondaryContainer,
-                        content = MaterialTheme.colorScheme.onSecondaryContainer,
-                        leading = {
-                            Icon(
-                                Icons.Filled.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(16.dp),
-                            )
-                        },
-                    )
-                }
-            }
-        }
-
-        if (state.connectionCheck == ConnectionCheck.Failed) {
-            ErrorState(
-                title = "Could not reach the backend",
-                body = state.connectionMessage
-                    ?: "Nothing answered. Check the machine is awake, on this Wi-Fi, and started with --urls http://0.0.0.0:5057.",
-                onRetry = viewModel::testConnection,
-            )
-        }
 
         HarkenCard(Modifier.fillMaxWidth()) {
             Text("SPEECH MODEL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

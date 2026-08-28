@@ -3,25 +3,16 @@ package com.harken.android.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.harken.android.data.AppSettings
 import com.harken.android.data.SessionRepository
-import com.harken.android.data.TranscriptionProviderChoice
 import com.harken.android.data.local.HarkenDatabase
-import com.harken.android.network.AudioSource
-import com.harken.android.network.HarkenApi
-import com.harken.android.network.NetworkModule
+import com.harken.android.data.local.AudioSource
 import com.harken.android.recording.RecordingController
 import com.harken.android.recording.RecordingState
-import java.io.File
 import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.asRequestBody
-import okhttp3.RequestBody.Companion.toRequestBody
 
 enum class UploadStatus { Idle, Uploading, Succeeded, Failed }
 
@@ -39,14 +30,9 @@ data class CaptureUiState(
 // through RecordingState.completed (manual Stop tap, silence timeout, session cap alike)
 // so an auto-stop uploads the same way a manual one does (ADR-0007).
 class CaptureViewModel(application: Application) : AndroidViewModel(application) {
-    private val settings = AppSettings(application)
-    private val api: HarkenApi = NetworkModule.create { runBlockingBaseUrl() }
     private val repository = SessionRepository(
         db = HarkenDatabase.get(application),
-        api = NetworkModule.create { cachedBaseUrl },
     )
-    private var cachedBaseUrl: String = AppSettings.DefaultBaseUrl
-    private var cachedProvider: TranscriptionProviderChoice = TranscriptionProviderChoice.WhisperLocal
     private var lastRecordingId: java.util.UUID? = null
     private var lastFilePath: String? = null
 
@@ -54,12 +40,6 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
     val uiState: StateFlow<CaptureUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            settings.baseUrl.collect { cachedBaseUrl = it }
-        }
-        viewModelScope.launch {
-            settings.transcriptionProvider.collect { cachedProvider = it }
-        }
         viewModelScope.launch {
             RecordingState.isRecording.collect { recording ->
                 _uiState.value = _uiState.value.copy(isRecording = recording)
@@ -71,8 +51,6 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
             }
         }
     }
-
-    private fun runBlockingBaseUrl(): String = cachedBaseUrl
 
     fun startRecording() {
         RecordingController.startRecording(getApplication())
@@ -93,11 +71,7 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
         lastFilePath = filePath
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(lastError = null)
-            if (cachedProvider == TranscriptionProviderChoice.WhisperLocal) {
-                saveLocal(recordingId, filePath)
-            } else {
-                uploadToBackend(recordingId, filePath)
-            }
+            saveLocal(recordingId, filePath)
         }
     }
 
@@ -118,31 +92,6 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
                 lastSessionId = recordingId,
                 lastSavedLocally = true,
             )
-        } catch (e: Exception) {
-            _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Failed, lastError = e.message)
-        }
-    }
-
-    private suspend fun uploadToBackend(recordingId: java.util.UUID, filePath: String) {
-        _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Uploading)
-        try {
-            val file = File(filePath)
-            val audioPart = MultipartBody.Part.createFormData(
-                "audio", file.name, file.asRequestBody("audio/wav".toMediaType()),
-            )
-            val sourcePart = AudioSource.Microphone.name.toRequestBody("text/plain".toMediaType())
-            val recordingIdPart = recordingId.toString().toRequestBody("text/plain".toMediaType())
-
-            val response = api.upload(audioPart, sourcePart, recordingIdPart)
-            _uiState.value = if (response.isSuccessful) {
-                _uiState.value.copy(
-                    uploadStatus = UploadStatus.Succeeded,
-                    lastSessionId = response.body()?.id,
-                    lastSavedLocally = false,
-                )
-            } else {
-                _uiState.value.copy(uploadStatus = UploadStatus.Failed, lastError = "HTTP ${response.code()}")
-            }
         } catch (e: Exception) {
             _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Failed, lastError = e.message)
         }

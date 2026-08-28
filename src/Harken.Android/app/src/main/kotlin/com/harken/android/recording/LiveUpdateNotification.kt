@@ -46,7 +46,7 @@ object LiveUpdateNotification {
                     builder.extras.putBoolean("android.requestPromotedOngoing", true)
                 }
             }
-            .addAction(0, "Stop & upload", stop)
+            .addAction(0, "Stop", stop)
             .build()
     }
 
@@ -54,8 +54,8 @@ object LiveUpdateNotification {
         NotificationCompat.Builder(context, channelId)
             .setContentTitle(title)
             .setContentText(
-                if (etaMinutes != null) "About $etaMinutes min left · local Whisper, nothing leaves the LAN"
-                else "Transcribing locally · nothing leaves the LAN",
+                if (etaMinutes != null) "About $etaMinutes min left · on-device, nothing leaves the phone"
+                else "Transcribing locally · nothing leaves the phone",
             )
             .setSmallIcon(R.drawable.ic_notification_mic)
             .setOngoing(true)

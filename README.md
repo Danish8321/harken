@@ -137,9 +137,10 @@ dotnet ef database update --project src/Harken.Api
 
 ## Mobile (Android)
 
-The phone is a capture device: record → upload → poll → transcript, the console's flow on
-Android. Native Kotlin + Jetpack Compose (`src/Harken.Android`) — chosen over an earlier
-MAUI client for direct, bridge-free access to `AudioRecord` and the foreground service.
+A fully standalone capture-and-transcribe device: record → on-device transcript, no
+server involved (ADR-0011). Native Kotlin + Jetpack Compose (`src/Harken.Android`) —
+chosen over an earlier MAUI client for direct, bridge-free access to `AudioRecord` and
+the foreground service.
 See `docs/adr/0003-mobile-foreground-service.md` for why recording runs as a foreground
 service.
 
@@ -150,25 +151,15 @@ service.
 - A device to run on: a physical Android phone with **USB debugging enabled**
   (Settings → About phone → tap Build number ×7 → Developer options → USB debugging),
   or an Android Studio emulator.
-- Backend running and reachable on the same Wi-Fi/LAN as the phone (or via a USB
-  `adb reverse` tunnel — see `docs/onboarding.md` §5b) — note your PC's LAN IP
-  (`ipconfig`), not `localhost`. `launchSettings.json` binds to `localhost` only, which the
-  phone cannot reach, so start the API bound to all interfaces:
-
-  ```
-  dotnet run --project src/Harken.Api --urls http://0.0.0.0:5057
-  ```
-
-  Allow the Windows Firewall prompt on the private network the first time.
+- No backend needed — the Android app is fully standalone (ADR-0011). The backend
+  project is only for the console client (see above).
 
 ### Configure
 
-First launch runs a 4-step onboarding wizard (ADR-0011: on-device transcription, backend
-optional). The backend connect step is skippable — the app works standalone, transcribing
-on-device via a bundled Whisper model (downloaded once, in its own onboarding step). To
-also get cloud transcription/summaries, enter the backend base URL as
-`http://<your-pc-LAN-IP>:5057` and tap **Test connection**. Change either choice later from
-**Settings**.
+First launch runs a 3-step onboarding wizard: permissions, a recording explainer, and a
+one-time on-device Whisper model download. Nothing else to configure — there is no
+backend URL, no account, no connect step. The model can be re-downloaded later from
+**Settings** if it's ever cleared.
 
 ### Run
 
@@ -191,36 +182,30 @@ never blocks recording.
 No sign-in step (ADR-0009) — the app opens straight on **Record**, one of three tabs
 reachable from a bottom navigation bar: **Record**, **Recordings**, **Settings**.
 
-- **Record → Stop.** Audio is captured to a WAV file in the app's private storage. If no
-  backend is configured (or WhisperLocal is chosen in Settings), the recording is saved
-  locally as "Recorded" and nothing uploads; transcription is a separate, explicit
-  **Transcribe** action the user taps from the Library, run on-device via whisper.cpp
-  (ADR-0011). With a backend configured and cloud transcription selected, the file uploads
-  on stop instead and a **View transcript** button appears once the upload succeeds.
-- **Session detail screen** (opened from Record's "View transcript" or by tapping a row in
-  Recordings): shows the transcript, polling while transcription is still running, and a
-  **Summarize** button (needs Ollama running on the backend host, same as the console
-  flow). A summarize failure surfaces as a dismissible banner without blanking an
-  already-loaded transcript.
-- If the upload fails, the recording is **kept** and the page names its path. A recording
-  that never reached the backend is not deleted.
-- **Recordings list**: **Refresh** re-fetches from the backend. **Delete** hides a
-  recording from the list but keeps the row and audio file (soft delete). **Delete
-  permanently** asks for confirmation, then removes the row and the WAV file from disk
-  for good.
+- **Record → Stop.** Audio is captured to a WAV file in the app's private storage and
+  saved locally as "Recorded"; nothing ever leaves the device. Transcription is a
+  separate, explicit **Transcribe** action the user taps from the Library, run entirely
+  on-device via whisper.cpp (ADR-0011).
+- **Session detail screen** (opened by tapping a row in Recordings): shows the
+  transcript once on-device transcription finishes. There is no Summarize action —
+  summarization is out of scope for the Android app until ADR-0012 ships on-device
+  summarization; there is no cloud fallback.
+- **Recordings list**: **Delete** hides a recording from the list but keeps the row and
+  audio file (soft delete). **Delete permanently** asks for confirmation, then removes
+  the row and the WAV file from disk for good.
 
 ### Recording limits and storage cost
 
 | | Value | Why |
 | --- | --- | --- |
-| Format | 16 kHz / 16-bit / mono WAV | What Whisper wants natively and the only format the backend accepts. No encoder dependency. |
+| Format | 16 kHz / 16-bit / mono WAV | What Whisper wants natively. No encoder dependency. |
 | Storage | **~115 MB per hour** | The cost of uncompressed WAV. Opus would be ~10 MB/hour; revisit when device storage actually hurts. |
 | Silence Timeout | **5 minutes** | Below an amplitude threshold for that long ends the recording. |
 | Session Cap | **3 hours** | Hard bound on any one recording. |
 
-Both limits end the recording **and upload it** — a forgotten recording ends up on the
-backend, not sitting on the device waiting to be noticed. ADR-0007 moved these from the
-server to the client, where they bound battery and storage rather than spend.
+Both limits end the recording and save it locally, same as a manual Stop — a forgotten
+recording ends up in the Library, not lost. These bound battery and storage on the device
+itself; there's no server involved to bound instead.
 
 ### The recording notification
 

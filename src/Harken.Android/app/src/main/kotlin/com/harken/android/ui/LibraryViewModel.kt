@@ -3,10 +3,8 @@ package com.harken.android.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.harken.android.data.AppSettings
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.local.HarkenDatabase
-import com.harken.android.network.NetworkModule
 import com.harken.android.speech.ModelDownloadManager
 import com.harken.android.speech.OnDeviceTranscriber
 import com.harken.android.speech.TranscriptionCoordinator
@@ -19,25 +17,16 @@ import kotlinx.coroutines.launch
 data class LibraryUiState(
     val sessions: List<SessionRepository.SessionView> = emptyList(),
     val isLoading: Boolean = true,
-    val error: String? = null,
-    val baseUrl: String = AppSettings.DefaultBaseUrl,
     // Non-null while TranscriptionCoordinator is running one session's transcription —
     // Transcribe is disabled on every OTHER "Recorded" row while this is set, since only
     // one on-device transcription runs at a time app-wide.
     val transcribingSessionId: UUID? = null,
 )
 
-/**
- * Reads from Room, refreshes from the API. The list is never blocked on the network:
- * observeSessions() emits the mirror immediately and refresh() reconciles behind it, so
- * an unreachable backend degrades to "slightly stale" rather than "empty screen".
- */
+/** Reads from Room; there is no backend to reconcile against (ADR-0011). */
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
-    private val settings = AppSettings(application)
-    private var cachedBaseUrl: String = AppSettings.DefaultBaseUrl
     private val repository = SessionRepository(
         db = HarkenDatabase.get(application),
-        api = NetworkModule.create { cachedBaseUrl },
     )
     private val modelDownloadManager = ModelDownloadManager(application)
     private val onDeviceTranscriber = OnDeviceTranscriber()
@@ -49,12 +38,6 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     var onNavigateToSettings: (() -> Unit)? = null
 
     init {
-        viewModelScope.launch {
-            settings.baseUrl.collect { url ->
-                cachedBaseUrl = url
-                _uiState.value = _uiState.value.copy(baseUrl = url.removePrefix("http://").removePrefix("https://"))
-            }
-        }
         viewModelScope.launch {
             repository.observeSessions().collect { sessions ->
                 _uiState.value = _uiState.value.copy(sessions = sessions, isLoading = false)
@@ -77,15 +60,6 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             sessionId = session.id,
             filePath = filePath,
         )
-    }
-
-    fun refresh() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(error = null)
-            repository.refresh().onFailure { e ->
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
-            }
-        }
     }
 
     fun subtitle(state: LibraryUiState): String {

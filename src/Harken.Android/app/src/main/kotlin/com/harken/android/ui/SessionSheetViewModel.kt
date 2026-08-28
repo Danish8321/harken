@@ -4,11 +4,9 @@ import android.app.Application
 import android.media.MediaPlayer
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.harken.android.data.AppSettings
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.SpeakerHeuristic
 import com.harken.android.data.local.HarkenDatabase
-import com.harken.android.network.NetworkModule
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,12 +29,9 @@ data class SessionSheetUiState(
     val playheadSeconds: Int = 0,
     val playing: Boolean = false,
     val status: String? = null,
-    val summarizing: Boolean = false,
     val audioAvailable: Boolean = false,
-    val canSummarize: Boolean = false,
     val canPlayAudio: Boolean = true,
     val waveform: List<Float> = emptyList(),
-    val summaryOptionsOpen: Boolean = false,
     val toast: String? = null,
     val error: String? = null,
 ) {
@@ -51,11 +46,8 @@ data class SessionSheetUiState(
 }
 
 class SessionSheetViewModel(application: Application) : AndroidViewModel(application) {
-    private val settings = AppSettings(application)
-    private var cachedBaseUrl: String = AppSettings.DefaultBaseUrl
     private val repository = SessionRepository(
         db = HarkenDatabase.get(application),
-        api = NetworkModule.create { cachedBaseUrl },
     )
 
     private val _uiState = MutableStateFlow(SessionSheetUiState())
@@ -64,12 +56,7 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
     private var player: MediaPlayer? = null
     private var currentSessionId: UUID? = null
     private var observeJob: Job? = null
-    private var pollJob: Job? = null
     private var tickerJob: Job? = null
-
-    init {
-        viewModelScope.launch { settings.baseUrl.collect { cachedBaseUrl = it } }
-    }
 
     fun load(id: UUID) {
         // A prior session's jobs must not keep running once a new one loads — otherwise
@@ -77,7 +64,6 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
         // rewriting an old session's rows in the background, which is what made the
         // Library list (and this sheet, if reopened) intermittently flicker.
         observeJob?.cancel()
-        pollJob?.cancel()
         currentSessionId = id
         releasePlayer()
 
@@ -101,34 +87,12 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
                     status = session?.status,
                     durationSeconds = duration,
                     audioAvailable = session != null,
-                    canSummarize = session != null && !session.isLocalOnly && AppSettings.isValid(cachedBaseUrl),
-                    // A local-only session's audio was never uploaded — there is nothing
-                    // at `${cachedBaseUrl}/sessions/$id/audio` to stream (ADR-0011).
+                    // A local-only session's audio was never uploaded — there is no backend
+                    // to stream it from (ADR-0011).
                     canPlayAudio = session != null && !session.isLocalOnly,
                     waveform = waveformFor(id, duration),
                 )
             }.collect { _uiState.value = it }
-        }
-        // Transcription runs async on the backend, so keep reconciling until it reaches a
-        // terminal state (Succeeded or Failed) — not until a summary shows up, since a
-        // summary is only ever generated on request and would otherwise never arrive,
-        // leaving this polling and rewriting the session's rows for up to ten minutes.
-        //
-        // A local-only session (ADR-0011) was never uploaded, so there is nothing on the
-        // backend to reconcile: its transcription lands directly in Room via
-        // CaptureViewModel/SessionRepository.completeLocal/failLocal. Polling it would
-        // just 404-loop against a session id the backend has never heard of.
-        pollJob = viewModelScope.launch {
-            val initial = repository.observeSession(id).first()
-            if (initial?.isLocalOnly == true) return@launch
-            var attempts = 0
-            while (attempts < 200) {
-                repository.refreshDetail(id).onFailure { e -> _uiState.value = _uiState.value.copy(error = e.message) }
-                val status = _uiState.value.status
-                if (status == "Succeeded" || status == "Failed") break
-                kotlinx.coroutines.delay(3000)
-                attempts += 1
-            }
         }
     }
 
@@ -143,25 +107,10 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch { repository.setTags(id, (_uiState.value.tags + tag).distinct()) }
     }
 
-    fun summarize(id: UUID) {
-        if (_uiState.value.summarizing) return
-        _uiState.value = _uiState.value.copy(summarizing = true)
-        viewModelScope.launch {
-            repository.summarize(id)
-                .onSuccess { confirm("Summary ready") }
-                .onFailure { e -> _uiState.value = _uiState.value.copy(error = e.message) }
-            _uiState.value = _uiState.value.copy(summarizing = false)
-        }
-    }
-
     fun purge(id: UUID) {
         viewModelScope.launch {
             repository.purge(id).onFailure { e -> _uiState.value = _uiState.value.copy(error = e.message) }
         }
-    }
-
-    fun toggleSummaryOptions(open: Boolean) {
-        _uiState.value = _uiState.value.copy(summaryOptionsOpen = open)
     }
 
     fun togglePlay() {
@@ -186,7 +135,7 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
 
     private fun preparePlayer(id: UUID) {
         if (!_uiState.value.canPlayAudio) return
-        val url = "${cachedBaseUrl.trimEnd('/')}/sessions/$id/audio"
+        val url = "/sessions/$id/audio"
         val p = MediaPlayer()
         player = p
         try {

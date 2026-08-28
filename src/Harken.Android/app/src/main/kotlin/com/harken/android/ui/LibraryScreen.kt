@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.data.SessionRepository
 import com.harken.android.ui.components.EmptyState
-import com.harken.android.ui.components.ErrorState
 import com.harken.android.ui.components.HarkenCard
 import com.harken.android.ui.components.SkeletonRow
 import com.harken.android.ui.components.StatusChip
@@ -63,8 +62,6 @@ fun LibraryScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var filter by remember { mutableStateOf(LibraryFilter.All) }
-
-    LaunchedEffect(Unit) { viewModel.refresh() }
 
     val visible = remember(state.sessions, filter) {
         when (filter) {
@@ -108,15 +105,6 @@ fun LibraryScreen(
         Spacer(Modifier.height(14.dp))
 
         when {
-            state.error != null && state.sessions.isEmpty() -> ErrorState(
-                title = "Backend unreachable",
-                body = "Nothing answered at ${state.baseUrl}. Check the machine is awake and on this Wi-Fi — recordings keep saving locally meanwhile.",
-                onRetry = viewModel::refresh,
-                secondaryLabel = "Change address",
-                onSecondary = viewModel::openSettings,
-                modifier = Modifier.padding(horizontal = 20.dp),
-            )
-
             state.isLoading && state.sessions.isEmpty() -> Column(
                 Modifier.padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),

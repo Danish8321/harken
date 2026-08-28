@@ -89,7 +89,6 @@ fun SessionSheet(
     var titleDraft by remember(state.title) { mutableStateOf(state.title) }
     var summaryOpen by remember { mutableStateOf(true) }
     var confirmDelete by remember { mutableStateOf(false) }
-    var summaryMenuOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(sessionId) { viewModel.load(sessionId) }
 
@@ -206,48 +205,6 @@ fun SessionSheet(
                     }) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy transcript") }
                     IconButton(onClick = viewModel::share) { Icon(Icons.Filled.Share, contentDescription = "Share transcript") }
                     Spacer(Modifier.weight(1f))
-                    // Local-only sessions (ADR-0011) never touch the backend, so
-                    // summarization — a backend-only operation — is hidden rather than
-                    // shown-and-erroring (decision 4).
-                    if (state.canSummarize) {
-                        Button(
-                            onClick = { viewModel.summarize(sessionId) },
-                            enabled = !state.summarizing,
-                            shape = PillShape,
-                        ) {
-                            if (state.summarizing) {
-                                androidx.compose.material3.CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                )
-                            } else {
-                                Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(20.dp))
-                            }
-                            Spacer(Modifier.size(8.dp))
-                            Text(
-                                when {
-                                    state.summarizing && state.summary == null -> "Summarizing…"
-                                    state.summarizing -> "Re-summarizing…"
-                                    state.summary == null -> "Summarize"
-                                    else -> "Re-summarize"
-                                },
-                                maxLines = 1,
-                            )
-                        }
-                        Box {
-                            IconButton(onClick = { summaryMenuOpen = true; viewModel.toggleSummaryOptions(true) }) {
-                                Icon(Icons.Filled.ExpandMore, contentDescription = "Summary options")
-                            }
-                            androidx.compose.material3.DropdownMenu(
-                                expanded = summaryMenuOpen,
-                                onDismissRequest = { summaryMenuOpen = false; viewModel.toggleSummaryOptions(false) },
-                            ) {
-                                androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text("Short") })
-                                androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text("Detailed") })
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -283,9 +240,9 @@ private fun PlayerCard(
 ) {
     val ink = LocalInk.current
     InkSurface(modifier) {
-        // BACKEND WORK REQUIRED: playback needs GET /sessions/{id}/audio. Until that
-        // exists the controls are visibly disabled with a reason rather than silently
-        // dead — see HarkenApi.kt and ADR-0010.
+        // Local-only sessions were never uploaded, so there is no audio to stream —
+        // the controls are visibly disabled with a reason rather than silently dead
+        // (ADR-0011).
         ScrubbableWaveform(
             bars = state.waveform,
             progress = state.progressFraction,

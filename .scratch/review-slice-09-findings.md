@@ -4,7 +4,9 @@ Opened 2026-08-28. Two-axis review of `git diff master...HEAD` (fixed point `mas
 2f8c21a, 16 commits, 32 non-vendored files). Vendored `src/Harken.Android/app/src/main/cpp/whisper`
 excluded — third-party, not ours to review.
 
-Status: partially actioned. S1, S3, SP3, SP6 fixed 2026-08-28 (see commit). Rest open.
+Status: partially actioned. S1, S3, SP3, SP6 fixed 2026-08-28 (see commit). S6/SP1
+resolved 2026-08-28 by full deletion (`.scratch/plan-remove-backend-android.md`) —
+Azure/backend transcription path removed outright rather than wired up. Rest open.
 
 ---
 
@@ -47,7 +49,10 @@ together. Extract one `ModelDownloadUiState` plus a shared `collectDownload()`.
 `renameTo` → delete-on-failure. `ensureModel()` should be `downloadProgress().collect {}`
 plus the path, or both should call one private `download()`.
 
-#### S6. YAGNI — provider switching is dead code
+#### S6. YAGNI — provider switching is dead code — RESOLVED (deleted)
+Resolved 2026-08-28: rather than wire up the picker, the whole backend/Azure path was
+deleted (`AppSettings.setTranscriptionProvider`, `AzureBatch`, `uploadToBackend`, and the
+network layer it called). See `.scratch/plan-remove-backend-android.md`.
 `AppSettings.setTranscriptionProvider` has zero callers. `AzureBatch` is therefore
 unreachable, making `CaptureViewModel`'s `if (cachedProvider == WhisperLocal)` branch and
 the whole `uploadToBackend` path dead in practice. Either wire the picker or drop the enum
@@ -83,7 +88,10 @@ Spec sources: `docs/plans/slice-09-on-device-transcription.md`, `docs/adr/0011-o
 
 ### Missing / partial
 
-#### SP1. Provider picker never built; Azure became unselectable
+#### SP1. Provider picker never built; Azure became unselectable — RESOLVED (deleted)
+Resolved 2026-08-28, same fix as S6: the unreachable Azure/backend path is deleted, not
+built out. Azure remains valid via the backend/console app (ADR-0010); it is now
+formally out of scope for the Android client.
 ADR-0011 decision 5: "Azure Batch Transcription is unaffected: still backend-mediated, still
 requires a configured `baseUrl` to be selectable at all (the provider picker already degrades
 unavailable choices)." No provider picker exists in the Android app.
@@ -139,6 +147,14 @@ likely to fail. Same root shape as S8.
 #### SP8. `OnDeviceTranscriber.release()` never called
 The native model handle is held for process lifetime. Relevant to
 [bug-ggml-sigsegv-vec-dot-f16.md](bug-ggml-sigsegv-vec-dot-f16.md).
+
+#### SP9. `SessionSheetViewModel`'s playback path is now permanently dead — found 2026-08-28
+`canPlayAudio = session != null && !session.isLocalOnly` — with the backend/upload path
+deleted (`.scratch/plan-remove-backend-android.md`), every session is `isLocalOnly`, so
+`canPlayAudio` is always `false`. `MediaPlayer`, `preparePlayer()`, `togglePlay()`,
+`tickerJob`, and the waveform-scrubber UI in `SessionSheet.kt` can never execute. Not
+fixed as part of the backend removal (out of that task's scope) — worth a follow-up to
+delete the dead player code outright rather than carry it.
 
 ---
 
