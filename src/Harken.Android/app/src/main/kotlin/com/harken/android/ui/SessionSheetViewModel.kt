@@ -1,9 +1,11 @@
 package com.harken.android.ui
 
 import android.app.Application
+import androidx.annotation.StringRes
 import android.media.MediaPlayer
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.harken.android.R
 import com.harken.android.data.AppSettings
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.SpeakerHeuristic
@@ -93,7 +95,7 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
                     tags = session?.tags.orEmpty(),
                     segments = rows,
                     summary = summary?.summary?.let(::stripMarkdown),
-                    transcriptMeta = "${rows.size} segments${if (voices > 1) " · $voices voices" else ""}",
+                    transcriptMeta = transcriptMeta(rows.size, voices),
                     voiceCount = voices,
                     status = session?.status,
                     durationSeconds = duration,
@@ -121,7 +123,7 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
     fun rename(id: UUID, title: String) {
         viewModelScope.launch {
             repository.rename(id, title)
-            confirm("Renamed")
+            confirm(R.string.session_toast_renamed)
         }
     }
 
@@ -134,7 +136,7 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
         _uiState.value = _uiState.value.copy(summarizing = true)
         viewModelScope.launch {
             repository.summarize(id)
-                .onSuccess { confirm("Summary ready") }
+                .onSuccess { confirm(R.string.session_toast_summary_ready) }
                 .onFailure { e -> _uiState.value = _uiState.value.copy(error = e.message) }
             _uiState.value = _uiState.value.copy(summarizing = false)
         }
@@ -210,8 +212,15 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
 
     fun share() { /* wired by the host Activity via ACTION_SEND, unchanged from the previous build */ }
 
-    fun confirm(message: String) {
-        _uiState.value = _uiState.value.copy(toast = message)
+    fun confirm(@StringRes message: Int) {
+        _uiState.value = _uiState.value.copy(toast = getApplication<Application>().getString(message))
+    }
+
+    /** "12 segments · 3 voices" — the voice clause only appears when there is more than one. */
+    private fun transcriptMeta(segmentCount: Int, voices: Int): String {
+        val res = getApplication<Application>().resources
+        val segments = res.getQuantityString(R.plurals.session_segment_count, segmentCount, segmentCount)
+        return if (voices > 1) res.getString(R.string.session_transcript_meta_voices, segments, voices) else segments
     }
 
     private fun releasePlayer() {

@@ -3,6 +3,7 @@ package com.harken.android.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.harken.android.R
 import com.harken.android.data.AppSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +26,7 @@ data class SettingsUiState(
 // mirrors OnboardingViewModel's test-connection-before-save flow so the two backend-URL
 // entry points behave identically.
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+    private val app = application
     private val settings = AppSettings(application)
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
@@ -69,12 +71,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         if (!AppSettings.isValid(url)) {
             _uiState.value = _uiState.value.copy(
                 connectionCheck = ConnectionCheck.Failed,
-                connectionMessage = "Enter a valid http(s) URL",
+                connectionMessage = app.getString(R.string.settings_invalid_url),
             )
             return
         }
 
-        _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Checking, connectionMessage = "Checking...")
+        _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Checking, connectionMessage = app.getString(R.string.settings_check_in_progress))
         viewModelScope.launch {
             try {
                 val request = Request.Builder().url("${url.trimEnd('/')}/health").build()
@@ -83,13 +85,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
                 if (response.isSuccessful) {
                     settings.setBaseUrl(url)
-                    _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Connected, connectionMessage = "Connected and saved.")
+                    _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Connected, connectionMessage = app.getString(R.string.settings_connected))
                 } else {
-                    _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Failed, connectionMessage = "Backend responded with ${response.code}.")
+                    _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Failed, connectionMessage = app.getString(R.string.settings_bad_status, response.code))
                 }
                 response.close()
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Failed, connectionMessage = "Could not reach backend: ${e.message}")
+                _uiState.value = _uiState.value.copy(connectionCheck = ConnectionCheck.Failed, connectionMessage = app.getString(R.string.settings_unreachable_reason, e.message ?: ""))
             }
         }
     }

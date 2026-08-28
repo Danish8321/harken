@@ -1,5 +1,6 @@
 package com.harken.android.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -30,10 +31,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.harken.android.R
 import com.harken.android.ui.theme.PillShape
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
@@ -53,11 +56,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
         Modifier.fillMaxSize().background(c.screenBg).padding(horizontal = 20.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { Text("Settings", color = c.text, fontFamily = ProtoHeadingFont, fontSize = 26.sp) }
+        item { Text(stringResource(R.string.settings_title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 26.sp) }
 
         item {
             SettingsCard(c) {
-                Eyebrow(c, "BACKEND")
+                Eyebrow(c, stringResource(R.string.settings_backend_header))
                 OutlinedTextField(
                     value = state.baseUrl,
                     onValueChange = viewModel::onBaseUrlChanged,
@@ -83,15 +86,15 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         modifier = Modifier.heightIn(min = 48.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = c.text),
                         border = BorderStroke(1.dp, c.textSecondary),
-                    ) { Text(if (state.connectionCheck == ConnectionCheck.Checking) "Testing…" else "Test", fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                    ) { Text(stringResource(if (state.connectionCheck == ConnectionCheck.Checking) R.string.settings_testing else R.string.settings_test), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
                     Spacer(Modifier.width(10.dp))
                     when (state.connectionCheck) {
-                        ConnectionCheck.Checking -> Text("checking…", color = c.textSecondary, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                        ConnectionCheck.Checking -> Text(stringResource(R.string.settings_checking), color = c.textSecondary, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
                         ConnectionCheck.Connected -> Row(Modifier.background(c.accentFill2, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp)) {
-                            Text(state.connectionMessage ?: "Reachable", color = c.accentFill2Fg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                            Text(state.connectionMessage ?: stringResource(R.string.settings_reachable), color = c.accentFill2Fg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
                         }
                         ConnectionCheck.Failed -> Text(
-                            state.connectionMessage ?: "Unreachable",
+                            state.connectionMessage ?: stringResource(R.string.settings_unreachable),
                             color = c.dangerFill, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.5.sp,
                         )
                         ConnectionCheck.None -> {}
@@ -102,14 +105,14 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
 
         item {
             SettingsCard(c) {
-                Eyebrow(c, "CAPTURE LIMITS")
-                CaptureLimitRow(c, "Session cap", "3 hours")
+                Eyebrow(c, stringResource(R.string.settings_capture_header))
+                CaptureLimitRow(c, stringResource(R.string.settings_session_cap), stringResource(R.string.settings_session_cap_value))
                 CaptureLimitDivider(c)
-                CaptureLimitRow(c, "Silence timeout", "5 minutes")
+                CaptureLimitRow(c, stringResource(R.string.settings_silence_timeout), stringResource(R.string.settings_silence_timeout_value))
                 CaptureLimitDivider(c)
-                CaptureLimitRow(c, "Format", "16 kHz · 16-bit · mono")
+                CaptureLimitRow(c, stringResource(R.string.settings_format), stringResource(R.string.settings_format_value))
                 Text(
-                    "Both limits end the recording and upload it, so a forgotten session lands on the backend rather than on the phone.",
+                    stringResource(R.string.settings_capture_note),
                     color = c.textSecondary,
                     fontFamily = ProtoBodyFont,
                     fontSize = 12.sp,
@@ -121,7 +124,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
 
         item {
             SettingsCard(c) {
-                Eyebrow(c, "APPEARANCE")
+                Eyebrow(c, stringResource(R.string.settings_appearance_header))
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     val modes = ThemeMode.entries
                     modes.forEachIndexed { index, mode ->
@@ -131,14 +134,14 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                             shape = SegmentedButtonDefaults.itemShape(index, modes.size),
                             icon = {},
                             colors = protoSegmentedColors(c),
-                            label = { Text(mode.label, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.5.sp) },
+                            label = { Text(stringResource(mode.label), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.5.sp) },
                         )
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Wallpaper colours", color = c.text, fontFamily = ProtoBodyFont, fontSize = 14.sp)
-                        Text("Tints the neutral ground only.", color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+                        Text(stringResource(R.string.settings_wallpaper_title), color = c.text, fontFamily = ProtoBodyFont, fontSize = 14.sp)
+                        Text(stringResource(R.string.settings_wallpaper_body), color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
                     }
                     Switch(checked = state.dynamicColor, onCheckedChange = viewModel::setDynamicColor, colors = protoSwitchColors(c))
                 }
@@ -149,7 +152,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     }
 }
 
-enum class ThemeMode(val label: String) { System("System"), Light("Light"), Dark("Dark") }
+enum class ThemeMode(@StringRes val label: Int) {
+    System(R.string.settings_theme_system),
+    Light(R.string.settings_theme_light),
+    Dark(R.string.settings_theme_dark),
+}
 
 @Composable
 private fun SettingsCard(c: ProtoColors, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {

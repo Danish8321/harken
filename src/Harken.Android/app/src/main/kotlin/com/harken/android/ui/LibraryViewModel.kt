@@ -3,6 +3,7 @@ package com.harken.android.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.harken.android.R
 import com.harken.android.data.AppSettings
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.local.HarkenDatabase
@@ -63,8 +64,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     fun subtitle(state: LibraryUiState): String {
         val transcribing = state.sessions.count { it.status == "Pending" || it.status == "Running" }
-        val count = "${state.sessions.size} recording${if (state.sessions.size == 1) "" else "s"}"
-        return if (transcribing > 0) "$count · $transcribing transcribing" else count
+        val res = getApplication<Application>().resources
+        val count = res.getQuantityString(R.plurals.library_recording_count, state.sessions.size, state.sessions.size)
+        return if (transcribing > 0) res.getString(R.string.library_subtitle_transcribing, count, transcribing) else count
     }
 
     fun goToRecord() { onNavigateToRecord?.invoke() }

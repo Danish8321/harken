@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -56,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.harken.android.R
 import com.harken.android.recording.RecordingState
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.ProtoAccentColor
@@ -112,7 +114,7 @@ fun RecordScreen(
             .padding(horizontal = 20.dp, vertical = 6.dp),
     ) {
         Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Harken", color = c.text, fontFamily = ProtoHeadingFont, fontSize = 20.sp)
+            Text(stringResource(R.string.record_wordmark), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 20.sp)
             Spacer(Modifier.weight(1f))
             Row(
                 Modifier.background(c.accentFill2, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
@@ -120,15 +122,15 @@ fun RecordScreen(
             ) {
                 Box(Modifier.size(7.dp).background(c.accentFill2Fg, CircleShape))
                 Spacer(Modifier.width(6.dp))
-                Text("studio-mac", color = c.accentFill2Fg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text(stringResource(R.string.record_backend_pill), color = c.accentFill2Fg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
 
         if (!state.isRecording) {
             Spacer(Modifier.height(18.dp))
-            Text("Ready when\nyou are.", color = c.text, fontFamily = ProtoHeadingFont, fontSize = 32.sp, lineHeight = 37.sp)
+            Text(stringResource(R.string.record_idle_headline), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 32.sp, lineHeight = 37.sp)
             Spacer(Modifier.height(10.dp))
-            Text("16 kHz mono · caps at 3 h", color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 15.sp)
+            Text(stringResource(R.string.record_format_line), color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 15.sp)
             Spacer(Modifier.height(22.dp))
             IdleMeter(c)
         } else {
@@ -141,7 +143,7 @@ fun RecordScreen(
             ) {
                 Box(Modifier.size(7.dp).background(ProtoAccentColor, CircleShape))
                 Spacer(Modifier.width(7.dp))
-                Text("CAPTURING", color = c.accentFillFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                Text(stringResource(R.string.record_capturing), color = c.accentFillFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
             }
             Spacer(Modifier.height(18.dp))
             LiveMeter(c, formatElapsed(elapsed))
@@ -153,7 +155,7 @@ fun RecordScreen(
                         Icon(Icons.Filled.Warning, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(10.dp))
                         Text(
-                            "Approaching the 3-hour cap — it'll stop and upload on its own.",
+                            stringResource(R.string.record_cap_warning),
                             color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp, lineHeight = 18.sp,
                         )
                     }
@@ -175,8 +177,8 @@ fun RecordScreen(
                     Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = c.success, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Uploaded · transcribing", color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text("Tap to follow the transcript", color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp)
+                        Text(stringResource(R.string.record_upload_ok_title), color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(stringResource(R.string.record_upload_ok_body), color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp)
                     }
                 }
             }
@@ -196,9 +198,9 @@ fun RecordScreen(
                     Icon(Icons.Filled.Warning, contentDescription = null, tint = c.dangerFillFg, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Upload failed · tap to retry", color = c.dangerFillFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(stringResource(R.string.record_upload_failed_title), color = c.dangerFillFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         Text(
-                            "Still on this phone at ${state.lastError ?: "its original path"}.",
+                            stringResource(R.string.record_upload_failed_body, state.lastError ?: stringResource(R.string.record_upload_failed_path_unknown)),
                             color = c.dangerFillFg, fontFamily = ProtoBodyFont, fontSize = 12.sp,
                         )
                     }
@@ -209,7 +211,7 @@ fun RecordScreen(
         Spacer(Modifier.weight(1f, fill = true).heightIn(max = 140.dp))
         if (state.isRecording) {
             Text(
-                "Stops after 5 min silence",
+                stringResource(R.string.record_silence_hint),
                 color = c.textSecondary,
                 fontFamily = ProtoBodyFont,
                 fontSize = 12.5.sp,
@@ -238,7 +240,7 @@ private fun IdleMeter(c: ProtoColors) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Mic, contentDescription = null, tint = c.ink55, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(8.dp))
-            Text("INPUT IDLE", color = c.ink55, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
+            Text(stringResource(R.string.record_meter_idle), color = c.ink55, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
         }
         Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             repeat(12) {
@@ -246,8 +248,8 @@ private fun IdleMeter(c: ProtoColors) {
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("0:00", color = c.ink55, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
-            Text("tap to start", color = c.ink55, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
+            Text(stringResource(R.string.record_meter_idle_elapsed), color = c.ink55, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
+            Text(stringResource(R.string.record_meter_idle_hint), color = c.ink55, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
         }
     }
 }
@@ -274,7 +276,7 @@ private fun LiveMeter(c: ProtoColors, elapsed: String) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Mic, contentDescription = null, tint = ProtoAccentColor, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(8.dp))
-            Text("LIVE INPUT · 16 KHZ MONO", color = c.ink7, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
+            Text(stringResource(R.string.record_meter_live), color = c.ink7, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
         }
         Row(Modifier.fillMaxWidth().height(44.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
             bars.forEach { value ->
@@ -290,7 +292,7 @@ private fun LiveMeter(c: ProtoColors, elapsed: String) {
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(elapsed, color = c.ink7, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
-            Text("cap 3:00:00", color = c.ink7, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
+            Text(stringResource(R.string.record_meter_cap), color = c.ink7, fontFamily = ProtoBodyFont, fontSize = 12.5.sp)
         }
     }
 }
@@ -315,7 +317,7 @@ private fun RecordButton(recording: Boolean, onTap: () -> Unit) {
     ) {
         Icon(
             imageVector = if (recording) Icons.Filled.Stop else Icons.Filled.Mic,
-            contentDescription = if (recording) "Stop recording" else "Start recording",
+            contentDescription = stringResource(if (recording) R.string.record_stop else R.string.record_start),
             modifier = Modifier.size(32.dp),
         )
     }

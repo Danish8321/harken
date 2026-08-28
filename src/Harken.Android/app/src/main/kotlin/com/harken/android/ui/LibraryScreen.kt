@@ -1,5 +1,6 @@
 package com.harken.android.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,12 +33,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.harken.android.R
 import com.harken.android.data.SessionRepository
 import com.harken.android.ui.components.EmptyState
 import com.harken.android.ui.components.ErrorState
@@ -67,13 +70,13 @@ fun LibraryScreen(
     val visible = remember(state.sessions, filter) {
         when (filter) {
             LibraryFilter.All -> state.sessions
-            else -> state.sessions.filter { it.tags.any { t -> t.equals(filter.label, ignoreCase = true) } }
+            else -> state.sessions.filter { it.tags.any { t -> t.equals(filter.tag, ignoreCase = true) } }
         }
     }
     val longest = remember(state.sessions) { state.sessions.mapNotNull { it.durationSeconds }.maxOrNull() ?: 1 }
 
     Column(Modifier.fillMaxSize().background(c.screenBg).padding(horizontal = 20.dp, vertical = 6.dp)) {
-        Text("Library", color = c.text, fontFamily = ProtoHeadingFont, fontSize = 26.sp)
+        Text(stringResource(R.string.library_title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 26.sp)
         Text(
             viewModel.subtitle(state),
             color = c.textSecondary,
@@ -91,10 +94,10 @@ fun LibraryScreen(
 
         when {
             state.error != null && state.sessions.isEmpty() -> ErrorState(
-                title = "Backend unreachable",
-                body = "Nothing answered at ${state.baseUrl}. Check the machine is awake and on this Wi-Fi — recordings keep saving locally meanwhile.",
+                title = stringResource(R.string.library_error_title),
+                body = stringResource(R.string.library_error_body, state.baseUrl),
                 onRetry = viewModel::refresh,
-                secondaryLabel = "Change address",
+                secondaryLabel = stringResource(R.string.library_error_change_address),
                 onSecondary = viewModel::openSettings,
             )
 
@@ -104,13 +107,17 @@ fun LibraryScreen(
 
             visible.isEmpty() -> EmptyState(
                 icon = Icons.Filled.GraphicEq,
-                title = if (filter == LibraryFilter.All) "Nothing recorded yet" else "Nothing tagged ${filter.label}",
-                body = if (filter == LibraryFilter.All) {
-                    "Recordings appear here the moment an upload lands. The phone keeps the file either way, so nothing is lost if the backend is asleep."
+                title = if (filter == LibraryFilter.All) {
+                    stringResource(R.string.library_empty_title)
                 } else {
-                    "Tags are local to this phone. Open a recording to add one."
+                    stringResource(R.string.library_empty_filtered_title, stringResource(filter.label))
                 },
-                actionLabel = if (filter == LibraryFilter.All) "Record something" else null,
+                body = if (filter == LibraryFilter.All) {
+                    stringResource(R.string.library_empty_body)
+                } else {
+                    stringResource(R.string.library_empty_filtered_body)
+                },
+                actionLabel = if (filter == LibraryFilter.All) stringResource(R.string.library_empty_action) else null,
                 onAction = if (filter == LibraryFilter.All) viewModel::goToRecord else null,
             )
 
@@ -125,11 +132,11 @@ fun LibraryScreen(
 }
 
 @Composable
-private fun FilterChipProto(c: ProtoColors, selected: Boolean, label: String, onClick: () -> Unit) {
+private fun FilterChipProto(c: ProtoColors, selected: Boolean, @StringRes label: Int, onClick: () -> Unit) {
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(label, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) },
+        label = { Text(stringResource(label), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) },
         colors = FilterChipDefaults.filterChipColors(
             containerColor = c.pillTrack,
             labelColor = c.textSecondary,
@@ -156,10 +163,10 @@ private fun SessionCard(
     val transcribing = s.status == "Pending" || s.status == "Running"
     val failed = s.status == "Failed"
     val (chipBg, chipFg, chipLabel) = when {
-        transcribing -> Triple(c.accentFill2, c.accentFill2Fg, "Transcribing")
-        failed -> Triple(c.dangerFill, c.dangerFillFg, "Kept on device")
-        s.hasSummary -> Triple(c.accentFill2, c.accentFill2Fg, "Summarized")
-        else -> Triple(c.pillTrack, c.textSecondary, "Transcribed")
+        transcribing -> Triple(c.accentFill2, c.accentFill2Fg, R.string.library_chip_transcribing)
+        failed -> Triple(c.dangerFill, c.dangerFillFg, R.string.library_chip_kept_on_device)
+        s.hasSummary -> Triple(c.accentFill2, c.accentFill2Fg, R.string.library_chip_summarized)
+        else -> Triple(c.pillTrack, c.textSecondary, R.string.library_chip_transcribed)
     }
     val metaLine = buildString {
         append(formatSessionTimestamp(s.startedAt))
@@ -182,7 +189,7 @@ private fun SessionCard(
                     CircularProgressIndicator(modifier = Modifier.size(11.dp), strokeWidth = 1.5.dp, color = chipFg)
                     Spacer(Modifier.width(4.dp))
                 }
-                Text(chipLabel, color = chipFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                Text(stringResource(chipLabel), color = chipFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.sp)
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -195,4 +202,14 @@ private fun SessionCard(
     }
 }
 
-enum class LibraryFilter(val label: String) { All("All"), Meetings("Meetings"), Field("Field"), Ideas("Ideas") }
+/**
+ * [tag] is the value stored against a session and is deliberately NOT localized —
+ * translating it would orphan every tag already on the device. [label] is what the chip
+ * shows.
+ */
+enum class LibraryFilter(val tag: String, @StringRes val label: Int) {
+    All("All", R.string.library_filter_all),
+    Meetings("Meetings", R.string.library_filter_meetings),
+    Field("Field", R.string.library_filter_field),
+    Ideas("Ideas", R.string.library_filter_ideas),
+}

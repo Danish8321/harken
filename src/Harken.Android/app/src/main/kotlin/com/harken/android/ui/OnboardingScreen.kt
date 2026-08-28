@@ -1,6 +1,7 @@
 package com.harken.android.ui
 
 import android.app.Application
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -40,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.harken.android.R
 import com.harken.android.data.AppSettings
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalReducedMotion
@@ -62,12 +65,17 @@ enum class ConnectionCheck { None, Checking, Connected, Failed }
 /** Which of the two theme-resolved fill pairs the step's icon badge uses. */
 private enum class StepTone { Warm, Sage }
 
-private data class OnboardStep(val tone: StepTone, val icon: ImageVector, val title: String, val body: String)
+private data class OnboardStep(
+    val tone: StepTone,
+    val icon: ImageVector,
+    @StringRes val title: Int,
+    @StringRes val body: Int,
+)
 
 private val steps = listOf(
-    OnboardStep(StepTone.Warm, Icons.Filled.Mic, "Meet Harken", "A quiet recorder for meetings and field notes. Audio, transcripts and summaries — kept on your own network."),
-    OnboardStep(StepTone.Sage, Icons.Filled.LibraryMusic, "Point it at your studio Mac", "Recordings upload over your own Wi-Fi to a backend you run. Nothing goes further than your LAN."),
-    OnboardStep(StepTone.Warm, Icons.Filled.AutoAwesome, "Ready when you are", "Tap Record any time. We'll ask for the microphone only when you actually start."),
+    OnboardStep(StepTone.Warm, Icons.Filled.Mic, R.string.onboarding_step1_title, R.string.onboarding_step1_body),
+    OnboardStep(StepTone.Sage, Icons.Filled.LibraryMusic, R.string.onboarding_step2_title, R.string.onboarding_step2_body),
+    OnboardStep(StepTone.Warm, Icons.Filled.AutoAwesome, R.string.onboarding_step3_title, R.string.onboarding_step3_body),
 )
 
 // Real ADR-0010 onboarding had a backend-URL entry step; the prototype's three-step
@@ -121,10 +129,10 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewMode
                         Icon(current.icon, contentDescription = null, tint = badgeFg, modifier = Modifier.size(42.dp))
                     }
                     Spacer(Modifier.height(24.dp))
-                    Text(current.title, color = c.text, fontFamily = ProtoHeadingFont, fontSize = 27.sp, textAlign = TextAlign.Center)
+                    Text(stringResource(current.title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 27.sp, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(18.dp))
                     Text(
-                        current.body,
+                        stringResource(current.body),
                         color = c.textSecondary,
                         fontFamily = ProtoBodyFont,
                         fontSize = 14.5.sp,
@@ -158,7 +166,7 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewMode
                     modifier = Modifier.weight(1f).height(52.dp),
                     shape = RoundedCornerShape(999.dp),
                     colors = ButtonDefaults.textButtonColors(contentColor = c.text),
-                ) { Text("Skip", fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.5.sp) }
+                ) { Text(stringResource(R.string.onboarding_skip), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.5.sp) }
             }
             Button(
                 onClick = { if (step < steps.lastIndex) step += 1 else viewModel.finish(onFinished) },
@@ -173,7 +181,7 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewMode
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
             ) {
                 Text(
-                    if (step < steps.lastIndex) "Next" else "Get started",
+                    stringResource(if (step < steps.lastIndex) R.string.onboarding_next else R.string.onboarding_finish),
                     fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.5.sp,
                 )
             }

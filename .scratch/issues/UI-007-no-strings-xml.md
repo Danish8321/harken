@@ -1,7 +1,7 @@
 # UI-007 — No strings.xml, all copy inlined in Kotlin
 
 - **Severity:** medium
-- **Status:** open
+- **Status:** fixed
 - **Area:** `src/Harken.Android/app/src/main/res/values`
 
 ## Problem
@@ -36,3 +36,56 @@ Keep `contentDescription` values in the same file — they are user-facing too.
 - On-device screenshots of all four screens confirming no missing-resource
   placeholders and no truncated labels.
 - `grep -rn '"' ui/*.kt | grep Text(` should return no bare literals afterwards.
+
+## Resolution
+
+`res/values/strings.xml` (new) holds every user-facing string in the app —
+~110 entries plus two plurals — grouped by screen so the copy reads as a set
+against `docs/brand-guidelines.md`. Content descriptions live in the same file;
+they are user-facing too.
+
+`app_name` is deliberately NOT in it: it varies per build type and is generated
+by `resValue` in `app/build.gradle.kts` (the debug variant is "Harken Debug").
+
+Three things needed more than a literal swap:
+
+- **Counts became plurals.** The Library subtitle built `"${n} recording${if (n
+  == 1) "" else "s"}"` in Kotlin, and the transcript meta did the same for
+  segments. Both are now `getQuantityString` — English has two forms, many
+  languages do not, and a hand-rolled `+ "s"` cannot be translated at all.
+- **`LibraryFilter` had one field doing two jobs.** Its `label` was both the chip
+  text and the tag matched against `session.tags`. Localizing it would have
+  orphaned every tag already stored on a device, so it is now `tag` (fixed, not
+  localized) and `label` (a string resource). `ThemeMode.label` and the nav
+  `Tab.label` became `@StringRes Int` the same way.
+- **ViewModels produce copy too.** Settings' connection messages and the session
+  sheet's toasts are built off the UI thread; all five ViewModels are already
+  `AndroidViewModel`, so they resolve through `getApplication()`. `confirm()` now
+  takes a `@StringRes Int` rather than a `String`, which makes it impossible to
+  pass an unlocalized literal.
+
+Also fixed in passing: the nav bar icons had `contentDescription = tab.label`,
+which made TalkBack read each tab name twice — `NavigationBarItem` already
+announces the visible label. They are now `null`, which is what a decorative
+icon beside its own label should be.
+
+### Verified
+
+- `.claude/scripts/check.sh` → `== check: OK ==`
+- `grep -n 'Text("\|contentDescription = "' ui/*.kt ui/components/*.kt` returns
+  nothing — no bare literal remains in any composable.
+- `uninstallDebug` + `clean installDebug`, then on-device captures of Onboarding,
+  Record, Library and Settings: no missing-resource placeholders, no truncation.
+  Two formatted strings render correctly — the Library subtitle reads
+  "0 recordings" (the `other` plural form) and the error body interpolates
+  "Nothing answered at localhost:5057". The `
+` in `record_idle_headline` still
+  breaks "Ready when / you are." across two lines.
+
+### Not verified
+
+- The session sheet (rename, delete dialog, summary controls, transcript rows,
+  playback labels) needs a session to open, and the backend was unreachable
+  throughout. Source-verified only.
+- No second locale exists yet, so nothing exercises the plurals' other forms or
+  reveals layouts that would break under longer translations.

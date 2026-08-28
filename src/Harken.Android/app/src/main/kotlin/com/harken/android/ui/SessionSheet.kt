@@ -47,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.pointerInput
@@ -54,6 +55,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.harken.android.R
 import com.harken.android.ui.components.InkSurface
 import com.harken.android.ui.components.StatusChip
 import com.harken.android.ui.theme.LocalInk
@@ -98,7 +100,7 @@ fun SessionSheet(
             Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { confirmDelete = true }, modifier = Modifier.size(48.dp)) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete recording")
+                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.session_delete))
                 }
             }
 
@@ -116,14 +118,14 @@ fun SessionSheet(
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = PillShape,
-                            label = { Text("Recording name") },
+                            label = { Text(stringResource(R.string.session_name_label)) },
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { editingTitle = false; titleDraft = state.title }) { Text("Cancel") }
+                            TextButton(onClick = { editingTitle = false; titleDraft = state.title }) { Text(stringResource(R.string.session_cancel)) }
                             Button(
                                 onClick = { viewModel.rename(sessionId, titleDraft); editingTitle = false },
                                 shape = PillShape,
-                            ) { Text("Save name") }
+                            ) { Text(stringResource(R.string.session_save_name)) }
                         }
                     } else {
                         Row(
@@ -134,7 +136,7 @@ fun SessionSheet(
                             Text(state.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
                             Icon(
                                 Icons.Filled.Edit,
-                                contentDescription = "Rename",
+                                contentDescription = stringResource(R.string.session_rename),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp).padding(top = 8.dp),
                             )
@@ -166,7 +168,7 @@ fun SessionSheet(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Text("TRANSCRIPT", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.session_transcript_header), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Box(Modifier.weight(1f).height(1.dp).clip(CircleShape)) {
                             Surface(color = MaterialTheme.colorScheme.outlineVariant) { Box(Modifier.fillMaxWidth().height(1.dp)) }
                         }
@@ -188,9 +190,9 @@ fun SessionSheet(
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     IconButton(onClick = {
                         clipboard.setText(AnnotatedString(state.plainText))
-                        viewModel.confirm("Transcript copied")
-                    }) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy transcript") }
-                    IconButton(onClick = viewModel::share) { Icon(Icons.Filled.Share, contentDescription = "Share transcript") }
+                        viewModel.confirm(R.string.session_toast_copied)
+                    }) { Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.session_copy_transcript)) }
+                    IconButton(onClick = viewModel::share) { Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.session_share_transcript)) }
                     Spacer(Modifier.weight(1f))
                     Button(
                         onClick = { viewModel.summarize(sessionId) },
@@ -209,24 +211,24 @@ fun SessionSheet(
                         Spacer(Modifier.size(8.dp))
                         Text(
                             when {
-                                state.summarizing && state.summary == null -> "Summarizing…"
-                                state.summarizing -> "Re-summarizing…"
-                                state.summary == null -> "Summarize"
-                                else -> "Re-summarize"
+                                state.summarizing && state.summary == null -> stringResource(R.string.session_summarizing)
+                                state.summarizing -> stringResource(R.string.session_resummarizing)
+                                state.summary == null -> stringResource(R.string.session_summarize)
+                                else -> stringResource(R.string.session_resummarize)
                             },
                             maxLines = 1,
                         )
                     }
                     Box {
                         IconButton(onClick = { summaryMenuOpen = true; viewModel.toggleSummaryOptions(true) }) {
-                            Icon(Icons.Filled.ExpandMore, contentDescription = "Summary options")
+                            Icon(Icons.Filled.ExpandMore, contentDescription = stringResource(R.string.session_summary_options))
                         }
                         androidx.compose.material3.DropdownMenu(
                             expanded = summaryMenuOpen,
                             onDismissRequest = { summaryMenuOpen = false; viewModel.toggleSummaryOptions(false) },
                         ) {
-                            androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text("Short") })
-                            androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text("Detailed") })
+                            androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text(stringResource(R.string.session_summary_short)) })
+                            androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text(stringResource(R.string.session_summary_detailed)) })
                         }
                     }
                 }
@@ -238,18 +240,18 @@ fun SessionSheet(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             icon = { Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text("Delete this recording?") },
+            title = { Text(stringResource(R.string.session_delete_confirm_title)) },
             text = {
-                Text("The WAV file, its transcript and its summary are removed from the backend and this phone. This cannot be undone.")
+                Text(stringResource(R.string.session_delete_confirm_body))
             },
             confirmButton = {
                 Button(
                     onClick = { confirmDelete = false; viewModel.purge(sessionId); onDismiss() },
                     shape = PillShape,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                ) { Text("Delete") }
+                ) { Text(stringResource(R.string.session_delete_confirm)) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Keep it") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.session_delete_keep)) } },
         )
     }
 }
@@ -290,7 +292,7 @@ private fun PlayerCard(
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (state.playing) "Pause" else "Play",
+                        contentDescription = stringResource(if (state.playing) R.string.session_pause else R.string.session_play),
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(28.dp),
                     )
@@ -299,8 +301,11 @@ private fun PlayerCard(
             Column(Modifier.weight(1f)) {
                 Text(formatElapsed(state.playheadSeconds), style = MaterialTheme.typography.titleLarge, color = ink.onInk, maxLines = 1)
                 Text(
-                    if (state.audioAvailable) "of ${formatElapsed(state.durationSeconds)} · seek on the wave"
-                    else "Playback needs the audio endpoint",
+                    if (state.audioAvailable) {
+                        stringResource(R.string.session_playback_of, formatElapsed(state.durationSeconds))
+                    } else {
+                        stringResource(R.string.session_playback_unavailable)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = ink.onInkDim,
                     maxLines = 1,
@@ -357,10 +362,10 @@ private fun SummaryCard(summary: String, expanded: Boolean, onToggle: () -> Unit
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(19.dp))
-                Text("SUMMARY", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.session_summary_header), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.weight(1f))
                 Icon(
                     Icons.Filled.ExpandMore,
-                    contentDescription = if (expanded) "Collapse summary" else "Expand summary",
+                    contentDescription = stringResource(if (expanded) R.string.session_summary_collapse else R.string.session_summary_expand),
                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.rotate(rotation),
                 )
@@ -382,7 +387,7 @@ private fun TagRow(tags: List<String>, onAdd: (String) -> Unit, modifier: Modifi
                 content = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        TextButton(onClick = { onAdd("Meetings") }, shape = PillShape) { Text("+ Tag") }
+        TextButton(onClick = { onAdd("Meetings") }, shape = PillShape) { Text(stringResource(R.string.session_add_tag)) }
     }
 }
 
@@ -417,7 +422,7 @@ private fun TranscriptRow(
                     // "Voice 1", not "Speaker A" and never a name: this is a gap
                     // heuristic, not diarization. See SpeakerHeuristic.
                     Text(
-                        "VOICE ${segment.voiceIndex + 1}",
+                        stringResource(R.string.session_voice, segment.voiceIndex + 1),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (segment.voiceIndex == 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
                     )

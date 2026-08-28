@@ -27,10 +27,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.harken.android.R
 import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.PillShape
 
@@ -91,7 +93,7 @@ fun ErrorState(
         Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (onRetry != null) {
-                androidx.compose.material3.OutlinedButton(onClick = onRetry, shape = PillShape, modifier = Modifier.heightIn(min = 48.dp)) { Text("Retry") }
+                androidx.compose.material3.OutlinedButton(onClick = onRetry, shape = PillShape, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.state_retry)) }
             }
             if (secondaryLabel != null && onSecondary != null) {
                 TextButton(onClick = onSecondary, shape = PillShape, modifier = Modifier.heightIn(min = 48.dp)) { Text(secondaryLabel) }

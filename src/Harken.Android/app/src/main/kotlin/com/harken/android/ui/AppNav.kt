@@ -1,5 +1,6 @@
 package com.harken.android.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
@@ -32,6 +34,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.harken.android.R
 import com.harken.android.data.AppSettings
 import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.rememberProtoColors
@@ -47,12 +50,12 @@ object Routes {
     const val Settings = "settings"
 }
 
-private data class Tab(val route: String, val label: String, val icon: ImageVector)
+private data class Tab(val route: String, @StringRes val label: Int, val icon: ImageVector)
 
 private val tabs = listOf(
-    Tab(Routes.Record, "Record", Icons.Filled.Mic),
-    Tab(Routes.Library, "Library", Icons.Filled.LibraryMusic),
-    Tab(Routes.Settings, "Settings", Icons.Filled.Tune),
+    Tab(Routes.Record, R.string.nav_record, Icons.Filled.Mic),
+    Tab(Routes.Library, R.string.nav_library, Icons.Filled.LibraryMusic),
+    Tab(Routes.Settings, R.string.nav_settings, Icons.Filled.Tune),
 )
 
 @Composable
@@ -95,7 +98,7 @@ private fun SplashPlaceholder() {
         Modifier.fillMaxSize().background(c.screenBg),
         contentAlignment = Alignment.Center,
     ) {
-        Text("Harken", color = c.text, fontFamily = ProtoHeadingFont, fontSize = 28.sp)
+        Text(stringResource(R.string.record_wordmark), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 28.sp)
     }
 }
 
@@ -125,11 +128,14 @@ private fun MainHost(
                                 }
                             }
                         },
-                        icon = { Icon(tab.icon, contentDescription = tab.label) },
+                        // Decorative: the visible label sits directly under the icon and
+                        // NavigationBarItem already announces it, so a description here
+                        // would make TalkBack read the tab name twice.
+                        icon = { Icon(tab.icon, contentDescription = null) },
                         // labelMedium is now explicitly Figtree Bold. The old build left it
                         // un-overridden, which quietly rendered these three labels in Roboto
                         // while the rest of the app used Figtree.
-                        label = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
+                        label = { Text(stringResource(tab.label), style = MaterialTheme.typography.labelMedium) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
