@@ -12,22 +12,29 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,8 +48,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.harken.android.ui.theme.ProtoBodyFont
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -153,57 +162,18 @@ private fun MainHost(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                tabs.forEach { tab ->
-                    val selected = currentRoute == tab.route
-                    // Live pill rides along on the Record tab's icon whenever a capture
-                    // is active and the user isn't already looking at the live view —
-                    // the real record button subsumes it there, so a second live dot on
-                    // top of the tab would be redundant rather than reassuring.
-                    val showLiveDot = tab.route == Routes.Record && isRecording && !selected
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = {
-                            if (!selected) {
-                                navController.navigate(tab.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        },
-                        // Decorative: the visible label sits directly under the icon and
-                        // NavigationBarItem already announces it, so a description here
-                        // would make TalkBack read the tab name twice.
-                        icon = {
-                            Box {
-                                Icon(tab.icon, contentDescription = null)
-                                androidx.compose.animation.AnimatedVisibility(
-                                    visible = showLiveDot,
-                                    enter = scaleIn(HarkenMotion.spatialFast()) + fadeIn(HarkenMotion.effectsFast()),
-                                    exit = scaleOut(HarkenMotion.spatialFast()) + fadeOut(HarkenMotion.effectsFast()),
-                                    modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-2).dp),
-                                ) {
-                                    Box(Modifier.size(8.dp).background(c.stateLive, CircleShape).padding(1.dp)) {
-                                        Box(Modifier.fillMaxSize().background(c.accent, CircleShape))
-                                    }
-                                }
-                            }
-                        },
-                        // labelMedium is now explicitly Figtree Bold. The old build left it
-                        // un-overridden, which quietly rendered these three labels in Roboto
-                        // while the rest of the app used Figtree.
-                        label = { Text(stringResource(tab.label), style = MaterialTheme.typography.labelMedium) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
-                    )
-                }
-            }
+            FloatingTabBar(
+                c = c,
+                currentRoute = currentRoute,
+                isRecording = isRecording,
+                onSelect = { tab ->
+                    navController.navigate(tab.route) {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+            )
         },
     ) { padding ->
         // Shared-axis slide+fade, keyed on tab index rather than route — reading the
@@ -238,5 +208,93 @@ private fun MainHost(
 
     openSessionId?.let { id ->
         SessionSheet(sessionId = id, onDismiss = { openSessionId = null })
+    }
+}
+
+// A floating pill instead of Material's edge-to-edge NavigationBar (UI-021) — inset from
+// the screen edges and elevated on the surface color, adapted from the floating-nav
+// pattern (Pinterest et al.) rather than copied: labels stay always-visible per tab
+// (dropped there, kept here) since three single-word labels cost little width and remove
+// any ambiguity the icon-only version would have on Library/Settings.
+@Composable
+private fun FloatingTabBar(
+    c: com.harken.android.ui.theme.ProtoColors,
+    currentRoute: String?,
+    isRecording: Boolean,
+    onSelect: (Tab) -> Unit,
+) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(c.navBg, RoundedCornerShape(32.dp))
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            tabs.forEach { tab ->
+                val selected = currentRoute == tab.route
+                // Live pill rides along on the Record tab's icon whenever a capture is
+                // active and the user isn't already looking at the live view — the real
+                // record button subsumes it there, so a second live dot on top of the tab
+                // would be redundant rather than reassuring.
+                val showLiveDot = tab.route == Routes.Record && isRecording && !selected
+                val itemBg by animateColorAsState(
+                    if (selected) c.accent else androidx.compose.ui.graphics.Color.Transparent,
+                    HarkenMotion.effectsFast(),
+                    label = "tabItemBg",
+                )
+                val itemFg by animateColorAsState(
+                    if (selected) c.onAccent else c.textSecondary,
+                    HarkenMotion.effectsFast(),
+                    label = "tabItemFg",
+                )
+                Row(
+                    Modifier
+                        .clip(RoundedCornerShape(24.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { if (!selected) onSelect(tab) }
+                        .background(itemBg, RoundedCornerShape(24.dp))
+                        .padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box {
+                        Icon(tab.icon, contentDescription = null, tint = itemFg, modifier = Modifier.size(20.dp))
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = showLiveDot,
+                            enter = scaleIn(HarkenMotion.spatialFast()) + fadeIn(HarkenMotion.effectsFast()),
+                            exit = scaleOut(HarkenMotion.spatialFast()) + fadeOut(HarkenMotion.effectsFast()),
+                            modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-2).dp),
+                        ) {
+                            Box(Modifier.size(8.dp).background(c.stateLive, CircleShape).padding(1.dp)) {
+                                Box(Modifier.fillMaxSize().background(c.accent, CircleShape))
+                            }
+                        }
+                    }
+                    // Decorative: the visible label sits directly next to the icon and the
+                    // Row's clickable already announces the tab, so a contentDescription
+                    // here would make TalkBack read the tab name twice.
+                    Text(
+                        stringResource(tab.label),
+                        color = itemFg,
+                        fontFamily = ProtoBodyFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        lineHeight = 13.sp,
+                        style = androidx.compose.ui.text.TextStyle(
+                            platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+                        ),
+                    )
+                }
+            }
+        }
     }
 }
