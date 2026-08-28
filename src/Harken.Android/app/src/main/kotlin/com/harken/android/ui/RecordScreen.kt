@@ -115,7 +115,7 @@ fun RecordScreen(
                 Modifier.background(c.accentFill2, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(Modifier.size(7.dp).background(Color(0xFFAEBF92), CircleShape))
+                Box(Modifier.size(7.dp).background(c.accentFill2Fg, CircleShape))
                 Spacer(Modifier.width(6.dp))
                 Text("studio-mac", color = c.accentFill2Fg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
@@ -169,7 +169,7 @@ fun RecordScreen(
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFFCCDBB2), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = c.success, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Uploaded · transcribing", color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)

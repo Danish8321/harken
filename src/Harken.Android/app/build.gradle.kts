@@ -17,11 +17,19 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+        resValue("string", "app_name", "Harken")
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+        }
+        debug {
+            // Distinct package so the debug build installs alongside a already-installed
+            // release Harken instead of replacing it — its DataStore/Room live separately too.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            resValue("string", "app_name", "Harken Debug")
         }
     }
 

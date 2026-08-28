@@ -51,12 +51,15 @@ import kotlinx.coroutines.launch
 
 enum class ConnectionCheck { None, Checking, Connected, Failed }
 
-private data class OnboardStep(val bg: Color, val icon: ImageVector, val iconTint: Color, val title: String, val body: String)
+/** Which of the two theme-resolved fill pairs the step's icon badge uses. */
+private enum class StepTone { Warm, Sage }
+
+private data class OnboardStep(val tone: StepTone, val icon: ImageVector, val title: String, val body: String)
 
 private val steps = listOf(
-    OnboardStep(Color(0xFF4A2E19), Icons.Filled.Mic, Color(0xFFFFC6A5), "Meet Harken", "A quiet recorder for meetings and field notes. Audio, transcripts and summaries — kept on your own network."),
-    OnboardStep(Color(0xFF333B26), Icons.Filled.LibraryMusic, Color(0xFFCCDBB2), "Point it at your studio Mac", "Recordings upload over your own Wi-Fi to a backend you run. Nothing goes further than your LAN."),
-    OnboardStep(Color(0xFF4A2E19), Icons.Filled.AutoAwesome, Color(0xFFFFC6A5), "Ready when you are", "Tap Record any time. We'll ask for the microphone only when you actually start."),
+    OnboardStep(StepTone.Warm, Icons.Filled.Mic, "Meet Harken", "A quiet recorder for meetings and field notes. Audio, transcripts and summaries — kept on your own network."),
+    OnboardStep(StepTone.Sage, Icons.Filled.LibraryMusic, "Point it at your studio Mac", "Recordings upload over your own Wi-Fi to a backend you run. Nothing goes further than your LAN."),
+    OnboardStep(StepTone.Warm, Icons.Filled.AutoAwesome, "Ready when you are", "Tap Record any time. We'll ask for the microphone only when you actually start."),
 )
 
 // Real ADR-0010 onboarding had a backend-URL entry step; the prototype's three-step
@@ -87,9 +90,11 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewMode
         ) {
             AnimatedContent(targetState = step, label = "onboard-step") { s ->
                 val current = steps[s]
+                val badgeBg = if (current.tone == StepTone.Warm) c.accentFill else c.accentFill2
+                val badgeFg = if (current.tone == StepTone.Warm) c.accentFillFg else c.accentFill2Fg
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.size(96.dp).background(current.bg, CircleShape), contentAlignment = Alignment.Center) {
-                        Icon(current.icon, contentDescription = null, tint = current.iconTint, modifier = Modifier.size(42.dp))
+                    Box(Modifier.size(96.dp).background(badgeBg, CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(current.icon, contentDescription = null, tint = badgeFg, modifier = Modifier.size(42.dp))
                     }
                     Spacer(Modifier.height(24.dp))
                     Text(current.title, color = c.text, fontFamily = ProtoHeadingFont, fontSize = 27.sp, textAlign = TextAlign.Center)
@@ -113,7 +118,7 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewMode
                 val width by animateDpAsState(if (active) 22.dp else 7.dp, tween(300), label = "dot")
                 Box(
                     Modifier.padding(horizontal = 3.5.dp).height(7.dp).width(width)
-                        .background(if (active) ProtoAccentColor else Color(0xFF3A352D), RoundedCornerShape(4.dp)),
+                        .background(if (active) ProtoAccentColor else c.cardBorder, RoundedCornerShape(4.dp)),
                 )
             }
         }

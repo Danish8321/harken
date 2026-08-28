@@ -1,7 +1,7 @@
 # UI-001 — Hardcoded dark-theme colors break light theme
 
 - **Severity:** critical
-- **Status:** open
+- **Status:** fixed
 - **Area:** `src/Harken.Android` — Record, Library, Onboarding screens
 
 ## Problem
@@ -40,3 +40,20 @@ them (see UI-008) or map to the nearest existing role.
 - `./gradlew installDebug`, then switch Settings → Light and screenshot Record,
   Library and Onboarding; confirm the status dot, check icon and pager dots are
   all clearly visible.
+
+## Resolution
+
+New `ProtoColors.success` token (`#CCDBB2` dark / `#4F6B2A` light, 6.0:1 on the
+light card) plus routing every literal through the resolved `c`. Onboarding's
+`OnboardStep` now carries a `StepTone.Warm | Sage` selector instead of raw hex,
+so the icon badge resolves to the `accentFill*` / `accentFill2*` pair.
+
+`grep -rn "Color(0x" ui/` outside `ui/theme/` returns nothing.
+
+Verified on device (SM-E625F, light mode): onboarding badges both tones, pager
+dots, Record status dot. **Not** pixel-verified — the Library progress bar and
+the Record "Uploaded · transcribing" check icon need a reachable backend and a
+completed upload to render; both are compile-correct and read `c.success`.
+
+`ProtoAccentColor` / `ProtoAccentOn` remain theme-independent — folding them into
+the semantic layer belongs to UI-008.

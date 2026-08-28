@@ -164,7 +164,7 @@ private fun SessionCard(
         append(formatSessionTimestamp(s.startedAt))
         s.durationSeconds?.let { append(" · ${it / 60}m ${(it % 60).toString().padStart(2, '0')}s") }
     }
-    val barColor = if (transcribing) Color(0xFFAEBF92) else Color(0xFF82796A)
+    val barColor = if (transcribing) c.success else c.textSecondary
     val fraction = ((s.durationSeconds ?: 0).toFloat() / longestSeconds).coerceIn(0f, 1f)
 
     Column(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(24.dp)).padding(16.dp)) {
