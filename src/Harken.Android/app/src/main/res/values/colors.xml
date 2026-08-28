@@ -1,0 +1,5 @@
+<resources>
+    <!-- Painted before Compose takes over, so it must match ProtoColors.screenBg or the
+         launch splash flashes the wrong ground. Dark value lives in values-night. -->
+    <color name="window_background">#FAF1E1</color>
+</resources>

@@ -1,6 +1,8 @@
 package com.harken.android.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -19,9 +21,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -29,6 +33,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.harken.android.data.AppSettings
+import com.harken.android.ui.theme.ProtoHeadingFont
+import com.harken.android.ui.theme.rememberProtoColors
 import java.util.UUID
 
 // Routes renamed with the screens: "capture" -> "record", "recordings" -> "library".
@@ -56,8 +62,13 @@ fun AppNav() {
     val onboardingComplete by settings.onboardingComplete.collectAsState(initial = null)
 
     // Wait for the real DataStore value before picking a start destination — defaulting
-    // to Record would flash past onboarding for a first-time user on a slow read.
-    if (onboardingComplete == null) return
+    // to Record would flash past onboarding for a first-time user on a slow read. Render
+    // a themed wordmark while waiting rather than nothing: returning early left the window
+    // painting the bare themes.xml background, a white flash on a dark-theme device.
+    if (onboardingComplete == null) {
+        SplashPlaceholder()
+        return
+    }
 
     val navController = rememberNavController()
 
@@ -73,6 +84,18 @@ fun AppNav() {
         composable(Routes.Record) { MainHost(navController) { open -> RecordScreen(onOpenSession = open) } }
         composable(Routes.Library) { MainHost(navController) { open -> LibraryScreen(onOpenSession = open) } }
         composable(Routes.Settings) { MainHost(navController) { SettingsScreen() } }
+    }
+}
+
+/** Themed hold-frame shown while the onboarding flag is still reading from DataStore. */
+@Composable
+private fun SplashPlaceholder() {
+    val c = rememberProtoColors()
+    Box(
+        Modifier.fillMaxSize().background(c.screenBg),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("Harken", color = c.text, fontFamily = ProtoHeadingFont, fontSize = 28.sp)
     }
 }
 
