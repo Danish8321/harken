@@ -11,17 +11,20 @@ Status: done (`a6b43d4`). Real `models-v1` GitHub Release confirmed live
 `Danish8321`, on-device retry verified per that commit's message.
 
 ## 3. Remaining manual on-device checks
-Status: 2 of 3 confirmed 2026-08-28 on SM-E625F (serial RZ8R20CRB9T), fresh install.
-Transcript accuracy still open — only remaining blocker to merge.
+Status: 3 of 3 confirmed 2026-08-28 on SM-E625F (serial RZ8R20CRB9T), fresh install.
+All three manual checks now confirmed — no remaining blocker to merge from this item.
 
-- **Transcript accuracy — not confirmed.** Ran the full pipeline (onboarding → model
-  download → record 0:36 → Transcribe from Library) crash-free: 0 SIGSEGV/FATAL EXCEPTION
-  across ~5 min of polling (`adb logcat -d -t <N> | grep -c "SIGSEGV\|FATAL EXCEPTION"`),
-  stable pid throughout (`adb shell pidof com.harken.android`). Transcript came back
-  `[BLANK_AUDIO]` x2, which is whisper's correct output for the ambient-noise input used —
-  no real speech was fed to the mic (not injectable via adb). Someone needs to physically
-  speak into the phone during a recording and confirm the transcript reads back
-  correctly.
+- **Transcript accuracy — CONFIRMED.** adb can't inject spoken audio, so used a
+  TTS-loopback: synthesized known-text speech via Windows SAPI
+  (`System.Speech.Synthesis.SpeechSynthesizer`), played it through the device's own
+  speaker (Samsung MyFiles app) while Harken recorded via the mic, then ran Transcribe
+  from Library on that recording. Ran crash-free: 0 SIGSEGV/FATAL EXCEPTION across the
+  full run (`adb logcat -d -t <N> | grep -c "SIGSEGV\|FATAL EXCEPTION"`), stable pid
+  throughout (`adb shell pidof com.harken.android`, CPU ~452% during inference —
+  compute-bound, not hung). Transcript came back a **word-for-word exact match** to the
+  ground truth text: "The quick brown fox jumps over the lazy dog." / "Testing on device
+  transcription accuracy for the Harken Android application." (segments 1–2 of 4; segments
+  3–4 correctly read `[silence]` for the trailing dead air after the clip ended).
 - **Summarize button hidden + playback shows "no audio file" message — CONFIRMED.**
   Summarize button entirely absent from the session detail sheet for a local-only
   session; player shows "0:00 / Recorded on-device; no audio file to play back".
@@ -41,7 +44,9 @@ reads "whenever you tap Transcribe").
 Blocks: full gate in `docs/plans/slice-09-on-device-transcription.md`, and merge to
 `master` ([slice-10](../docs/plans/slice-10-organic-design-system.md) and
 [slice-11](../docs/plans/slice-11-on-device-summarization.md) are both blocked on this
-merging). Transcript accuracy is the one item standing between this branch and merge.
+merging). All three manual checks are now confirmed; remaining pre-merge work is the
+still-open items in [review-slice-09-findings.md](review-slice-09-findings.md) and the
+unresolved [SIGSEGV bug](bug-ggml-sigsegv-vec-dot-f16.md) (mitigated, not root-caused).
 
 ## Note (2026-08-28)
 Found and discarded unrelated uncommitted working-tree changes (predating this session)
