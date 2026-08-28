@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
+import com.harken.android.data.AppSettings
 import com.harken.android.recording.RecordingState
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalReducedMotion
@@ -105,6 +106,14 @@ fun RecordScreen(
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
     val haptics = LocalHapticFeedback.current
+
+    // The pill names the actual configured upload target, not a hardcoded placeholder —
+    // it used to always read "studio-mac" regardless of where recordings were really going.
+    val settings = remember { AppSettings(context) }
+    val baseUrl by settings.baseUrl.collectAsState(initial = AppSettings.DefaultBaseUrl)
+    val backendLabel = remember(baseUrl) {
+        runCatching { java.net.URI(baseUrl).host }.getOrNull() ?: baseUrl
+    }
 
     // Fires exactly once per genuine upload-status transition, not on every recomposition —
     // LaunchedEffect only restarts when the key (state.uploadStatus) itself changes.
@@ -156,7 +165,7 @@ fun RecordScreen(
             ) {
                 Box(Modifier.size(7.dp).background(c.stateDoneFg, CircleShape))
                 Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.record_backend_pill), color = c.stateDoneFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text(backendLabel, color = c.stateDoneFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
 
@@ -257,11 +266,13 @@ private fun IdleMeter(c: ProtoColors) {
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.record_meter_idle), color = c.inkSubtle, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
         }
-        Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
-            for (i in 0 until 12) {
-                val breathe = if (reduced) 0f else (sin(t + i * 0.5f) * 0.5f + 0.5f)
-                val h = 7.dp + (6.dp * breathe)
-                Box(Modifier.padding(horizontal = 2.5.dp).width(5.dp).height(h).background(c.inkFaint, RoundedCornerShape(3.dp)))
+        // Marching wave mirrored around center, same language as SplashScreen's waveform —
+        // the crest visibly travels left-to-right rather than every bar breathing in place.
+        Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            for (i in 0 until 18) {
+                val travel = if (reduced) 0f else (sin(t * 1.6154f - i * 0.75f) * 0.5f + 0.5f)
+                val h = 4.dp + (32.dp * travel)
+                Box(Modifier.width(3.5.dp).height(h).background(c.inkFaint, RoundedCornerShape(2.dp)))
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -427,18 +438,15 @@ private fun RecordButton(recording: Boolean, onTap: () -> Unit) {
         animationSpec = HarkenMotion.spatialFast(),
         label = "recordPress",
     )
-    // Color rides the same state change as the shape morph (MorphShapes.kt) — accent at
-    // rest, the amber reserved for "live" (Wire palette, UI-009) while capturing — so the
-    // button reads as one continuous state transition rather than a shape change plus an
-    // unrelated instant recolor.
-    val container by animateColorAsState(if (recording) c.stateLive else c.accent, HarkenMotion.effectsFast(), label = "recordButtonBg")
-    val content by animateColorAsState(if (recording) c.stateLiveFg else c.onAccent, HarkenMotion.effectsFast(), label = "recordButtonFg")
+    // stateLive now rides the same accent as the resting button (UI-020), so the
+    // recording/idle transition is carried entirely by the shape morph (MorphShapes.kt)
+    // — no separate recolor needed.
     FloatingActionButton(
         onClick = onTap,
         modifier = Modifier.size(88.dp).scale(scale),
         shape = rememberRecordShape(recording),
-        containerColor = container,
-        contentColor = content,
+        containerColor = c.accent,
+        contentColor = c.onAccent,
         elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 10.dp, pressedElevation = 4.dp),
         interactionSource = interaction,
     ) {
