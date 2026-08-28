@@ -97,7 +97,7 @@ fun SessionSheet(
         Column(Modifier.fillMaxWidth().fillMaxHeight(0.95f)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = { confirmDelete = true }, modifier = Modifier.size(42.dp)) {
+                IconButton(onClick = { confirmDelete = true }, modifier = Modifier.size(48.dp)) {
                     Icon(Icons.Filled.Delete, contentDescription = "Delete recording")
                 }
             }

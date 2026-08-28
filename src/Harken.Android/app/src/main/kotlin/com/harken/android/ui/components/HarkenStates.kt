@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -55,7 +56,7 @@ fun EmptyState(
         Text(title, style = MaterialTheme.typography.headlineSmall)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (actionLabel != null && onAction != null) {
-            Button(onClick = onAction, shape = PillShape, modifier = Modifier.height(46.dp)) { Text(actionLabel) }
+            Button(onClick = onAction, shape = PillShape, modifier = Modifier.heightIn(min = 48.dp)) { Text(actionLabel) }
         }
     }
 }
@@ -89,10 +90,10 @@ fun ErrorState(
         Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (onRetry != null) {
-                androidx.compose.material3.OutlinedButton(onClick = onRetry, shape = PillShape, modifier = Modifier.height(40.dp)) { Text("Retry") }
+                androidx.compose.material3.OutlinedButton(onClick = onRetry, shape = PillShape, modifier = Modifier.heightIn(min = 48.dp)) { Text("Retry") }
             }
             if (secondaryLabel != null && onSecondary != null) {
-                TextButton(onClick = onSecondary, shape = PillShape, modifier = Modifier.height(40.dp)) { Text(secondaryLabel) }
+                TextButton(onClick = onSecondary, shape = PillShape, modifier = Modifier.heightIn(min = 48.dp)) { Text(secondaryLabel) }
             }
         }
     }

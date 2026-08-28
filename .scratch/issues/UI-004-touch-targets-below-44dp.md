@@ -1,7 +1,7 @@
 # UI-004 — Error-state buttons below 44dp touch target
 
 - **Severity:** high
-- **Status:** open
+- **Status:** fixed
 - **Area:** `src/Harken.Android/app/src/main/kotlin/com/harken/android/ui/components/HarkenStates.kt`
 
 ## Problem
@@ -34,3 +34,31 @@ restore the target with `Modifier.sizeIn(minHeight = 48.dp)` or
 - `./gradlew compileDebugKotlin` clean
 - Enable Developer options → "Show layout bounds" (or run an Accessibility Scanner
   pass) on the Library error state and confirm both buttons report ≥48dp.
+
+## Resolution
+
+The ticket named two sites; a sweep for fixed dimensions under 48dp found three
+more interactive controls with the same defect. All five now use
+`Modifier.heightIn(min = 48.dp)` (or `size(48.dp)` for the icon button) so the
+control can still grow with its content:
+
+| Location | Was | Control |
+|----------|-----|---------|
+| `components/HarkenStates.kt:58` | `height(46.dp)` | empty-state primary action |
+| `components/HarkenStates.kt:92` | `height(40.dp)` | **Retry** |
+| `components/HarkenStates.kt:95` | `height(40.dp)` | **Change address** |
+| `ui/SettingsScreen.kt:82` | `height(44.dp)` | **Test** connection |
+| `ui/SessionSheet.kt:100` | `size(42.dp)` | delete icon button |
+
+Re-running the sweep afterwards leaves only non-interactive hits: the decorative
+icon inside the 96dp onboarding badge, the Record header row, and the meter bar
+rows.
+
+Verified: `./gradlew installDebug`, then on-device captures of the Library
+backend-unreachable card (Retry visibly taller than the pre-fix capture) and the
+Settings backend card.
+
+Tried and reverted: `contentPadding` on the Test button to stop the short label
+rounding into a lozenge. It made no visible difference — `ButtonDefaults`
+already applies 24dp horizontal — so it came back out rather than staying in as
+dead config.

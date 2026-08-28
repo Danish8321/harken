@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -79,7 +80,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         onClick = viewModel::testConnection,
                         enabled = state.connectionCheck != ConnectionCheck.Checking,
                         shape = PillShape,
-                        modifier = Modifier.height(44.dp),
+                        modifier = Modifier.heightIn(min = 48.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = c.text),
                         border = BorderStroke(1.dp, c.textSecondary),
                     ) { Text(if (state.connectionCheck == ConnectionCheck.Checking) "Testing…" else "Test", fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
