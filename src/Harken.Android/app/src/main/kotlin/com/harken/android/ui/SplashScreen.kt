@@ -125,9 +125,6 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
                 }
             },
     ) {
-        // Ambient glow behind the mark — reinforces "listening" without competing for
-        // attention; a radial pulse rather than a moving shape, so it reads as atmosphere
-        // rather than a second animated element.
         val loop = rememberInfiniteTransition(label = "splashWaveform")
         val loopT by loop.animateFloat(
             initialValue = 0f,
@@ -136,13 +133,6 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
             label = "splashWaveformT",
         )
         val glowPulse = sin(loopT * 0.923f) * 0.5f + 0.5f // slightly detuned from bar breathe so it doesn't lock-step
-        Box(
-            Modifier
-                .align(Alignment.Center)
-                .size(260.dp)
-                .alpha((0.08f + 0.14f * glowPulse) * enterT * (1f - exitT))
-                .background(Brush.radialGradient(listOf(c.accent, c.accent.copy(alpha = 0f)))),
-        )
 
         // The mic itself just fades/scales in — the motion that actually reads as "an
         // instrument that's listening" is the waveform underneath it: a traveling wave
@@ -159,19 +149,29 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
             Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Same mic glyph ratio as RecordScreen's RecordButton (32dp icon / 88dp FAB =
-            // 36.4%) scaled to this 48dp circle (17.5dp) — same instrument, same weight,
-            // not a bulkier standalone icon. Centers cleanly via Box's own
-            // contentAlignment, same as the FAB does, with no manual nudge needed.
-            Box(
-                Modifier
-                    .size(48.dp)
-                    .alpha(enterT * (1f - exitT))
-                    .scale(0.7f + 0.3f * enterT)
-                    .background(c.accent, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Filled.Mic, contentDescription = null, tint = c.onAccent, modifier = Modifier.size(17.5.dp))
+            // The glow lives in the same Box as the mic circle, both centered on it —
+            // it used to be a sibling centered on the whole screen instead, so once the
+            // wave/wordmark/tagline pushed the mic above screen-center the glow stayed
+            // behind, centered lower than the mic it was meant to halo.
+            Box(Modifier.size(260.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .size(260.dp)
+                        .alpha((0.08f + 0.14f * glowPulse) * enterT * (1f - exitT))
+                        .background(Brush.radialGradient(listOf(c.accent, c.accent.copy(alpha = 0f)))),
+                )
+                // Same circle/icon size as RecordScreen's RecordButton (88dp FAB, 32dp
+                // icon) — same instrument, same weight, not a scaled-down standalone mark.
+                Box(
+                    Modifier
+                        .size(88.dp)
+                        .alpha(enterT * (1f - exitT))
+                        .scale(0.7f + 0.3f * enterT)
+                        .background(c.accent, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Mic, contentDescription = null, tint = c.onAccent, modifier = Modifier.size(32.dp))
+                }
             }
             Row(
                 Modifier.padding(top = 10.dp).fillMaxWidth().padding(horizontal = 32.dp).height(36.dp),
