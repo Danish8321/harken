@@ -62,7 +62,7 @@ import com.harken.android.recording.RecordingState
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.ProtoHeadingFont
-import com.harken.android.ui.theme.rememberProtoColors
+import com.harken.android.ui.theme.LocalProtoColors
 import java.util.UUID
 
 // Routes renamed with the screens: "capture" -> "record", "recordings" -> "library".
@@ -136,7 +136,7 @@ fun AppNav() {
 /** Themed hold-frame shown while the onboarding flag is still reading from DataStore. */
 @Composable
 private fun SplashPlaceholder() {
-    val c = rememberProtoColors()
+    val c = LocalProtoColors.current
     Box(
         Modifier.fillMaxSize().background(c.screenBg),
         contentAlignment = Alignment.Center,
@@ -154,7 +154,7 @@ private fun MainHost(
     val currentRoute = backStackEntry?.destination?.route
     var openSessionId by remember { mutableStateOf<UUID?>(null) }
 
-    val c = rememberProtoColors()
+    val c = LocalProtoColors.current
     val isRecording by RecordingState.isRecording.collectAsState()
 
     Scaffold(

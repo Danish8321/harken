@@ -48,7 +48,7 @@ import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoEaseOut
 import com.harken.android.ui.theme.ProtoHeadingFont
-import com.harken.android.ui.theme.rememberProtoColors
+import com.harken.android.ui.theme.LocalProtoColors
 import kotlinx.coroutines.launch
 import kotlin.math.pow
 import kotlin.math.sin
@@ -75,7 +75,7 @@ private fun easeOutBack(t: Float): Float {
  */
 @Composable
 fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
-    val c = rememberProtoColors()
+    val c = LocalProtoColors.current
     val reducedMotion = LocalReducedMotion.current
 
     if (reducedMotion) {

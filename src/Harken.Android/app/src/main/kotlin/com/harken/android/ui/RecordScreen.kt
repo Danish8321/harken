@@ -85,7 +85,7 @@ import com.harken.android.ui.theme.ProtoColors
 import com.harken.android.ui.theme.HarkenWaveform
 import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.ProtoMonoFont
-import com.harken.android.ui.theme.rememberProtoColors
+import com.harken.android.ui.theme.LocalProtoColors
 import com.harken.android.ui.theme.rememberRecordShape
 import java.util.UUID
 import kotlinx.coroutines.launch
@@ -100,7 +100,7 @@ fun RecordScreen(
     onOpenSession: (UUID) -> Unit = {},
     viewModel: CaptureViewModel = viewModel(),
 ) {
-    val c = rememberProtoColors()
+    val c = LocalProtoColors.current
     // Banner fades resolved once here: enter/exit params are not a composable scope.
     val fade = HarkenMotion.effectsDefault<Float>()
     val reduced = LocalReducedMotion.current
@@ -495,7 +495,7 @@ private fun LiveMeter(c: ProtoColors, elapsed: String) {
 
 @Composable
 private fun RecordButton(recording: Boolean, onTap: () -> Unit) {
-    val c = rememberProtoColors()
+    val c = LocalProtoColors.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(

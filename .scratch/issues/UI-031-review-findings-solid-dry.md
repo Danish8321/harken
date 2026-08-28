@@ -1,9 +1,8 @@
 # UI-031 — Standards/Spec review findings: SOLID/DRY/KISS/YAGNI pass
 
 - **Severity:** high
-- **Status:** partially fixed — Standards 1,2,3,5,6,7,8,9,10 and Spec 1-7
-  are fixed (see Resolution). Standards-4 (`LocalProtoColors` refactor)
-  deferred as its own ticket.
+- **Status:** fixed — all Standards and Spec findings resolved (see
+  Resolution).
 - **Area:** `ui/RecordScreen.kt`, `ui/AppNav.kt`, `ui/LibraryScreen.kt`,
   `ui/SplashScreen.kt`, `ui/SettingsScreen.kt`, `ui/theme/*`,
   `recording/LiveUpdateNotification.kt`, `res/values/strings.xml`,
@@ -181,10 +180,18 @@ assembleDebug`):
 - **Spec-7**: `LiveUpdateNotification.kt`'s `"Recording — $title"`
   literal extracted to `notification_recording_title`.
 
-**Deferred, own ticket:** Standards-4 (`ProtoColors` positional-`c`
-threading / duplicated theme resolution → `LocalProtoColors`) — a
-genuine architectural change, not a mechanical fix, out of scope for
-this batch.
+**Standards-4** (duplicated theme resolution / redundant DataStore reads):
+fixed at reduced scope, per user decision — added `LocalProtoColors`
+(`ui/theme/ProtoColors.kt`), provided once by `HarkenTheme`
+(`ui/theme/Theme.kt`) from the single `ProtoColors` it already computes
+for the Material color scheme. All 8 `rememberProtoColors()` call sites
+(`AppNav.kt` x2, `LibraryScreen.kt`, `OnboardingScreen.kt`,
+`RecordScreen.kt` x2, `SettingsScreen.kt`, `SplashScreen.kt`) now read
+`LocalProtoColors.current` instead of independently resolving their own
+`AppSettings`/DataStore. `rememberProtoColors()` deleted — no longer
+had a caller. The existing `c: ProtoColors` positional-param threading
+through inner composables (~12 of them) is unchanged — removing that
+too was the larger option the user declined for this pass.
 
 Not fixed, not raised as separate items: the two "scope creep" notes
 (splash tagline/glow beyond UI-011's stated scope; the stale

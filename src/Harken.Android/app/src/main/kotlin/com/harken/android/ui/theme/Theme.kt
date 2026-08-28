@@ -110,7 +110,8 @@ fun HarkenTheme(
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val base = protoColorScheme(protoColors(light = !darkTheme), darkTheme)
+    val c = protoColors(light = !darkTheme)
+    val base = protoColorScheme(c, darkTheme)
     val scheme = if (!dynamicColor) {
         base
     } else {
@@ -136,6 +137,7 @@ fun HarkenTheme(
 
     CompositionLocalProvider(
         LocalInk provides ink,
+        LocalProtoColors provides c,
         LocalReducedMotion provides rememberReducedMotion(),
     ) {
         MaterialTheme(

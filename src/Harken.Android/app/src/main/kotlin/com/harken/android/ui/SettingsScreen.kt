@@ -42,7 +42,7 @@ import com.harken.android.ui.theme.PillShape
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
 import com.harken.android.ui.theme.ProtoHeadingFont
-import com.harken.android.ui.theme.rememberProtoColors
+import com.harken.android.ui.theme.LocalProtoColors
 
 // Prototype card styling wired to the real SettingsViewModel/AppSettings. The
 // prototype's Storage "warn before cap" and Transcription provider controls have no
@@ -50,7 +50,7 @@ import com.harken.android.ui.theme.rememberProtoColors
 // that silently do nothing.
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
-    val c = rememberProtoColors()
+    val c = LocalProtoColors.current
     val state by viewModel.uiState.collectAsState()
 
     Column(

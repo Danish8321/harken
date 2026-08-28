@@ -56,7 +56,7 @@ import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
 import com.harken.android.ui.theme.ProtoHeadingFont
-import com.harken.android.ui.theme.rememberProtoColors
+import com.harken.android.ui.theme.LocalProtoColors
 import java.util.UUID
 
 // Prototype card visuals wired to the real LibraryViewModel — real Room+network session
@@ -72,7 +72,7 @@ fun LibraryScreen(
     onOpenSession: (UUID) -> Unit = {},
     viewModel: LibraryViewModel = viewModel(),
 ) {
-    val c = rememberProtoColors()
+    val c = LocalProtoColors.current
     val state by viewModel.uiState.collectAsState()
     var filter by remember { mutableStateOf(LibraryFilter.All) }
 

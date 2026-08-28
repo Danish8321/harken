@@ -30,7 +30,7 @@ relative-luminance formula.
 | [UI-028](UI-028-review-regressions.md) | Regressions found by branch review | high | fixed |
 | [UI-029](UI-029-duplicate-declarations.md) | Duplicated waveform and font declarations | medium | fixed |
 | [UI-030](UI-030-interactive-pass-backfill.md) | Backfill: the interactive pass, UI-019..UI-027 | low | fixed |
-| [UI-031](UI-031-review-findings-solid-dry.md) | Standards/Spec review findings: SOLID/DRY/KISS/YAGNI pass | high | partially fixed |
+| [UI-031](UI-031-review-findings-solid-dry.md) | Standards/Spec review findings: SOLID/DRY/KISS/YAGNI pass | high | fixed |
 
 UI-019..UI-027 were driven by direct interactive requests and have no
 ticket files of their own — [UI-030](UI-030-interactive-pass-backfill.md)

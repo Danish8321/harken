@@ -1,15 +1,8 @@
 package com.harken.android.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import com.harken.android.data.AppSettings
-import com.harken.android.ui.ThemeMode
 
 // Color system carried over from the Claude Design prototype port (formerly
 // ui/prototype/ProtoTheme.kt) — this is now the merged app's visual language for
@@ -134,17 +127,13 @@ val ProtoLightColors = ProtoColors(
 
 fun protoColors(light: Boolean): ProtoColors = if (light) ProtoLightColors else ProtoDarkColors
 
-/** Resolves the merged app's dark/light palette from the real, persisted theme setting. */
-@Composable
-fun rememberProtoColors(): ProtoColors {
-    val context = LocalContext.current
-    val settings = remember { AppSettings(context) }
-    val mode by settings.themeMode.collectAsState(initial = ThemeMode.System)
-    val systemDark = isSystemInDarkTheme()
-    val light = when (mode) {
-        ThemeMode.Light -> true
-        ThemeMode.Dark -> false
-        ThemeMode.System -> !systemDark
-    }
-    return protoColors(light)
+/**
+ * The single resolved palette for the current theme, provided once by [HarkenTheme] from
+ * the real persisted setting. Screens read this instead of each independently resolving
+ * their own AppSettings/DataStore collection — before this, 8 composables did that
+ * redundantly, and theme resolution (system-dark fallback, mode mapping) was written three
+ * times across MainActivity/Theme.kt/this file.
+ */
+val LocalProtoColors = staticCompositionLocalOf<ProtoColors> {
+    error("LocalProtoColors not provided — wrap content in HarkenTheme")
 }

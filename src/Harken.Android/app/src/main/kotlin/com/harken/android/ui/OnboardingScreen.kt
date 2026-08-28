@@ -50,7 +50,7 @@ import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoHeadingFont
-import com.harken.android.ui.theme.rememberProtoColors
+import com.harken.android.ui.theme.LocalProtoColors
 import kotlinx.coroutines.launch
 
 enum class ConnectionCheck { None, Checking, Connected, Failed }
@@ -86,7 +86,7 @@ class OnboardingFinishViewModel(application: Application) : AndroidViewModel(app
 
 @Composable
 fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingFinishViewModel = viewModel()) {
-    val c = rememberProtoColors()
+    val c = LocalProtoColors.current
     val reduced = LocalReducedMotion.current
     var step by remember { mutableIntStateOf(0) }
 
