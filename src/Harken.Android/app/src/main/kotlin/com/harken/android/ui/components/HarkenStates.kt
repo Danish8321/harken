@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -26,11 +27,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.harken.android.R
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.PillShape
+import com.harken.android.ui.theme.ProtoBodyFont
 
 // Empty, error and loading are the SAME card at the SAME radius as a populated row, so a
 // list that is empty, broken or loading still reads as the same screen. The previous
@@ -55,7 +62,7 @@ fun EmptyState(
         Text(title, style = MaterialTheme.typography.headlineSmall)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (actionLabel != null && onAction != null) {
-            Button(onClick = onAction, shape = PillShape, modifier = Modifier.height(46.dp)) { Text(actionLabel) }
+            Button(onClick = onAction, shape = PillShape, modifier = Modifier.heightIn(min = 48.dp)) { Text(actionLabel) }
         }
     }
 }
@@ -89,10 +96,21 @@ fun ErrorState(
         Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (onRetry != null) {
-                androidx.compose.material3.OutlinedButton(onClick = onRetry, shape = PillShape, modifier = Modifier.height(40.dp)) { Text("Retry") }
+                androidx.compose.material3.OutlinedButton(
+                    onClick = onRetry,
+                    shape = PillShape,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant),
+                ) { Text(stringResource(R.string.state_retry), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
             }
             if (secondaryLabel != null && onSecondary != null) {
-                TextButton(onClick = onSecondary, shape = PillShape, modifier = Modifier.height(40.dp)) { Text(secondaryLabel) }
+                TextButton(
+                    onClick = onSecondary,
+                    shape = PillShape,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                ) { Text(secondaryLabel, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
             }
         }
     }
@@ -110,8 +128,11 @@ fun SkeletonRow(modifier: Modifier = Modifier) {
         animationSpec = infiniteRepeatable(tween(700), repeatMode = RepeatMode.Reverse),
         label = "skeletonAlpha",
     )
+    // The pulse is an infinite transition, so no motion token can snap it — under
+    // reduced motion the skeleton simply holds its dim state.
+    val steady = if (LocalReducedMotion.current) 0.35f else alpha
     HarkenCard(modifier = modifier.fillMaxWidth()) {
-        Column(Modifier.alpha(alpha), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(Modifier.alpha(steady), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Bar(0.62f, 15.dp)
             Bar(0.40f, 11.dp)
             Bar(1f, 6.dp)

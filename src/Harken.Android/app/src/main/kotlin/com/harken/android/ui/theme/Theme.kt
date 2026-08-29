@@ -2,6 +2,7 @@ package com.harken.android.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
@@ -15,76 +16,49 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.googlefonts.Font
-import androidx.compose.ui.text.googlefonts.GoogleFont
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.harken.android.R
 
-private val fontProvider = GoogleFont.Provider(
-    providerAuthority = "com.google.android.gms.fonts",
-    providerPackage = "com.google.android.gms",
-    certificates = R.array.com_google_android_gms_fonts_certs,
-)
+// The families come from Type.kt. This file used to declare its own identical copy of
+// Space Grotesk and Figtree for the Typography below (UI-029) — the same font stack
+// written twice, which agrees only until one side is edited.
+private val HeadingFont = ProtoHeadingFont
+private val BodyFont = ProtoBodyFont
 
-private val HeadingFont = FontFamily(
-    Font(googleFont = GoogleFont("Caprasimo"), fontProvider = fontProvider, weight = FontWeight.Normal),
-)
-private val BodyFont = FontFamily(
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.Normal),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.Medium),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.SemiBold),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.Bold),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.ExtraBold),
-)
-
-private val LightColors = lightColorScheme(
-    primary = Organic.Accent500,
-    onPrimary = Color.White,
-    primaryContainer = Organic.Accent200,
-    onPrimaryContainer = Organic.Accent700,
-    secondary = Organic.Accent2_500,
-    onSecondary = Color.White,
-    secondaryContainer = Organic.Accent2_200,
-    onSecondaryContainer = Organic.Accent2_700,
-    background = Organic.Background,
-    onBackground = Organic.TextPrimary,
-    surface = Organic.Neutral100,
-    onSurface = Organic.TextPrimary,
-    surfaceVariant = Organic.Surface,
-    onSurfaceVariant = Organic.Neutral700,
-    outline = Organic.Neutral400,
-    outlineVariant = Organic.Neutral300,
-    error = Color(0xFFB3261E),
-    onError = Color.White,
-    errorContainer = Color(0xFFF9DEDC),
-    onErrorContainer = Color(0xFF410E0B),
-)
-
-private val DarkColors = darkColorScheme(
-    primary = Organic.Accent400,
-    onPrimary = Organic.Accent900,
-    primaryContainer = Color(0xFF4A2E19),
-    onPrimaryContainer = Organic.Accent300,
-    secondary = Organic.Accent2_400,
-    onSecondary = Organic.Accent2_900,
-    secondaryContainer = Color(0xFF333B26),
-    onSecondaryContainer = Organic.Accent2_300,
-    background = Color(0xFF1C1A17),
-    onBackground = Organic.Background,
-    surface = Color(0xFF262320),
-    onSurface = Organic.Background,
-    surfaceVariant = Color(0xFF302C27),
-    onSurfaceVariant = Organic.Neutral500,
-    outline = Organic.Neutral600,
-    outlineVariant = Organic.Neutral800,
-    error = Color(0xFFF2B8B5),
-    onError = Color(0xFF601410),
-    errorContainer = Color(0xFF8C1D18),
-    onErrorContainer = Color(0xFFF9DEDC),
-)
+// Material's ColorScheme, built from ProtoColors rather than a separate Organic-based
+// palette (UI-002): the app used to run two independent color systems nested inside one
+// another — Proto screens on ProtoColors, Material components (SessionSheet, AppNav,
+// HarkenStates, HarkenSurfaces) on this scheme. Deriving the scheme from the same
+// ProtoColors instance means every Material component now inherits the Proto palette
+// instead of keeping its own copy in sync by hand.
+private fun protoColorScheme(c: ProtoColors, darkTheme: Boolean): ColorScheme {
+    val base = if (darkTheme) darkColorScheme() else lightColorScheme()
+    return base.copy(
+        primary = c.accent,
+        onPrimary = c.onAccent,
+        // Selected-tab / chip container — a decorative "selected" tint, not the live/
+        // recording signal, so it rides the brand accent rather than stateLive (UI-020).
+        primaryContainer = c.accent,
+        onPrimaryContainer = c.onAccent,
+        secondary = c.stateDone,
+        onSecondary = c.stateDoneFg,
+        secondaryContainer = c.stateDoneSoft,
+        onSecondaryContainer = c.stateDoneFg,
+        background = c.screenBg,
+        onBackground = c.text,
+        surface = c.card,
+        onSurface = c.text,
+        surfaceVariant = c.pillTrack,
+        onSurfaceVariant = c.textSecondary,
+        outline = c.cardBorder,
+        outlineVariant = c.cardBorder,
+        error = c.stateError,
+        onError = c.stateErrorFg,
+        errorContainer = c.stateError.copy(alpha = 0.18f),
+        onErrorContainer = c.stateErrorFg,
+    )
+}
 
 // One ramp, six steps, nothing below 12sp. The old build's 9.5sp and 10.5sp text and its
 // un-overridden labelMedium (which silently rendered the nav bar in Roboto) are both
@@ -126,7 +100,7 @@ val LocalInk = compositionLocalOf { InkColors(Organic.InkLight, Organic.OnInk, O
 
 /**
  * @param dynamicColor when true, wallpaper extraction supplies the NEUTRALS only —
- * background, surface and outline. Primary and secondary stay on the Organic accents,
+ * background, surface and outline. Primary and secondary stay on the Proto accents,
  * because in this app they are semantic: terracotta means "live" and sage means "done".
  * If the wallpaper could recolour them, those two words would stop meaning anything.
  */
@@ -136,13 +110,14 @@ fun HarkenTheme(
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val organic = if (darkTheme) DarkColors else LightColors
+    val c = protoColors(light = !darkTheme)
+    val base = protoColorScheme(c, darkTheme)
     val scheme = if (!dynamicColor) {
-        organic
+        base
     } else {
         val context = LocalContext.current
         val wallpaper = if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        organic.copy(
+        base.copy(
             background = wallpaper.background,
             onBackground = wallpaper.onBackground,
             surface = wallpaper.surface,
@@ -160,7 +135,11 @@ fun HarkenTheme(
         InkColors(Organic.InkLight, Organic.OnInk, Organic.OnInk.copy(alpha = 0.6f))
     }
 
-    CompositionLocalProvider(LocalInk provides ink) {
+    CompositionLocalProvider(
+        LocalInk provides ink,
+        LocalProtoColors provides c,
+        LocalReducedMotion provides rememberReducedMotion(),
+    ) {
         MaterialTheme(
             colorScheme = scheme,
             typography = HarkenTypography,

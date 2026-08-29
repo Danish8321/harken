@@ -1,10 +1,21 @@
 package com.harken.android.ui.theme
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.unit.IntOffset
 
 // Motion in this app is bound to spring tokens, never to a duration. The values below
 // mirror Material 3 Expressive's own MotionScheme constants, reimplemented here because
@@ -22,41 +33,69 @@ import androidx.compose.runtime.ReadOnlyComposable
 // Bouncing a colour reads as a rendering glitch, so effects tokens exist precisely so
 // that you cannot accidentally spring a paint change. Speed follows element size:
 // fast for small controls, default for most things, slow for full-screen surfaces.
+// Every token below collapses to snap() when the user has asked the system to remove
+// animations (UI-006). Doing it here rather than at each call site means a new animation
+// bound to a HarkenMotion token honours the setting by construction; only animations that
+// cannot be expressed as a spec — infinite loops, enter/exit transitions — read
+// LocalReducedMotion themselves.
 object HarkenMotion {
 
     /** Small controls: icons, chips, FAB shape, toggle knobs. */
     @Composable
     @ReadOnlyComposable
     fun <T> spatialFast(): FiniteAnimationSpec<T> =
-        spring(dampingRatio = 0.8f, stiffness = 1400f, visibilityThreshold = null)
+        if (LocalReducedMotion.current) snap() else spring(dampingRatio = 0.8f, stiffness = 1400f, visibilityThreshold = null)
 
     /** The default for movement: cards, indicators, sheets under half-screen. */
     @Composable
     @ReadOnlyComposable
     fun <T> spatialDefault(): FiniteAnimationSpec<T> =
-        spring(dampingRatio = 0.8f, stiffness = 700f, visibilityThreshold = null)
+        if (LocalReducedMotion.current) snap() else spring(dampingRatio = 0.8f, stiffness = 700f, visibilityThreshold = null)
 
     /** Large surfaces: the session sheet, the host screen behind it. */
     @Composable
     @ReadOnlyComposable
     fun <T> spatialSlow(): FiniteAnimationSpec<T> =
-        spring(dampingRatio = 0.8f, stiffness = 300f, visibilityThreshold = null)
+        if (LocalReducedMotion.current) snap() else spring(dampingRatio = 0.8f, stiffness = 300f, visibilityThreshold = null)
 
     /** Colour and alpha on small controls. */
     @Composable
     @ReadOnlyComposable
     fun <T> effectsFast(): FiniteAnimationSpec<T> =
-        spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 1600f, visibilityThreshold = null)
+        if (LocalReducedMotion.current) snap() else spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 1600f, visibilityThreshold = null)
 
     /** Colour and alpha, the default. */
     @Composable
     @ReadOnlyComposable
     fun <T> effectsDefault(): FiniteAnimationSpec<T> =
-        spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 800f, visibilityThreshold = null)
+        if (LocalReducedMotion.current) snap() else spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 800f, visibilityThreshold = null)
 
     /** Scrims and other full-screen fades. */
     @Composable
     @ReadOnlyComposable
     fun <T> effectsSlow(): FiniteAnimationSpec<T> =
-        spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 200f, visibilityThreshold = null)
+        if (LocalReducedMotion.current) snap() else spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 200f, visibilityThreshold = null)
+}
+
+/**
+ * Shared-axis slide+fade transitionSpec for an Int-keyed AnimatedContent (tab index, wizard
+ * step): forward advances from the right, back slides from the left, collapsing to a plain
+ * swap under reduced motion. [offsetDivisor] controls how far the slide travels relative to
+ * the content width — smaller divisor, bigger travel.
+ */
+fun sharedAxisTransition(
+    reduced: Boolean,
+    fade: FiniteAnimationSpec<Float>,
+    slide: FiniteAnimationSpec<IntOffset>,
+    offsetDivisor: Int,
+): AnimatedContentTransitionScope<Int>.() -> ContentTransform = {
+    if (reduced) {
+        EnterTransition.None togetherWith ExitTransition.None
+    } else {
+        val forward = targetState > initialState
+        val enterOffset = if (forward) { w: Int -> w / offsetDivisor } else { w: Int -> -w / offsetDivisor }
+        val exitOffset = if (forward) { w: Int -> -w / offsetDivisor } else { w: Int -> w / offsetDivisor }
+        (slideInHorizontally(slide, enterOffset) + fadeIn(fade)) togetherWith
+            (slideOutHorizontally(slide, exitOffset) + fadeOut(fade))
+    }
 }

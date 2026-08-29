@@ -10,7 +10,7 @@
 
     <application
         android:allowBackup="true"
-        android:label="Harken"
+        android:label="@string/app_name"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Harken">
 

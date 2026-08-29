@@ -1,0 +1,4 @@
+<resources>
+    <!-- Must equal ProtoDarkColors.screenBg — see the note in values/colors.xml. -->
+    <color name="window_background">#2C313A</color>
+</resources>

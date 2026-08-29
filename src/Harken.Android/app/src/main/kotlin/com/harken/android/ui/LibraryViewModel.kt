@@ -3,10 +3,15 @@ package com.harken.android.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.harken.android.R
 import com.harken.android.data.AppSettings
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.network.NetworkModule
+import com.harken.android.speech.ModelDownloadManager
+import com.harken.android.speech.OnDeviceTranscriber
+import com.harken.android.speech.TranscriptionCoordinator
+import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,6 +22,10 @@ data class LibraryUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
     val baseUrl: String = AppSettings.DefaultBaseUrl,
+    // Non-null while TranscriptionCoordinator is running one session's transcription —
+    // Transcribe is disabled on every OTHER "Recorded" row while this is set, since only
+    // one on-device transcription runs at a time app-wide.
+    val transcribingSessionId: UUID? = null,
 )
 
 /**
@@ -31,6 +40,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         db = HarkenDatabase.get(application),
         api = NetworkModule.create { cachedBaseUrl },
     )
+    private val modelDownloadManager = ModelDownloadManager(application)
+    private val onDeviceTranscriber = OnDeviceTranscriber()
 
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
@@ -50,6 +61,23 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 _uiState.value = _uiState.value.copy(sessions = sessions, isLoading = false)
             }
         }
+        viewModelScope.launch {
+            TranscriptionCoordinator.activeSessionId.collect { id ->
+                _uiState.value = _uiState.value.copy(transcribingSessionId = id)
+            }
+        }
+    }
+
+    /** Starts on-device transcription for a "Recorded" session. No-op if one is already running. */
+    fun transcribe(session: SessionRepository.SessionView) {
+        val filePath = session.pendingUploadPath ?: return
+        TranscriptionCoordinator.transcribe(
+            repository = repository,
+            modelDownloadManager = modelDownloadManager,
+            onDeviceTranscriber = onDeviceTranscriber,
+            sessionId = session.id,
+            filePath = filePath,
+        )
     }
 
     fun refresh() {
@@ -62,9 +90,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun subtitle(state: LibraryUiState): String {
+        // "Recorded" sessions are waiting on the user, not actively transcribing — not
+        // counted here.
         val transcribing = state.sessions.count { it.status == "Pending" || it.status == "Running" }
-        val count = "${state.sessions.size} recording${if (state.sessions.size == 1) "" else "s"}"
-        return if (transcribing > 0) "$count · $transcribing transcribing" else count
+        val res = getApplication<Application>().resources
+        val count = res.getQuantityString(R.plurals.library_recording_count, state.sessions.size, state.sessions.size)
+        return if (transcribing > 0) res.getString(R.string.library_subtitle_transcribing, count, transcribing) else count
     }
 
     fun goToRecord() { onNavigateToRecord?.invoke() }

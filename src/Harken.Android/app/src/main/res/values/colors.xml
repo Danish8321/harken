@@ -1,0 +1,9 @@
+<resources>
+    <!-- Painted before Compose takes over, so it must match ProtoColors.screenBg or the
+         launch splash flashes the wrong ground. Dark value lives in values-night.
+         These two are the only place the palette is duplicated outside ProtoColors.kt —
+         Android needs a resource here, it cannot read a Compose value this early — so a
+         re-palette has to touch this file by hand. It was missed twice (UI-009, UI-024)
+         and both times the flash came back. -->
+    <color name="window_background">#F3F6F7</color>
+</resources>
