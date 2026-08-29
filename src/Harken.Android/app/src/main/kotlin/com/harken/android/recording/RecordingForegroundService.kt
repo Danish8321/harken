@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
+import android.util.Log
 import com.harken.android.audio.AudioRecordCapture
 import com.harken.android.audio.RecordingStopReason
 import com.harken.android.audio.SilenceDetector
@@ -21,6 +22,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+
+private const val TAG = "RecordingForegroundService"
 
 // Ports src/Harken.Mobile/Platforms/Android/RecordingForegroundService.cs — direct
 // android.app.Service + NotificationCompat, no MAUI wrapper layer.
@@ -46,25 +49,42 @@ class RecordingForegroundService : Service() {
         val filePath = intent?.getStringExtra(FilePathExtra)
 
         if (recordingId == null || filePath == null) {
+            Log.e(TAG, "onStartCommand missing recordingId/filePath extras")
+            RecordingState.publishError("Couldn't start recording — missing session details")
             stopSelf()
             return START_NOT_STICKY
         }
 
         createNotificationChannelIfNeeded()
         startedAtElapsedMs = SystemClock.elapsedRealtime()
-        startForeground(NotificationId, buildNotification(recordingId))
+        try {
+            startForeground(NotificationId, buildNotification(recordingId))
+        } catch (e: Exception) {
+            Log.e(TAG, "startForeground failed", e)
+            RecordingState.publishError(e.message ?: "Couldn't start the recording notification")
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
-        synchronized(writerGate) {
-            writer = WavWriter(RandomAccessFile(filePath, "rw"))
-            silenceDetector = SilenceDetector(
-                silenceTimeoutMs = TimeUnit.MINUTES.toMillis(5),
-                sessionCapMs = TimeUnit.HOURS.toMillis(3),
-            )
+        try {
+            synchronized(writerGate) {
+                writer = WavWriter(RandomAccessFile(filePath, "rw"))
+                silenceDetector = SilenceDetector(
+                    silenceTimeoutMs = TimeUnit.MINUTES.toMillis(5),
+                    sessionCapMs = TimeUnit.HOURS.toMillis(3),
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open recording file at $filePath", e)
+            RecordingState.publishError(e.message ?: "Couldn't create the recording file")
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
         }
 
         RecordingState.markStarted(recordingId, filePath)
 
-        capture = AudioRecordCapture(onChunk = ::writeChunk, scope = scope)
+        capture = AudioRecordCapture(onChunk = ::writeChunk, onError = ::onCaptureError, scope = scope)
         capture?.start()
 
         return START_STICKY
@@ -72,14 +92,26 @@ class RecordingForegroundService : Service() {
 
     private fun writeChunk(chunk: ByteArray) {
         var stopReason = RecordingStopReason.None
-        synchronized(writerGate) {
-            writer?.write(chunk, 0, chunk.size)
-            stopReason = silenceDetector?.add(chunk, 0, chunk.size) ?: RecordingStopReason.None
+        try {
+            synchronized(writerGate) {
+                writer?.write(chunk, 0, chunk.size)
+                stopReason = silenceDetector?.add(chunk, 0, chunk.size) ?: RecordingStopReason.None
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed writing an audio chunk to disk", e)
+            RecordingState.publishError(e.message ?: "Recording stopped — couldn't write to disk")
+            stopRecording(RecordingStopReason.None)
+            return
         }
         RecordingState.publishAmplitude(pcm16Rms(chunk))
         if (stopReason != RecordingStopReason.None) {
             stopRecording(stopReason)
         }
+    }
+
+    private fun onCaptureError(message: String) {
+        RecordingState.publishError(message)
+        stopRecording(RecordingStopReason.None)
     }
 
     /** RMS of a little-endian 16-bit PCM chunk, normalized to [0, 1] against full scale. */
@@ -103,7 +135,12 @@ class RecordingForegroundService : Service() {
         scope.launch {
             capture?.stop()
             synchronized(writerGate) {
-                writer?.close()
+                try {
+                    writer?.close()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed closing/patching the WAV file", e)
+                    RecordingState.publishError(e.message ?: "Recording may be incomplete on disk")
+                }
                 writer = null
                 silenceDetector = null
             }

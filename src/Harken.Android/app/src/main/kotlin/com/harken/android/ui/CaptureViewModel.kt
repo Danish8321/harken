@@ -1,6 +1,7 @@
 package com.harken.android.ui
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.harken.android.data.SessionRepository
@@ -79,7 +80,10 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
                 lastSavedLocally = true,
             )
         } catch (e: Exception) {
+            Log.e(TAG, "Failed saving local session $recordingId", e)
             _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Failed, lastError = e.message)
         }
     }
 }
+
+private const val TAG = "CaptureViewModel"

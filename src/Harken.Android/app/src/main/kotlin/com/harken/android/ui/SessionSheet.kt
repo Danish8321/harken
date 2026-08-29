@@ -35,6 +35,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,6 +63,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
+import com.harken.android.ui.components.HarkenErrorDialog
 import com.harken.android.ui.components.InkSurface
 import com.harken.android.ui.components.StatusChip
 import com.harken.android.ui.theme.LocalInk
@@ -98,12 +102,20 @@ fun SessionSheet(
 
     LaunchedEffect(sessionId) { viewModel.load(sessionId) }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(state.toast) {
+        val message = state.toast ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        viewModel.toastShown()
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.background,
     ) {
-        Column(Modifier.fillMaxWidth().fillMaxHeight(0.95f)) {
+        Box(Modifier.fillMaxWidth().fillMaxHeight(0.95f)) {
+        Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { confirmDelete = true }, modifier = Modifier.size(48.dp)) {
@@ -218,6 +230,9 @@ fun SessionSheet(
                 }
             }
         }
+
+        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
+        }
     }
 
     if (confirmDelete) {
@@ -236,6 +251,14 @@ fun SessionSheet(
                 ) { Text(stringResource(R.string.session_delete_confirm)) }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.session_delete_keep)) } },
+        )
+    }
+
+    state.loadError?.let { message ->
+        HarkenErrorDialog(
+            title = stringResource(R.string.session_load_failed_title),
+            body = stringResource(R.string.session_load_failed_body, message),
+            onDismiss = onDismiss,
         )
     }
 }

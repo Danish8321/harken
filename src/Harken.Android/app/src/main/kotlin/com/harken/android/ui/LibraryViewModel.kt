@@ -1,6 +1,7 @@
 package com.harken.android.ui
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.harken.android.R
@@ -13,11 +14,15 @@ import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+
+private const val TAG = "LibraryViewModel"
 
 data class LibraryUiState(
     val sessions: List<SessionRepository.SessionView> = emptyList(),
     val isLoading: Boolean = true,
+    val loadError: String? = null,
     // Non-null while TranscriptionCoordinator is running one session's transcription —
     // Transcribe is disabled on every OTHER "Recorded" row while this is set, since only
     // one on-device transcription runs at a time app-wide.
@@ -38,9 +43,14 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     init {
         viewModelScope.launch {
-            repository.observeSessions().collect { sessions ->
-                _uiState.value = _uiState.value.copy(sessions = sessions, isLoading = false)
-            }
+            repository.observeSessions()
+                .catch { e ->
+                    Log.e(TAG, "Failed reading sessions from the local database", e)
+                    _uiState.value = _uiState.value.copy(isLoading = false, loadError = e.message)
+                }
+                .collect { sessions ->
+                    _uiState.value = _uiState.value.copy(sessions = sessions, isLoading = false, loadError = null)
+                }
         }
         viewModelScope.launch {
             TranscriptionCoordinator.activeSessionId.collect { id ->

@@ -14,6 +14,9 @@ data class RecordingCompleted(
     val stopReason: RecordingStopReason,
 )
 
+/** A recording failed to start or was aborted mid-capture by something the user has no lever over. */
+data class RecordingError(val message: String)
+
 private data class InProgress(val recordingId: UUID, val filePath: String, val startedAtMs: Long)
 
 // Ports src/Harken.Mobile/Services/RecordingState.cs — a process-wide singleton (the
@@ -25,6 +28,13 @@ object RecordingState {
 
     private val _completed = MutableSharedFlow<RecordingCompleted>(extraBufferCapacity = 1)
     val completed = _completed.asSharedFlow()
+
+    private val _error = MutableSharedFlow<RecordingError>(extraBufferCapacity = 1)
+    val error = _error.asSharedFlow()
+
+    fun publishError(message: String) {
+        _error.tryEmit(RecordingError(message))
+    }
 
     private val _isRecording = MutableStateFlow(false)
     val isRecording = _isRecording.asStateFlow()

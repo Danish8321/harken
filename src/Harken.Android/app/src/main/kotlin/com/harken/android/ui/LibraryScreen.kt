@@ -105,6 +105,11 @@ fun LibraryScreen(
         }
 
         when {
+            state.loadError != null -> ErrorState(
+                title = stringResource(R.string.library_load_failed_title),
+                body = stringResource(R.string.library_load_failed_body, state.loadError.orEmpty()),
+            )
+
             state.isLoading && state.sessions.isEmpty() -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 repeat(4) { SkeletonRow() }
             }

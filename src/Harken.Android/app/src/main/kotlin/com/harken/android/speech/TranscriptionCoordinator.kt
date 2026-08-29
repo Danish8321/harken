@@ -1,5 +1,6 @@
 package com.harken.android.speech
 
+import android.util.Log
 import com.harken.android.audio.WavFormat
 import com.harken.android.data.TranscriptionSink
 import java.io.File
@@ -12,6 +13,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+private const val TAG = "TranscriptionCoordinator"
 
 /**
  * Runs on-device (whisper.cpp) transcription for at most one session at a time,
@@ -57,6 +60,7 @@ object TranscriptionCoordinator {
                 val segments = onDeviceTranscriber.transcribe(filePath, modelPath)
                 repository.completeLocal(sessionId, segments, wavDurationSeconds(filePath))
             } catch (e: Exception) {
+                Log.e(TAG, "On-device transcription failed for session $sessionId", e)
                 repository.failLocal(sessionId, e.message ?: "On-device transcription failed")
             } finally {
                 onDeviceTranscriber.release()

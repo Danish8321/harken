@@ -116,6 +116,24 @@ fun ErrorState(
     }
 }
 
+/**
+ * Blocking failure with no natural inline slot to render into (e.g. a foreground service
+ * that has no Compose surface of its own). Dismiss-only — these are technical failures the
+ * user cannot retry from here, they just need to know the operation didn't happen.
+ */
+@Composable
+fun HarkenErrorDialog(title: String, body: String, onDismiss: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text(title) },
+        text = { Text(body) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.state_dismiss)) }
+        },
+    )
+}
+
 /** Skeleton row, shaped like the real row so the list does not reflow when data lands. */
 @Composable
 fun SkeletonRow(modifier: Modifier = Modifier) {

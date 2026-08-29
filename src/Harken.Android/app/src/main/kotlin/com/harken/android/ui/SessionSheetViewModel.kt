@@ -1,6 +1,7 @@
 package com.harken.android.ui
 
 import android.app.Application
+import android.util.Log
 import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,9 +13,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.util.UUID
+
+private const val TAG = "SessionSheetViewModel"
 
 data class SessionSheetUiState(
     val title: String = "",
@@ -28,7 +32,7 @@ data class SessionSheetUiState(
     val status: String? = null,
     val summaryOptionsOpen: Boolean = false,
     val toast: String? = null,
-    val error: String? = null,
+    val loadError: String? = null,
 ) {
     val plainText: String
         get() = segments.joinToString("\n") { "[${it.offsetSeconds}s] ${it.text}" }
@@ -68,26 +72,50 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
                     voiceCount = voices,
                     status = session?.status,
                     durationSeconds = duration,
+                    loadError = null,
                 )
+            }.catch { e ->
+                Log.e(TAG, "Failed loading session $id", e)
+                _uiState.value = _uiState.value.copy(loadError = e.message)
             }.collect { _uiState.value = it }
         }
     }
 
     fun rename(id: UUID, title: String) {
         viewModelScope.launch {
-            repository.rename(id, title)
-            confirm(R.string.session_toast_renamed)
+            try {
+                repository.rename(id, title)
+                confirm(R.string.session_toast_renamed)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed renaming session $id", e)
+                _uiState.value = _uiState.value.copy(toast = getApplication<Application>().getString(R.string.session_action_failed))
+            }
         }
     }
 
     fun addTag(id: UUID, tag: String) {
-        viewModelScope.launch { repository.setTags(id, (_uiState.value.tags + tag).distinct()) }
+        viewModelScope.launch {
+            try {
+                repository.setTags(id, (_uiState.value.tags + tag).distinct())
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed adding tag to session $id", e)
+                _uiState.value = _uiState.value.copy(toast = getApplication<Application>().getString(R.string.session_action_failed))
+            }
+        }
     }
 
     fun purge(id: UUID) {
         viewModelScope.launch {
-            repository.purge(id).onFailure { e -> _uiState.value = _uiState.value.copy(error = e.message) }
+            repository.purge(id).onFailure { e ->
+                Log.e(TAG, "Failed deleting session $id", e)
+                _uiState.value = _uiState.value.copy(toast = getApplication<Application>().getString(R.string.session_action_failed))
+            }
         }
+    }
+
+    /** Consumed by SessionSheet's Snackbar host once shown, so it doesn't replay on recomposition. */
+    fun toastShown() {
+        _uiState.value = _uiState.value.copy(toast = null)
     }
 
     fun toggleSummaryOptions(open: Boolean) {

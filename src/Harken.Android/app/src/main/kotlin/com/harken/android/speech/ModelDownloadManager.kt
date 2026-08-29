@@ -1,6 +1,7 @@
 package com.harken.android.speech
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.channels.awaitClose
@@ -10,6 +11,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
+
+private const val TAG = "ModelDownloadManager"
 
 /**
  * Seam so TranscriptionCoordinator can be unit-tested with a hand-written fake instead of
@@ -68,7 +71,8 @@ class ModelDownloadManager(
             }
 
             modelFile.absolutePath
-        }.onFailure {
+        }.onFailure { e ->
+            Log.e(TAG, "ensureModel download failed", e)
             // Never leave a partial file behind to be mistaken for a real model.
             File(modelsDir, "$ModelFileName.tmp").delete()
         }
@@ -95,9 +99,10 @@ class ModelDownloadManager(
                 if (!tmpFile.renameTo(modelFile)) {
                     throw IOException("Failed to move downloaded model into place at ${modelFile.absolutePath}")
                 }
-            }.onFailure {
+            }.onFailure { e ->
+                Log.e(TAG, "downloadProgress failed", e)
                 File(modelsDir, "$ModelFileName.tmp").delete()
-                close(it)
+                close(e)
                 return@withContext
             }
         }

@@ -60,6 +60,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import android.os.Build
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -87,6 +88,7 @@ import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.ProtoMonoFont
 import com.harken.android.ui.theme.LocalProtoColors
 import com.harken.android.ui.theme.rememberRecordShape
+import com.harken.android.ui.components.HarkenErrorDialog
 import java.util.UUID
 import kotlinx.coroutines.launch
 
@@ -124,12 +126,35 @@ fun RecordScreen(
                 PackageManager.PERMISSION_GRANTED,
         )
     }
+    // Only the recording notification depends on this (Android 13+) — a denial doesn't
+    // block recording itself, so there's no launcher callback branch to react to here.
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    fun ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         hasMicPermission = granted
         if (granted) {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            ensureNotificationPermission()
             viewModel.startRecording()
         }
+    }
+
+    var recordingError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        RecordingState.error.collect { error -> recordingError = error.message }
+    }
+    recordingError?.let { message ->
+        HarkenErrorDialog(
+            title = stringResource(R.string.error_recording_failed),
+            body = message,
+            onDismiss = { recordingError = null },
+        )
     }
 
     var elapsed by remember { mutableIntStateOf(0) }
@@ -238,6 +263,7 @@ fun RecordScreen(
                     }
                     else -> {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        ensureNotificationPermission()
                         viewModel.startRecording()
                     }
                 }

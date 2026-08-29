@@ -138,4 +138,13 @@
 
     <!-- Shared states -->
     <string name="state_retry">Retry</string>
+    <string name="state_dismiss">Dismiss</string>
+    <string name="error_recording_failed">Recording failed</string>
+    <string name="error_recording_start_failed">Couldn\'t start recording. %1$s</string>
+    <string name="error_recording_aborted">Recording stopped early. %1$s</string>
+    <string name="library_load_failed_title">Couldn\'t load your recordings</string>
+    <string name="library_load_failed_body">Something went wrong reading the local database. %1$s</string>
+    <string name="session_action_failed">Something went wrong. Try again.</string>
+    <string name="session_load_failed_title">Couldn\'t load this recording</string>
+    <string name="session_load_failed_body">Something went wrong reading the local database. %1$s</string>
 </resources>

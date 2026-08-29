@@ -34,6 +34,15 @@ android {
         }
     }
 
+    testOptions {
+        unitTests {
+            // android.util.Log now called from several catch blocks (error-surfacing pass);
+            // plain JVM unit tests hit the unmocked stub otherwise, which throws instead of
+            // no-op-ing, aborting the coroutine before it reaches failLocal/onError.
+            isReturnDefaultValues = true
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
