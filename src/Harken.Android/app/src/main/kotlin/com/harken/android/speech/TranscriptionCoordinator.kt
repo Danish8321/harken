@@ -1,6 +1,8 @@
 package com.harken.android.speech
 
-import com.harken.android.data.SessionRepository
+import com.harken.android.audio.WavFormat
+import com.harken.android.data.TranscriptionSink
+import java.io.File
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CoroutineScope
@@ -40,9 +42,9 @@ object TranscriptionCoordinator {
      * this is a safety net, not the primary guard.
      */
     fun transcribe(
-        repository: SessionRepository,
-        modelDownloadManager: ModelDownloadManager,
-        onDeviceTranscriber: OnDeviceTranscriber,
+        repository: TranscriptionSink,
+        modelDownloadManager: ModelProvider,
+        onDeviceTranscriber: Transcriber,
         sessionId: UUID,
         filePath: String,
     ): Boolean {
@@ -53,15 +55,24 @@ object TranscriptionCoordinator {
                 repository.startLocalTranscription(sessionId)
                 val modelPath = modelDownloadManager.ensureModel().getOrThrow()
                 val segments = onDeviceTranscriber.transcribe(filePath, modelPath)
-                val durationSeconds = segments.maxOfOrNull { it.offsetSeconds } ?: 0
-                repository.completeLocal(sessionId, segments, durationSeconds)
+                repository.completeLocal(sessionId, segments, wavDurationSeconds(filePath))
             } catch (e: Exception) {
                 repository.failLocal(sessionId, e.message ?: "On-device transcription failed")
             } finally {
+                onDeviceTranscriber.release()
                 active.set(null)
                 _activeSessionId.value = null
             }
         }
         return true
+    }
+
+    // Segment offsets only mark where speech was detected, not the recording's actual
+    // length — the last segment's offset undercounts trailing silence. Derive the real
+    // duration from the WAV file's own byte length instead (fixed 16kHz mono 16-bit PCM).
+    private fun wavDurationSeconds(filePath: String): Int {
+        val dataLength = (File(filePath).length() - WavFormat.HeaderLength).coerceAtLeast(0)
+        val bytesPerSecond = WavFormat.SampleRate * WavFormat.Channels * (WavFormat.BitsPerSample / 8)
+        return (dataLength / bytesPerSecond).toInt()
     }
 }

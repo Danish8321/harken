@@ -79,8 +79,6 @@ fun LibraryScreen(
     val state by viewModel.uiState.collectAsState()
     var filter by remember { mutableStateOf(LibraryFilter.All) }
 
-    LaunchedEffect(Unit) { viewModel.refresh() }
-
     val visible = remember(state.sessions, filter) {
         when (filter) {
             LibraryFilter.All -> state.sessions
@@ -107,14 +105,6 @@ fun LibraryScreen(
         }
 
         when {
-            state.error != null && state.sessions.isEmpty() -> ErrorState(
-                title = stringResource(R.string.library_error_title),
-                body = stringResource(R.string.library_error_body, state.baseUrl),
-                onRetry = viewModel::refresh,
-                secondaryLabel = stringResource(R.string.library_error_change_address),
-                onSecondary = viewModel::openSettings,
-            )
-
             state.isLoading && state.sessions.isEmpty() -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 repeat(4) { SkeletonRow() }
             }

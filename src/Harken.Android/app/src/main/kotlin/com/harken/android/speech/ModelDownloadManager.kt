@@ -12,6 +12,15 @@ import java.io.File
 import java.io.IOException
 
 /**
+ * Seam so TranscriptionCoordinator can be unit-tested with a hand-written fake instead of
+ * the real [ModelDownloadManager] (whose Context/OkHttp dependencies aren't available on
+ * the JVM test runner without Robolectric).
+ */
+interface ModelProvider {
+    suspend fun ensureModel(): Result<String>
+}
+
+/**
  * Ensures the on-device whisper.cpp model file is present, downloading it on first use
  * (ADR-0011: no bundled model, lazy fetch on first recording). A killed or failed
  * download must never leave a corrupt file mistaken for a real model, so the download is
@@ -21,7 +30,7 @@ import java.io.IOException
 class ModelDownloadManager(
     private val context: Context,
     private val client: OkHttpClient = OkHttpClient(),
-) {
+) : ModelProvider {
     private val modelsDir: File
         get() = File(context.filesDir, "models")
 
@@ -44,7 +53,7 @@ class ModelDownloadManager(
      * Returns the absolute path to the model file, downloading it first if missing.
      * Safe to call repeatedly — a no-op once the model is present.
      */
-    suspend fun ensureModel(): Result<String> = withContext(Dispatchers.IO) {
+    override suspend fun ensureModel(): Result<String> = withContext(Dispatchers.IO) {
         if (modelFile.exists()) {
             return@withContext Result.success(modelFile.absolutePath)
         }

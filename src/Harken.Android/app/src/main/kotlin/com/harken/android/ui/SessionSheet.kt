@@ -25,8 +25,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -168,12 +166,7 @@ fun SessionSheet(
                         modifier = Modifier.padding(top = 8.dp),
                     )
                     TagRow(tags = state.tags, onAdd = { viewModel.addTag(sessionId, it) }, modifier = Modifier.padding(top = 14.dp))
-                    PlayerCard(
-                        state = state,
-                        onSeek = { viewModel.seekTo(it) },
-                        onTogglePlay = viewModel::togglePlay,
-                        modifier = Modifier.padding(top = 18.dp),
-                    )
+                    NoPlaybackCard(modifier = Modifier.padding(top = 18.dp))
                     state.summary?.let { summary ->
                         SummaryCard(
                             summary = summary,
@@ -206,9 +199,7 @@ fun SessionSheet(
                     ) {
                         TranscriptRow(
                             segment = segment,
-                            active = segment.id == state.activeSegmentId && state.playing,
                             showVoice = state.voiceCount > 1,
-                            onSeek = { viewModel.seekTo(segment.offsetSeconds) },
                         )
                     }
                 }
@@ -224,48 +215,6 @@ fun SessionSheet(
                     }) { Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.session_copy_transcript)) }
                     IconButton(onClick = viewModel::share) { Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.session_share_transcript)) }
                     Spacer(Modifier.weight(1f))
-                    // Local-only sessions (ADR-0011) never touch the backend, so
-                    // summarization — a backend-only operation — is hidden rather than
-                    // shown-and-erroring (decision 4).
-                    if (state.canSummarize) {
-                        Button(
-                            onClick = { viewModel.summarize(sessionId) },
-                            enabled = !state.summarizing,
-                            shape = PillShape,
-                        ) {
-                            if (state.summarizing) {
-                                androidx.compose.material3.CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                )
-                            } else {
-                                Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(20.dp))
-                            }
-                            Spacer(Modifier.size(8.dp))
-                            Text(
-                                when {
-                                    state.summarizing && state.summary == null -> stringResource(R.string.session_summarizing)
-                                    state.summarizing -> stringResource(R.string.session_resummarizing)
-                                    state.summary == null -> stringResource(R.string.session_summarize)
-                                    else -> stringResource(R.string.session_resummarize)
-                                },
-                                maxLines = 1,
-                            )
-                        }
-                        Box {
-                            IconButton(onClick = { summaryMenuOpen = true; viewModel.toggleSummaryOptions(true) }) {
-                                Icon(Icons.Filled.ExpandMore, contentDescription = stringResource(R.string.session_summary_options))
-                            }
-                            androidx.compose.material3.DropdownMenu(
-                                expanded = summaryMenuOpen,
-                                onDismissRequest = { summaryMenuOpen = false; viewModel.toggleSummaryOptions(false) },
-                            ) {
-                                androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text(stringResource(R.string.session_summary_short)) })
-                                androidx.compose.material3.DropdownMenuItem(onClick = { summaryMenuOpen = false }, text = { Text(stringResource(R.string.session_summary_detailed)) })
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -291,93 +240,16 @@ fun SessionSheet(
     }
 }
 
-/** The ink player. Scrubbable, and the transcript follows the playhead. */
+/** On-device sessions never uploaded audio anywhere (ADR-0011) — nothing to play back. */
 @Composable
-private fun PlayerCard(
-    state: SessionSheetUiState,
-    onSeek: (Int) -> Unit,
-    onTogglePlay: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun NoPlaybackCard(modifier: Modifier = Modifier) {
     val ink = LocalInk.current
     InkSurface(modifier) {
-        // BACKEND WORK REQUIRED: playback needs GET /sessions/{id}/audio. Until that
-        // exists the controls are visibly disabled with a reason rather than silently
-        // dead — see HarkenApi.kt and ADR-0010.
-        ScrubbableWaveform(
-            bars = state.waveform,
-            progress = state.progressFraction,
-            enabled = state.audioAvailable && state.canPlayAudio,
-            onSeekFraction = { onSeek((it * state.durationSeconds).toInt()) },
-            modifier = Modifier.fillMaxWidth().height(76.dp),
+        Text(
+            "Recorded on-device; no audio file to play back",
+            style = MaterialTheme.typography.bodyMedium,
+            color = ink.onInkDim,
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            val radius by animateFloatAsState(
-                targetValue = if (state.playing) 20f else 28f,
-                animationSpec = com.harken.android.ui.theme.HarkenMotion.spatialDefault(),
-                label = "playShape",
-            )
-            Surface(
-                onClick = onTogglePlay,
-                enabled = state.audioAvailable && state.canPlayAudio,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(radius.dp),
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(56.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = stringResource(if (state.playing) R.string.session_pause else R.string.session_play),
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(28.dp),
-                    )
-                }
-            }
-            Column(Modifier.weight(1f)) {
-                Text(formatElapsed(state.playheadSeconds), style = MaterialTheme.typography.titleLarge, color = ink.onInk, maxLines = 1)
-                Text(
-                    when {
-                        !state.canPlayAudio -> stringResource(R.string.session_playback_ondevice_unavailable)
-                        state.audioAvailable -> stringResource(R.string.session_playback_of, formatElapsed(state.durationSeconds))
-                        else -> stringResource(R.string.session_playback_unavailable)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = ink.onInkDim,
-                    maxLines = 1,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ScrubbableWaveform(
-    bars: List<Float>,
-    progress: Float,
-    enabled: Boolean,
-    onSeekFraction: (Float) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val played = MaterialTheme.colorScheme.primary
-    val remaining = LocalInk.current.onInkDim
-    androidx.compose.foundation.Canvas(
-        modifier.pointerInput(enabled) {
-            if (!enabled) return@pointerInput
-            detectTapGestures { offset -> onSeekFraction((offset.x / size.width).coerceIn(0f, 1f)) }
-        },
-    ) {
-        if (bars.isEmpty()) return@Canvas
-        val slot = size.width / bars.size
-        val barWidth = slot * 0.6f
-        bars.forEachIndexed { index, value ->
-            val h = (size.height * value).coerceAtLeast(3f)
-            drawRoundRect(
-                color = if (index.toFloat() / bars.size <= progress) played else remaining,
-                topLeft = androidx.compose.ui.geometry.Offset(index * slot, (size.height - h) / 2f),
-                size = androidx.compose.ui.geometry.Size(barWidth, h),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2f),
-            )
-        }
     }
 }
 
@@ -429,13 +301,9 @@ private fun TagRow(tags: List<String>, onAdd: (String) -> Unit, modifier: Modifi
 @Composable
 private fun TranscriptRow(
     segment: TranscriptRowModel,
-    active: Boolean,
     showVoice: Boolean,
-    onSeek: () -> Unit,
 ) {
-    // Colour follows the playhead on an effects spring — a fade, never a bounce.
-    val container = if (active) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background
-    Surface(onClick = onSeek, shape = MaterialTheme.shapes.medium, color = container) {
+    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.background) {
         Row(Modifier.padding(horizontal = 15.dp, vertical = 13.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.size(width = 34.dp, height = 44.dp)) {
                 if (showVoice) {

@@ -3,27 +3,26 @@ package com.harken.android.data
 import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.data.local.SegmentRow
 import com.harken.android.data.local.SessionRow
-import com.harken.android.data.local.SummaryRow
-import com.harken.android.network.HarkenApi
-import com.harken.android.network.SessionDetail
-import com.harken.android.network.SessionListItem
 import com.harken.android.speech.LocalTranscribedSegment
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
 /**
  * The single place the UI reads sessions from.
  *
- * Room is the source of truth for the SCREEN; the API is the source of truth for the
- * BACKEND'S fields. Library renders from the local mirror immediately and a refresh is a
- * background reconciliation, so the list never shows a spinner where content used to be.
+ * Room is the source of truth: recordings are transcribed entirely on-device and never
+ * synced from/to a backend.
  */
+interface TranscriptionSink {
+    suspend fun startLocalTranscription(id: UUID)
+    suspend fun completeLocal(id: UUID, segments: List<LocalTranscribedSegment>, durationSeconds: Int)
+    suspend fun failLocal(id: UUID, reason: String)
+}
+
 class SessionRepository(
     private val db: HarkenDatabase,
-    private val api: HarkenApi,
-) {
+) : TranscriptionSink {
     private val dao = db.sessions()
 
     data class SessionView(
@@ -50,7 +49,7 @@ class SessionRepository(
     fun observeSummary(id: UUID) = dao.observeSummary(id)
 
     /** Flips a "Recorded" (recorded, not yet transcribed) session to "Running". */
-    suspend fun startLocalTranscription(id: UUID) = dao.markLocalTranscriptionStarted(id)
+    override suspend fun startLocalTranscription(id: UUID) = dao.markLocalTranscriptionStarted(id)
 
     /** Local rename. Passing null restores the derived name. */
     suspend fun rename(id: UUID, title: String?) = dao.setTitle(id, title?.trim()?.ifBlank { null })
@@ -58,50 +57,11 @@ class SessionRepository(
     suspend fun setTags(id: UUID, tags: List<String>) =
         dao.setTags(id, tags.map { it.trim() }.filter { it.isNotEmpty() }.joinToString(","))
 
-    /** Reconcile the mirror against the backend. Local-only columns are never touched. */
-    suspend fun refresh(): Result<Unit> = runCatching {
-        val response = api.listSessions()
-        if (!response.isSuccessful) error("listSessions returned ${response.code()}")
-        val now = System.currentTimeMillis()
-        response.body().orEmpty().forEach { item -> dao.upsertMirrored(item.toRow(now)) }
-    }
-
-    /** Pull one session's detail, including segments, summary and the voice heuristic. */
-    suspend fun refreshDetail(id: UUID): Result<Unit> = runCatching {
-        val response = api.getSession(id)
-        if (!response.isSuccessful) error("getSession returned ${response.code()}")
-        val detail = response.body() ?: error("getSession returned an empty body")
-        val offsets = SpeakerHeuristic.offsetSeconds(detail.segments)
-        val voices = SpeakerHeuristic.assign(offsets)
-        dao.upsertMirrored(detail.toRow(System.currentTimeMillis(), offsets.lastOrNull()))
-        dao.replaceSegmentsAtomically(
-            id,
-            detail.segments.mapIndexed { i, s ->
-                SegmentRow(
-                    id = s.id,
-                    sessionId = id,
-                    offsetSeconds = offsets[i],
-                    text = s.text,
-                    voiceIndex = voices[i],
-                )
-            },
-        )
-        detail.summary?.let { dao.replaceSummary(SummaryRow(id, it.summary, it.generatedAt)) }
-    }
-
-    suspend fun summarize(id: UUID): Result<Unit> = runCatching {
-        val response = api.summarize(id)
-        if (!response.isSuccessful) error("summarize returned ${response.code()}")
-        refreshDetail(id).getOrThrow()
-    }
-
     /**
      * Creates a fresh local-only session row (ADR-0011) for a recording that will be
-     * transcribed entirely on-device — never synced from/to the backend. Mirrors the
-     * shape `refresh()` would have produced for an uploaded session, except
-     * `isLocalOnly = true` and a `"Recorded"` status: the audio is saved but transcription
-     * does not start until the user explicitly asks for it (see [startLocalTranscription],
-     * [completeLocal], [failLocal]) — recording no longer auto-triggers native inference.
+     * transcribed entirely on-device — never synced from/to the backend. The audio is
+     * saved but transcription does not start until the user explicitly asks for it (see
+     * [startLocalTranscription], [completeLocal], [failLocal]).
      */
     suspend fun createLocalSession(id: UUID, startedAt: String, source: String, filePath: String) {
         dao.insertLocalOnly(
@@ -122,8 +82,8 @@ class SessionRepository(
         )
     }
 
-    /** Settles a local-only session as transcribed, using the same voice heuristic refreshDetail() uses. */
-    suspend fun completeLocal(id: UUID, segments: List<LocalTranscribedSegment>, durationSeconds: Int) {
+    /** Settles a local-only session as transcribed, using the same voice heuristic used elsewhere. */
+    override suspend fun completeLocal(id: UUID, segments: List<LocalTranscribedSegment>, durationSeconds: Int) {
         val offsets = segments.map { it.offsetSeconds }
         val voices = SpeakerHeuristic.assign(offsets)
         dao.completeLocalTranscription(
@@ -142,15 +102,9 @@ class SessionRepository(
     }
 
     /** Marks a local-only session's on-device transcription as failed. */
-    suspend fun failLocal(id: UUID, reason: String) = dao.failLocalTranscription(id, reason)
+    override suspend fun failLocal(id: UUID, reason: String) = dao.failLocalTranscription(id, reason)
 
     suspend fun purge(id: UUID): Result<Unit> = runCatching {
-        if (observeSession(id).first()?.isLocalOnly == true) {
-            dao.deleteSession(id)
-            return@runCatching
-        }
-        val response = api.purgeSession(id)
-        if (!response.isSuccessful) error("purgeSession returned ${response.code()}")
         dao.deleteSession(id)
     }
 
@@ -167,32 +121,6 @@ class SessionRepository(
         tags = row.localTags.split(',').filter { it.isNotBlank() },
         pendingUploadPath = row.pendingUploadPath,
         isLocalOnly = row.isLocalOnly,
-    )
-
-    private fun SessionListItem.toRow(now: Long) = SessionRow(
-        id = id,
-        startedAt = startedAt,
-        endedAt = endedAt,
-        source = source.name,
-        segmentCount = segmentCount,
-        hasSummary = hasSummary,
-        transcriptionStatus = null,
-        transcriptionFailureReason = null,
-        durationSeconds = null,
-        syncedAt = now,
-    )
-
-    private fun SessionDetail.toRow(now: Long, lastOffset: Int?) = SessionRow(
-        id = id,
-        startedAt = startedAt,
-        endedAt = endedAt,
-        source = source.name,
-        segmentCount = segments.size,
-        hasSummary = summary != null,
-        transcriptionStatus = transcriptionStatus?.name,
-        transcriptionFailureReason = transcriptionFailureReason,
-        durationSeconds = lastOffset,
-        syncedAt = now,
     )
 }
 

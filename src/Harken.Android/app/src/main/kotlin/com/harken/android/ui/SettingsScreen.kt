@@ -18,8 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -63,49 +61,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(stringResource(R.string.settings_title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 26.sp)
-
-        SettingsCard(c) {
-                Eyebrow(c, stringResource(R.string.settings_backend_header))
-                OutlinedTextField(
-                    value = state.baseUrl,
-                    onValueChange = viewModel::onBaseUrlChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = PillShape,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = c.pillTrack,
-                        unfocusedContainerColor = c.pillTrack,
-                        focusedTextColor = c.text,
-                        unfocusedTextColor = c.text,
-                        focusedBorderColor = c.accent,
-                        unfocusedBorderColor = Color.Transparent,
-                        cursorColor = c.accent,
-                    ),
-                )
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(
-                        onClick = viewModel::testConnection,
-                        enabled = state.connectionCheck != ConnectionCheck.Checking,
-                        shape = PillShape,
-                        modifier = Modifier.heightIn(min = 48.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = c.text),
-                        border = BorderStroke(1.dp, c.textSecondary),
-                    ) { Text(stringResource(if (state.connectionCheck == ConnectionCheck.Checking) R.string.settings_testing else R.string.settings_test), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
-                    Spacer(Modifier.width(10.dp))
-                    when (state.connectionCheck) {
-                        ConnectionCheck.Checking -> Text(stringResource(R.string.settings_checking), color = c.textSecondary, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
-                        ConnectionCheck.Connected -> Row(Modifier.background(c.stateDone, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp)) {
-                            Text(state.connectionMessage ?: stringResource(R.string.settings_reachable), color = c.stateDoneFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
-                        }
-                        ConnectionCheck.Failed -> Text(
-                            state.connectionMessage ?: stringResource(R.string.settings_unreachable),
-                            color = c.stateError, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.5.sp,
-                        )
-                        ConnectionCheck.None -> {}
-                    }
-                }
-        }
 
         SettingsCard(c) {
             Eyebrow(c, stringResource(R.string.settings_model_header))
