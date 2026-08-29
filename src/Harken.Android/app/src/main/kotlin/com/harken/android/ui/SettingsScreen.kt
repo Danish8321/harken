@@ -77,7 +77,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             Divider()
             SettingRow("Format", "16 kHz · 16-bit · mono")
             Text(
-                "Both limits end the recording and upload it, so a forgotten session lands on the backend rather than on the phone.",
+                "Both limits end the recording and save it, so a forgotten session lands in the Library rather than running forever.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
