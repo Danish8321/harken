@@ -9,6 +9,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,8 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -107,7 +107,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun next() {
-        _uiState.value = _uiState.value.copy(step = (_uiState.value.step + 1).coerceAtMost(3))
+        _uiState.value = _uiState.value.copy(step = (_uiState.value.step + 1).coerceAtMost(2))
     }
 
     fun finish(onDone: () -> Unit) {
@@ -119,30 +119,13 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
 }
 
 @Composable
-private fun OnboardingExplainer(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String) {
-    val c = LocalProtoColors.current
-    Column {
-        Icon(icon, contentDescription = null, tint = c.accent, modifier = Modifier.size(40.dp))
-        Text(title, color = c.text, fontFamily = ProtoHeadingFont, fontSize = 28.sp)
-        Text(
-            body,
-            color = c.textSecondary,
-            fontFamily = ProtoBodyFont,
-            fontSize = 14.5f.sp,
-            lineHeight = 22.sp,
-            modifier = Modifier.padding(top = 10.dp),
-        )
-    }
-}
-
-@Composable
 fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = viewModel()) {
     val c = LocalProtoColors.current
     val state by viewModel.uiState.collectAsState()
 
     Column(Modifier.fillMaxSize().background(c.screenBg).padding(24.dp)) {
         LinearProgressIndicator(
-            progress = { state.step / 3f },
+            progress = { state.step / 2f },
             modifier = Modifier.fillMaxWidth().height(6.dp).clip(PillShape),
             color = c.accent,
             trackColor = c.cardBorder,
@@ -175,19 +158,32 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
         ) { step ->
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
                 when (step) {
-                    1 -> OnboardingExplainer(
-                        icon = Icons.Filled.Lock,
-                        title = stringResource(R.string.onboarding2_step2_title),
-                        body = stringResource(R.string.onboarding2_step2_body),
-                    )
+                    1 -> Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                        Box(
+                            Modifier.size(88.dp).background(c.accent, androidx.compose.foundation.shape.CircleShape),
+                            contentAlignment = androidx.compose.ui.Alignment.Center,
+                        ) {
+                            Icon(Icons.Filled.Mic, contentDescription = null, tint = c.onAccent, modifier = Modifier.size(32.dp))
+                        }
+                        Text(
+                            stringResource(R.string.onboarding2_step1_title),
+                            color = c.text,
+                            fontFamily = ProtoHeadingFont,
+                            fontSize = 28.sp,
+                            modifier = Modifier.padding(top = 20.dp),
+                        )
+                        Text(
+                            stringResource(R.string.onboarding2_step1_body),
+                            color = c.textSecondary,
+                            fontFamily = ProtoBodyFont,
+                            fontSize = 14.5f.sp,
+                            lineHeight = 22.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(top = 10.dp),
+                        )
+                    }
 
-                    2 -> OnboardingExplainer(
-                        icon = Icons.Filled.GraphicEq,
-                        title = stringResource(R.string.onboarding2_step3_title),
-                        body = stringResource(R.string.onboarding2_step3_body),
-                    )
-
-                    3 -> Column {
+                    2 -> Column {
                         Text(stringResource(R.string.onboarding2_step4_title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 27.sp)
                         Text(
                             stringResource(R.string.onboarding2_step4_body),
@@ -264,10 +260,10 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                 ) { Text(stringResource(R.string.onboarding2_back)) }
             }
             Button(
-                onClick = { if (state.step < 3) viewModel.next() else viewModel.finish(onFinished) },
+                onClick = { if (state.step < 2) viewModel.next() else viewModel.finish(onFinished) },
                 modifier = Modifier.weight(1f).height(56.dp),
                 shape = PillShape,
-            ) { Text(stringResource(if (state.step < 3) R.string.onboarding2_continue else R.string.onboarding2_start_recording)) }
+            ) { Text(stringResource(if (state.step < 2) R.string.onboarding2_continue else R.string.onboarding2_start_recording)) }
         }
     }
 }
