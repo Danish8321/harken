@@ -126,7 +126,11 @@ fun AppNav() {
                     })
                 }
                 composable(Routes.Record) { MainHost(navController) { open -> RecordScreen(onOpenSession = open) } }
-                composable(Routes.Library) { MainHost(navController) { open -> LibraryScreen(onOpenSession = open) } }
+                composable(Routes.Library) {
+                    MainHost(navController) { open ->
+                        LibraryScreen(onOpenSession = open, onGoToRecord = { navController.navigate(Routes.Record) })
+                    }
+                }
                 composable(Routes.Settings) { MainHost(navController) { SettingsScreen() } }
             }
         }

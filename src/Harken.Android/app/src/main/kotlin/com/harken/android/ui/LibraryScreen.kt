@@ -73,11 +73,14 @@ private const val STAGGER_STEP_MS = 35L
 @Composable
 fun LibraryScreen(
     onOpenSession: (UUID) -> Unit = {},
+    onGoToRecord: () -> Unit = {},
     viewModel: LibraryViewModel = viewModel(),
 ) {
     val c = LocalProtoColors.current
     val state by viewModel.uiState.collectAsState()
     var filter by remember { mutableStateOf(LibraryFilter.All) }
+
+    LaunchedEffect(onGoToRecord) { viewModel.onNavigateToRecord = onGoToRecord }
 
     val visible = remember(state.sessions, filter) {
         when (filter) {

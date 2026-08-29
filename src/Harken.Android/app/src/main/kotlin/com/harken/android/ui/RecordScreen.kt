@@ -444,7 +444,9 @@ private fun UploadStatusCard(
 /** Real amplitude off RecordingState.amplitude — the bars go flat the instant audio stops. */
 @Composable
 private fun LiveMeter(c: ProtoColors, elapsed: String) {
-    val bars = remember { mutableStateListOf<Float>().apply { repeat(12) { add(0.35f) } } }
+    // Same bar count as the splash/idle trace (HarkenWaveform.BarCount) — a sparser
+    // buffer here read as a different, chunkier instrument instead of the same wave.
+    val bars = remember { mutableStateListOf<Float>().apply { repeat(HarkenWaveform.BarCount) { add(0.1f) } } }
     val amplitude by RecordingState.amplitude.collectAsState()
 
     LaunchedEffect(Unit) {
