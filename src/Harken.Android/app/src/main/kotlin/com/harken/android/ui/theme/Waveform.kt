@@ -31,17 +31,13 @@ object HarkenWaveform {
     val BarShape = RoundedCornerShape(2.dp)
 
     /** Height at the trough — the bar never fully collapses, so the trace stays continuous. */
-    private val BarMinHeight = 4.dp
+    val BarMinHeight = 4.dp
 
     /** Added to [BarMinHeight] at the crest. */
-    private val BarTravelHeight = 32.dp
+    val BarTravelHeight = 56.dp
 
-    /**
-     * Height for a bar driven by a real 0..1 amplitude reading rather than the phase
-     * clock — the live meter's crest, same trough/crest range as the idle/splash trace so
-     * the three read as one instrument rather than two different bar styles.
-     */
-    fun amplitudeHeight(value: Float): Dp = BarMinHeight + BarTravelHeight * value.coerceIn(0f, 1f)
+    /** Maps a normalized 0..1 level onto the same trough-to-crest range the decorative trace uses. */
+    fun levelHeight(normalized: Float): Dp = BarMinHeight + BarTravelHeight * normalized.coerceIn(0f, 1f)
 
     /** How fast the crest travels. Paired with [PhaseStep]; changing one alone re-tunes the look. */
     private const val TravelSpeed = 1.6154f

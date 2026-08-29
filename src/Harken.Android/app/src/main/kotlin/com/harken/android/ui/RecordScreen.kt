@@ -33,7 +33,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -199,17 +198,6 @@ fun RecordScreen(
                 }
             } else {
                 Column {
-                    Spacer(Modifier.height(14.dp))
-                    Text(formatElapsed(elapsed), color = c.text, fontFamily = ProtoMonoFont, fontWeight = FontWeight.Medium, fontSize = 36.sp)
-                    Spacer(Modifier.height(6.dp))
-                    Row(
-                        Modifier.background(c.stateLive, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(Modifier.size(7.dp).background(c.accent, CircleShape))
-                        Spacer(Modifier.width(7.dp))
-                        Text(stringResource(R.string.record_capturing), color = c.stateLiveFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
-                    }
                     Spacer(Modifier.height(18.dp))
                     LiveMeter(c, formatElapsed(elapsed))
 
@@ -286,8 +274,8 @@ private fun IdleMeter(c: ProtoColors) {
         footerLeftFont = ProtoMonoFont,
         footerRightFont = ProtoBodyFont,
     ) {
-        // Same shape/spacing as SplashScreen's waveform, held at rest (moving = false) —
-        // nothing is being recorded, so nothing marches.
+        // Same wave shape as the splash and live meters, held at a single fixed phase — no
+        // input to visualize yet, so nothing here should look like it's listening.
         Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             for (i in 0 until HarkenWaveform.BarCount) {
                 val h = HarkenWaveform.barHeight(0f, i, moving = false)
@@ -441,45 +429,55 @@ private fun UploadStatusCard(
     }
 }
 
+/**
+ * Measured on-device (adb logcat): normal speech RMS runs ~0.02-0.13, never near the
+ * 0-dBFS ceiling a mic never reaches while talking. Scaling toward that unreachable 0 dB
+ * capped bars around 50% even at loud peaks. Instead scale between a realistic quiet
+ * floor and loud-voice ceiling so a normal loud peak reads as a near-full bar.
+ */
+private fun amplitudeToBarHeight(amplitude: Float): Float {
+    if (amplitude <= 0f) return 0.1f
+    val db = 20f * kotlin.math.log10(amplitude)
+    val floorDb = -40f
+    val ceilDb = -12f
+    return ((db - floorDb) / (ceilDb - floorDb)).coerceIn(0.1f, 1f)
+}
+
 /** Real amplitude off RecordingState.amplitude — the bars go flat the instant audio stops. */
 @Composable
 private fun LiveMeter(c: ProtoColors, elapsed: String) {
-    // Same bar count as the splash/idle trace (HarkenWaveform.BarCount) — a sparser
-    // buffer here read as a different, chunkier instrument instead of the same wave.
-    val bars = remember { mutableStateListOf<Float>().apply { repeat(HarkenWaveform.BarCount) { add(0.1f) } } }
+    // Same bar count/width/shape as the idle and splash waves — this is a live-driven
+    // instance of the same trace, not a different widget, so it must read as the same object.
+    val bars = remember { mutableStateListOf<Float>().apply { repeat(HarkenWaveform.BarCount) { add(0f) } } }
     val amplitude by RecordingState.amplitude.collectAsState()
 
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(90)
-            val next = (amplitude * 3.2f).coerceIn(0.1f, 1f)
             bars.removeAt(0)
-            bars.add(next)
+            bars.add(amplitudeToBarHeight(amplitude))
         }
     }
 
     MeterCard(
         c = c,
-        height = 180.dp,
+        height = 240.dp,
         iconTint = c.accent,
         label = stringResource(R.string.record_meter_live),
         labelColor = c.inkStrong,
-        footerLeft = elapsed,
+        footerLeft = "",
         footerRight = stringResource(R.string.record_meter_cap),
         footerColor = c.inkStrong,
         footerLeftFont = ProtoMonoFont,
         footerRightFont = ProtoMonoFont,
     ) {
-        // Same oscilloscope trace as the splash/idle waveform — mirrored around center,
-        // SpaceBetween across the full width — just driven by real amplitude per bar
-        // instead of the phase clock, so recording reads as the same instrument at rest
-        // and in use rather than switching to an unrelated bottom-anchored bar chart.
-        Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            bars.forEach { value ->
+        Text(elapsed, color = c.text, fontFamily = ProtoMonoFont, fontWeight = FontWeight.Medium, fontSize = 36.sp)
+        Row(Modifier.fillMaxWidth().height(72.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            bars.forEach { level ->
                 Box(
                     Modifier
                         .width(HarkenWaveform.BarWidth)
-                        .height(HarkenWaveform.amplitudeHeight(value))
+                        .height(HarkenWaveform.levelHeight(level))
                         .background(c.accent, HarkenWaveform.BarShape),
                 )
             }

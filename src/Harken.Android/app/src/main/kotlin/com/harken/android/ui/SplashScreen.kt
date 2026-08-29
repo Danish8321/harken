@@ -176,7 +176,7 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
                 }
             }
             Row(
-                Modifier.padding(top = 10.dp).fillMaxWidth().padding(horizontal = 32.dp).height(36.dp),
+                Modifier.padding(top = 10.dp).fillMaxWidth().padding(horizontal = 32.dp).height(64.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
