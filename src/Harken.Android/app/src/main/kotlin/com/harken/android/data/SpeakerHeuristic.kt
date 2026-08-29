@@ -1,7 +1,5 @@
 package com.harken.android.data
 
-import com.harken.android.network.TranscriptSegmentView
-
 /**
  * Assigns a voice index to each transcript segment.
  *
@@ -47,6 +45,4 @@ object SpeakerHeuristic {
             else -> parts.firstOrNull()?.toIntOrNull() ?: 0
         }
     }
-
-    fun offsetSeconds(segments: List<TranscriptSegmentView>): List<Int> = segments.map { offsetSeconds(it.offset) }
 }

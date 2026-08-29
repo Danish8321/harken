@@ -108,14 +108,6 @@ fun RecordScreen(
     val state by viewModel.uiState.collectAsState()
     val haptics = LocalHapticFeedback.current
 
-    // The pill names the actual configured upload target, not a hardcoded placeholder —
-    // it used to always read "studio-mac" regardless of where recordings were really going.
-    val settings = remember { AppSettings(context) }
-    val baseUrl by settings.baseUrl.collectAsState(initial = AppSettings.DefaultBaseUrl)
-    val backendLabel = remember(baseUrl) {
-        runCatching { java.net.URI(baseUrl).host }.getOrNull() ?: baseUrl
-    }
-
     // Fires exactly once per genuine upload-status transition, not on every recomposition —
     // LaunchedEffect only restarts when the key (state.uploadStatus) itself changes.
     LaunchedEffect(state.uploadStatus) {
@@ -159,18 +151,6 @@ fun RecordScreen(
     ) {
         Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.record_wordmark), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 20.sp)
-            Spacer(Modifier.weight(1f))
-            // Neutral, not stateDone — this names the configured target, it doesn't claim
-            // it's reachable. Painting it "Connected" green regardless of the backend's
-            // actual state was the same class of lie the hardcoded host used to tell.
-            Row(
-                Modifier.background(c.pillTrack, RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.size(7.dp).background(c.textSecondary, CircleShape))
-                Spacer(Modifier.width(6.dp))
-                Text(backendLabel, color = c.textSecondary, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-            }
         }
 
         // Idle <-> live crossfades as one block instead of a hard cut — IdleMeter's wave
@@ -233,7 +213,7 @@ fun RecordScreen(
         AnimatedVisibility(state.uploadStatus != UploadStatus.Idle, enter = fadeIn(fade), exit = fadeOut(fade)) {
             Column {
                 Spacer(Modifier.height(14.dp))
-                UploadStatusCard(c, state.uploadStatus, state.lastSessionId, state.lastError, state.lastSavedLocally, backendLabel, onOpenSession, viewModel::retryUpload)
+                UploadStatusCard(c, state.uploadStatus, state.lastSessionId, state.lastError, state.lastSavedLocally, onOpenSession, viewModel::retryUpload)
             }
         }
 
@@ -360,7 +340,6 @@ private fun UploadStatusCard(
     lastSessionId: UUID?,
     lastError: String?,
     lastSavedLocally: Boolean,
-    backendLabel: String,
     onOpenSession: (UUID) -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -433,7 +412,6 @@ private fun UploadStatusCard(
             when (status) {
                 UploadStatus.Uploading -> {
                     Text(stringResource(R.string.record_upload_uploading_title), color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text(stringResource(R.string.record_upload_uploading_body, backendLabel), color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp)
                 }
                 UploadStatus.Succeeded -> {
                     Text(

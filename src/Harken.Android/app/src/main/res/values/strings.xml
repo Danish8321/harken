@@ -117,14 +117,9 @@
     <string name="session_summary_collapse">Collapse summary</string>
     <string name="session_summary_expand">Expand summary</string>
     <string name="session_delete_confirm_title">Delete this recording?</string>
-    <string name="session_delete_confirm_body">The WAV file, its transcript and its summary are removed from the backend and this phone. This cannot be undone.</string>
+    <string name="session_delete_confirm_body">The transcript and its segments are removed from this phone. This cannot be undone.</string>
     <string name="session_delete_confirm">Delete</string>
     <string name="session_delete_keep">Keep it</string>
-    <string name="session_play">Play</string>
-    <string name="session_pause">Pause</string>
-    <string name="session_playback_of">of %1$s · seek on the wave</string>
-    <string name="session_playback_unavailable">Playback needs the audio endpoint</string>
-    <string name="session_playback_ondevice_unavailable">Recorded on-device; no audio file to play back</string>
     <string name="session_add_tag">+ Tag</string>
     <string name="session_voice">VOICE %1$d</string>
     <string name="session_toast_renamed">Renamed</string>
@@ -138,17 +133,6 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
-    <string name="settings_backend_header">BACKEND</string>
-    <string name="settings_test">Test</string>
-    <string name="settings_testing">Testing…</string>
-    <string name="settings_checking">checking…</string>
-    <string name="settings_reachable">Reachable</string>
-    <string name="settings_unreachable">Unreachable</string>
-    <string name="settings_invalid_url">Enter a valid http(s) URL</string>
-    <string name="settings_check_in_progress">Checking...</string>
-    <string name="settings_connected">Connected and saved.</string>
-    <string name="settings_bad_status">Backend responded with %1$d.</string>
-    <string name="settings_unreachable_reason">Could not reach backend: %1$s</string>
     <string name="settings_capture_header">CAPTURE LIMITS</string>
     <string name="settings_session_cap">Session cap</string>
     <string name="settings_session_cap_value">3 hours</string>
