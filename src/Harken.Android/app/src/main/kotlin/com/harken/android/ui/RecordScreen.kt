@@ -8,9 +8,17 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -33,6 +41,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -99,6 +108,7 @@ fun RecordScreen(
     val c = LocalProtoColors.current
     // Banner fades resolved once here: enter/exit params are not a composable scope.
     val fade = HarkenMotion.effectsDefault<Float>()
+    val cardResize = HarkenMotion.spatialDefault<androidx.compose.ui.unit.IntSize>()
     val reduced = LocalReducedMotion.current
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
@@ -183,7 +193,14 @@ fun RecordScreen(
                 if (reduced) {
                     EnterTransition.None togetherWith ExitTransition.None
                 } else {
-                    fadeIn(fade) togetherWith fadeOut(fade)
+                    // The idle branch carries a headline block the live branch doesn't, so
+                    // the two sides are different heights — without a SizeTransform the
+                    // meter card below snaps to its new y the instant content swaps, while
+                    // only the fade is animated, reading as a teleport rather than a state
+                    // change.
+                    (fadeIn(fade) togetherWith fadeOut(fade)).using(
+                        SizeTransform(sizeAnimationSpec = { _, _ -> cardResize }),
+                    )
                 }
             },
         ) { recording ->
@@ -264,7 +281,7 @@ fun RecordScreen(
 private fun IdleMeter(c: ProtoColors) {
     MeterCard(
         c = c,
-        height = 150.dp,
+        height = 240.dp,
         iconTint = c.inkSubtle,
         label = stringResource(R.string.record_meter_idle),
         labelColor = c.inkSubtle,
@@ -308,23 +325,51 @@ private fun MeterCard(
     footerColor: androidx.compose.ui.graphics.Color,
     footerLeftFont: androidx.compose.ui.text.font.FontFamily,
     footerRightFont: androidx.compose.ui.text.font.FontFamily,
+    live: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     Column(
         Modifier.fillMaxWidth().height(height).background(c.meterBg, RoundedCornerShape(30.dp)).padding(20.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Mic, contentDescription = null, tint = iconTint, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(8.dp))
             Text(label, color = labelColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
+            if (live) {
+                Spacer(Modifier.width(8.dp))
+                LiveDot(c)
+            }
         }
-        content()
+        Column(
+            Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            content()
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(footerLeft, color = footerColor, fontFamily = footerLeftFont, fontSize = 12.5.sp)
             Text(footerRight, color = footerColor, fontFamily = footerRightFont, fontSize = 12.5.sp)
         }
     }
+}
+
+/** Small breathing dot next to the live label — the only remaining "recording is active" cue now that the standalone CAPTURING pill is gone. Frozen under reduced motion. */
+@Composable
+private fun LiveDot(c: ProtoColors) {
+    val reduced = LocalReducedMotion.current
+    val transition = rememberInfiniteTransition(label = "liveDot")
+    val alpha = if (reduced) {
+        1f
+    } else {
+        transition.animateFloat(
+            initialValue = 0.35f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(700, easing = LinearEasing), RepeatMode.Reverse),
+            label = "liveDotAlpha",
+        ).value
+    }
+    Box(Modifier.size(7.dp).background(c.accent.copy(alpha = alpha), CircleShape))
 }
 
 /**
@@ -470,14 +515,19 @@ private fun LiveMeter(c: ProtoColors, elapsed: String) {
         footerColor = c.inkStrong,
         footerLeftFont = ProtoMonoFont,
         footerRightFont = ProtoMonoFont,
+        live = true,
     ) {
         Text(elapsed, color = c.text, fontFamily = ProtoMonoFont, fontWeight = FontWeight.Medium, fontSize = 36.sp)
         Row(Modifier.fillMaxWidth().height(72.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             bars.forEach { level ->
+                // Each shift moves every bar to its neighbour's old height — animating the
+                // jump instead of snapping it is what makes the crest look like it travels
+                // rather than flicker between fixed positions.
+                val animatedHeight by animateDpAsState(HarkenWaveform.levelHeight(level), tween(90), label = "barHeight")
                 Box(
                     Modifier
                         .width(HarkenWaveform.BarWidth)
-                        .height(HarkenWaveform.levelHeight(level))
+                        .height(animatedHeight)
                         .background(c.accent, HarkenWaveform.BarShape),
                 )
             }
