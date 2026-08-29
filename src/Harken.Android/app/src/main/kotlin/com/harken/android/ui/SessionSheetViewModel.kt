@@ -64,7 +64,7 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
                 val duration = session?.durationSeconds ?: rows.lastOrNull()?.offsetSeconds ?: 0
                 _uiState.value.copy(
                     title = session?.title.orEmpty(),
-                    meta = buildMeta(session, duration),
+                    meta = buildMeta(session, duration, rows.isNotEmpty()),
                     tags = session?.tags.orEmpty(),
                     segments = rows,
                     summary = summary?.summary?.let(::stripMarkdown),
@@ -135,10 +135,13 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
         return if (voices > 1) res.getString(R.string.session_transcript_meta_voices, segments, voices) else segments
     }
 
-    private fun buildMeta(session: SessionRepository.SessionView?, duration: Int): String {
+    private fun buildMeta(session: SessionRepository.SessionView?, duration: Int, transcribed: Boolean): String {
         if (session == null) return ""
         val length = "${duration / 60}m ${(duration % 60).toString().padStart(2, '0')}s"
-        return "${formatSessionTimestamp(session.startedAt)} · $length · whisper base.en"
+        val base = "${formatSessionTimestamp(session.startedAt)} · $length"
+        // "whisper base.en" names the one on-device model this app ships (ADR-0011) — true
+        // of every transcript, but false to claim for a session nothing has transcribed yet.
+        return if (transcribed) "$base · whisper base.en" else base
     }
 
     private fun stripMarkdown(text: String): String = text

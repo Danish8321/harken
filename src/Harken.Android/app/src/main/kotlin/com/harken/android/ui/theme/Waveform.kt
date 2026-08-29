@@ -36,6 +36,13 @@ object HarkenWaveform {
     /** Added to [BarMinHeight] at the crest. */
     private val BarTravelHeight = 32.dp
 
+    /**
+     * Height for a bar driven by a real 0..1 amplitude reading rather than the phase
+     * clock — the live meter's crest, same trough/crest range as the idle/splash trace so
+     * the three read as one instrument rather than two different bar styles.
+     */
+    fun amplitudeHeight(value: Float): Dp = BarMinHeight + BarTravelHeight * value.coerceIn(0f, 1f)
+
     /** How fast the crest travels. Paired with [PhaseStep]; changing one alone re-tunes the look. */
     private const val TravelSpeed = 1.6154f
 

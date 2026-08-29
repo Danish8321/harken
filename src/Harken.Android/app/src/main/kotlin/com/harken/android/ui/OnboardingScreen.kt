@@ -15,11 +15,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -123,7 +126,9 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
     val c = LocalProtoColors.current
     val state by viewModel.uiState.collectAsState()
 
-    Column(Modifier.fillMaxSize().background(c.screenBg).padding(24.dp)) {
+    Column(
+        Modifier.fillMaxSize().background(c.screenBg).statusBarsPadding().navigationBarsPadding().padding(24.dp),
+    ) {
         LinearProgressIndicator(
             progress = { state.step / 2f },
             modifier = Modifier.fillMaxWidth().height(6.dp).clip(PillShape),
@@ -156,7 +161,11 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
             },
             label = "onboardingStep",
         ) { step ->
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+            // Top-anchored, not Center: step 3 is taller (adds the download card and Skip
+            // link) than steps 1-2, so centering each step's own block made its
+            // icon/title sit at a different height than the others — every step needs
+            // the same fixed distance from the top so the headline doesn't jump around.
+            Column(Modifier.fillMaxSize().padding(top = 64.dp)) {
                 when (step) {
                     1 -> Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
                         Box(
@@ -184,7 +193,13 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                     }
 
                     2 -> Column {
-                        Text(stringResource(R.string.onboarding2_step4_title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 27.sp)
+                        Icon(Icons.Filled.CloudDownload, contentDescription = null, tint = c.accent, modifier = Modifier.size(40.dp))
+                        Text(
+                            stringResource(R.string.onboarding2_step4_title),
+                            color = c.text,
+                            fontFamily = ProtoHeadingFont,
+                            fontSize = 28.sp,
+                        )
                         Text(
                             stringResource(R.string.onboarding2_step4_body),
                             color = c.textSecondary,
@@ -204,6 +219,8 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                                     LinearProgressIndicator(
                                         progress = { state.modelDownloadProgress / 100f },
                                         modifier = Modifier.fillMaxWidth().height(6.dp).clip(PillShape),
+                                        color = c.accent,
+                                        trackColor = c.cardBorder,
                                     )
                                     Text(
                                         stringResource(R.string.onboarding2_downloading, state.modelDownloadProgress),
@@ -254,9 +271,10 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (state.step > 1) {
-                TextButton(
+                OutlinedButton(
                     onClick = viewModel::back,
-                    modifier = Modifier.weight(1f).height(52.dp),
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    shape = PillShape,
                 ) { Text(stringResource(R.string.onboarding2_back)) }
             }
             Button(

@@ -10,12 +10,7 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -238,7 +233,7 @@ fun RecordScreen(
         AnimatedVisibility(state.uploadStatus != UploadStatus.Idle, enter = fadeIn(fade), exit = fadeOut(fade)) {
             Column {
                 Spacer(Modifier.height(14.dp))
-                UploadStatusCard(c, state.uploadStatus, state.lastSessionId, state.lastError, state.lastSavedLocally, onOpenSession, viewModel::retryUpload)
+                UploadStatusCard(c, state.uploadStatus, state.lastSessionId, state.lastError, onOpenSession, viewModel::retryUpload)
             }
         }
 
@@ -273,20 +268,12 @@ fun RecordScreen(
 }
 
 /**
- * Idle bars breathe with a gentle per-bar phase offset — a slow ripple, not a pulse —
- * echoing the splash mark's motif (UI-011) so the app reads as "listening" even at rest.
- * Frozen under reduced motion: the bars just hold their base height.
+ * Idle bars hold the splash waveform's shape at rest, unanimated — the marching trace is
+ * a launch moment, not an ambient loop; playing it continuously while nothing is being
+ * recorded read as the app "listening" when it plainly isn't (per review feedback).
  */
 @Composable
 private fun IdleMeter(c: ProtoColors) {
-    val reduced = LocalReducedMotion.current
-    val transition = rememberInfiniteTransition(label = "idleBreathe")
-    val t by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = if (reduced) 0f else (2 * Math.PI).toFloat(),
-        animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing)),
-        label = "idleBreatheT",
-    )
     MeterCard(
         c = c,
         height = 150.dp,
@@ -299,12 +286,11 @@ private fun IdleMeter(c: ProtoColors) {
         footerLeftFont = ProtoMonoFont,
         footerRightFont = ProtoBodyFont,
     ) {
-        // Marching wave mirrored around center, same language as SplashScreen's waveform —
-        // the crest visibly travels left-to-right rather than every bar breathing in place,
-        // and in the same accent, so the splash's wave and this one are one motif.
+        // Same shape/spacing as SplashScreen's waveform, held at rest (moving = false) —
+        // nothing is being recorded, so nothing marches.
         Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             for (i in 0 until HarkenWaveform.BarCount) {
-                val h = HarkenWaveform.barHeight(t, i, moving = !reduced)
+                val h = HarkenWaveform.barHeight(0f, i, moving = false)
                 Box(
                     Modifier
                         .width(HarkenWaveform.BarWidth)
@@ -365,7 +351,6 @@ private fun UploadStatusCard(
     status: UploadStatus,
     lastSessionId: UUID?,
     lastError: String?,
-    lastSavedLocally: Boolean,
     onOpenSession: (UUID) -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -423,9 +408,6 @@ private fun UploadStatusCard(
             },
         ) { s ->
             when (s) {
-                UploadStatus.Uploading -> CircularProgressIndicator(
-                    color = c.textSecondary, strokeWidth = 2.dp, modifier = Modifier.size(20.dp),
-                )
                 UploadStatus.Succeeded -> Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = c.success, modifier = Modifier.size(20.dp))
                 UploadStatus.Failed -> Icon(Icons.Filled.Warning, contentDescription = null, tint = c.stateErrorFg, modifier = Modifier.size(20.dp))
                 UploadStatus.Idle -> Unit
@@ -436,16 +418,13 @@ private fun UploadStatusCard(
             val titleColor = if (status == UploadStatus.Failed) c.stateErrorFg else c.text
             val bodyColor = if (status == UploadStatus.Failed) c.stateErrorFg else c.textSecondary
             when (status) {
-                UploadStatus.Uploading -> {
-                    Text(stringResource(R.string.record_upload_uploading_title), color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                }
                 UploadStatus.Succeeded -> {
                     Text(
-                        stringResource(if (lastSavedLocally) R.string.record_saved_local_title else R.string.record_upload_ok_title),
+                        stringResource(R.string.record_saved_local_title),
                         color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp,
                     )
                     Text(
-                        stringResource(if (lastSavedLocally) R.string.record_saved_local_body else R.string.record_upload_ok_body),
+                        stringResource(R.string.record_saved_local_body),
                         color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp,
                     )
                 }
@@ -489,14 +468,16 @@ private fun LiveMeter(c: ProtoColors, elapsed: String) {
         footerLeftFont = ProtoMonoFont,
         footerRightFont = ProtoMonoFont,
     ) {
-        Row(Modifier.fillMaxWidth().height(44.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
+        // Same oscilloscope trace as the splash/idle waveform — mirrored around center,
+        // SpaceBetween across the full width — just driven by real amplitude per bar
+        // instead of the phase clock, so recording reads as the same instrument at rest
+        // and in use rather than switching to an unrelated bottom-anchored bar chart.
+        Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             bars.forEach { value ->
                 Box(
                     Modifier
-                        .padding(horizontal = 2.5.dp)
-                        .width(5.dp)
-                        .height(40.dp)
-                        .scale(scaleX = 1f, scaleY = value)
+                        .width(HarkenWaveform.BarWidth)
+                        .height(HarkenWaveform.amplitudeHeight(value))
                         .background(c.accent, HarkenWaveform.BarShape),
                 )
             }

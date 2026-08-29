@@ -263,13 +263,14 @@ fun SessionSheet(
     }
 }
 
-/** On-device sessions never uploaded audio anywhere (ADR-0011) — nothing to play back. */
+// The recording stays on the phone (ADR-0011) — this card is not reporting a missing
+// file, only that there's no player UI for it yet, so the copy must not read as an error.
 @Composable
 private fun NoPlaybackCard(modifier: Modifier = Modifier) {
     val ink = LocalInk.current
     InkSurface(modifier) {
         Text(
-            "Recorded on-device; no audio file to play back",
+            stringResource(R.string.session_no_playback),
             style = MaterialTheme.typography.bodyMedium,
             color = ink.onInkDim,
         )

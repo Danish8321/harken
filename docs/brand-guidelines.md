@@ -1,6 +1,6 @@
-# Harken Brand Guidelines v2.0
+# Harken Brand Guidelines v2.3
 
-> Last updated: 2026-08-28
+> Last updated: 2026-08-29
 > Status: Draft — derived from the shipped Android UI (`ui/theme/ProtoColors.kt` + screen copy), not a separate design exercise.
 
 **This document describes what is in the code, so the code is what settles a disagreement.** Every value below is copied from `ui/theme/ProtoColors.kt` or a screen composable. A change to either is not finished until this file matches it — v1.0 went stale inside a single branch because four re-palettes landed without touching it, and a design standard nobody updates is worse than none, because it is quoted with confidence.
@@ -14,7 +14,7 @@
 | Primary Font (body/UI) | Figtree |
 | Numeric/technical readouts | IBM Plex Mono |
 | Voice | Plainspoken, calm, technically precise, no hype |
-| Positioning | A quiet, self-hosted recorder — audio never leaves your own network unless you send it there |
+| Positioning | A quiet, on-device recorder — audio is transcribed on the phone and never leaves it |
 
 ---
 
@@ -63,6 +63,10 @@ The accent doubles as the live/recording fill (`stateLive`). That is deliberate:
 
 `res/values/colors.xml` and `res/values-night/colors.xml` hold `window_background`, painted by the OS *before* Compose starts. It must equal `screenBg` for its theme or every cold start flashes the wrong ground. Android cannot read a Compose value that early, so this is the one duplication of a palette token in the repo — **a re-palette must edit those two files by hand.** This was missed in UI-009 and again in UI-024; both times the flash came back.
 
+### The ink surface is a separate, deliberate palette
+
+`InkSurface` (`ui/components/HarkenSurfaces.kt`) and its `LocalInk` tokens (`ui/theme/Theme.kt`) are not `ProtoColors` — they read from a small warm ramp defined on `Organic` (`ui/theme/Color.kt`): `#2E2B25` ink / `#F5EAD8` on-ink for light theme, `#100E0C` ink / `#F5EAD8` on-ink for dark. This is intentional, not a leftover from the pre-UI-002 two-system era: ink is reserved for audio surfaces only — the capture stage, the player, the floating toolbar — and is meant to read as one warm, near-black anchor regardless of which `ProtoColors` theme is active, so audio always has the same visual weight. It still flips its own light/dark ink shade with the system theme; what stays fixed is that it never borrows a `ProtoColors` hue. Don't route a non-audio surface through `InkSurface`, and don't fold `Organic` into `ProtoColors` — diluting either erases the one signal this system carries.
+
 ### Accessibility
 
 - Text/background pairs above are the actual Compose `ProtoColors` tokens — all body-text pairs clear WCAG AA (4.5:1) in both themes.
@@ -93,7 +97,7 @@ Space Grotesk replaced Caprasimo in UI-010. Geometric and technical suits a prec
 | Record wordmark (header) | 20sp | Space Grotesk | Regular |
 | Elapsed timer | 36sp | IBM Plex Mono | Medium |
 | Format / meter readouts | 12.5–14sp | IBM Plex Mono | Regular |
-| Eyebrow labels (CAPTURE LIMITS, BACKEND) | 11sp, +1.2sp tracking | Figtree | Black/800 |
+| Eyebrow labels (CAPTURE LIMITS, SPEECH MODEL) | 11sp, +1.2sp tracking | Figtree | Black/800 |
 | Card title / list title | 15sp | Figtree | Bold |
 | Nav tab label | 13sp | Figtree | Bold |
 | Body / description | 13.5–14.5sp | Figtree | Regular |
@@ -126,11 +130,11 @@ Derived directly from shipped copy — Harken's actual voice is calm, specific, 
 | Trait | Description | Evidence |
 |-------|-------------|----------|
 | **Quiet & confident** | States facts plainly, no exclamation points | "Ready when you are." |
-| **Privacy-forward** | Volunteers *where* data goes and doesn't | "Recordings upload over your own Wi-Fi to a backend you run. Nothing goes further than your LAN." |
-| **Technically precise** | Gives exact numbers, not vague reassurance | "16 kHz mono · caps at 3 h", "Both limits end the recording and upload it, so a forgotten session lands on the backend rather than on the phone." |
-| **Unpatronizing on errors** | Explains cause + what happens next, no apology theatre | "Nothing answered at localhost:5057. Check the machine is awake and on this Wi-Fi — recordings keep saving locally meanwhile." |
+| **Privacy-forward** | Volunteers *where* data goes and doesn't | "Recording transcribes right there on your phone the moment you stop — no upload, no account, no per-minute cost, entirely on-device." |
+| **Technically precise** | Gives exact numbers, not vague reassurance | "16 kHz mono · caps at 3 h", "On-device transcription needs a one-time download (about 140 MB)." |
+| **Unpatronizing on errors** | Explains cause + what happens next, no apology theatre | "Download failed" (model download) states the fact and offers Retry, no apology theatre. |
 
-Labels name the real thing. The Record header pill shows the configured backend's host, read from settings — it read a hardcoded "studio-mac" until UI-023, which was a plausible-looking lie on every device that wasn't the author's. The pill's fill is neutral (`pillTrack`/`textSecondary`), not the "Connected" sage fill (UI-031): the app has no live reachability signal for that host, so painting it green would have been the same class of lie under a different name.
+Labels name the real thing (ADR-0011, on-device pivot). The old Record header "backend" pill, which showed a configured host read from settings, is gone along with the self-hosted-server architecture it pointed at — see UI-032 finding 4. There is nothing left in the shipped app that names a remote host or network destination for a recording.
 
 ### Tone by Context
 
@@ -138,9 +142,9 @@ Labels name the real thing. The Record header pill shows the configured backend'
 |---------|------|-------------------------------|
 | Idle/ready state | Calm, present-tense | "Ready when you are." |
 | Recording | Status-only, no cheerleading | "CAPTURING", elapsed timer, "Stops after 5 min silence" |
-| Error | Cause stated, recovery offered, no blame | "Upload failed · tap to retry" / "Still on this phone at {path}." |
+| Error | Cause stated, recovery offered, no blame | "Download failed", "Nothing recorded yet. Recordings appear here as soon as you stop one." |
 | Settings/limits | Exact values, plain units | "Session cap — 3 hours", "Format — 16 kHz · 16-bit · mono" |
-| Onboarding | Short declarative sentences, one idea per screen | "A quiet recorder for meetings and field notes. Audio, transcripts and summaries — kept on your own network." |
+| Onboarding | Short declarative sentences, one idea per screen | "Record now, read later. Recording transcribes right there on your phone the moment you stop." |
 
 ### Prohibited Terms
 
@@ -193,10 +197,46 @@ One motif, three places: the splash, the idle meter, and the live meter. Bars ma
 
 ---
 
+## 6. Motion (from `ui/theme/Motion.kt` and `MorphShapes.kt`)
+
+Two token families, chosen by what's moving, never by feel in the moment:
+
+| Family | Governs | Behaviour |
+|--------|---------|-----------|
+| `spatial*` (fast/default/slow) | Offset, scale, size, corner radius, shape morph — anything that **moves or resizes** | Springs with overshoot (`dampingRatio = 0.8`) |
+| `effects*` (fast/default/slow) | Alpha, colour, elevation tint — anything that **fades or recolours** | Critically damped, never overshoots |
+
+A colour bouncing past its target reads as a rendering glitch, so the two families exist precisely so an alpha or hue change can't accidentally inherit a spring's overshoot. Speed tier follows element size: fast for small controls (icons, chips, toggle knobs), default for cards/indicators/sub-half-screen sheets, slow for full-screen surfaces (the session sheet, scrims).
+
+Every `HarkenMotion` token collapses to `snap()` under the system's reduced-motion setting, at the token, not the call site — a new animation is accessible by construction as long as it's built from a token. Only what can't be expressed as a spec (infinite loops, enter/exit transitions) reads `LocalReducedMotion` directly.
+
+### The signature move: the record button doesn't blink, it changes shape
+
+The record FAB is one `RoundedPolygon` morphing between a calm 12-vertex circle at rest and a 12-lobed "cookie" while capturing (`rememberRecordShape`), on a `spatialFast` spring. While recording, the cookie turns slowly (14s per rotation) so the state reads as *ongoing*, not decorative. Under reduced motion the spin stops but the shape change alone still carries the state — silhouette, not colour or blink, is what "recording" means on this control. A third shape (`ShapeClover`) is the loading sequence's second beat, same morph mechanism.
+
+This is deliberate: see `docs/adr/0010-expressive-redesign.md`. Nothing in the app blinks, pulses, or flashes for attention — states change shape or crossfade, never strobe.
+
+### Other motion in the app
+
+- **Splash → Record handoff** — the large splash wordmark fades out as a second, independently-positioned copy at the Record header slot fades in; reads as one object settling into place (§3), not a literal shared-element move.
+- **Idle ↔ live meter** — crossfades as one block on an `effects` token rather than a hard cut, so the waveform doesn't visibly restart.
+- **Tab / step transitions** — `sharedAxisTransition`: forward slides in from the right, back from the left, fade paired with the slide; collapses to a plain swap under reduced motion.
+- **Status appearances** (upload badges, error banners, "still capturing" hints past 10.5s) — plain `fadeIn`/`fadeOut` via `AnimatedVisibility`, never slide — a status line arriving is not something moving into place.
+
+### Rules
+
+- Never bind a colour or alpha change to a `spatial*` token, or a move/resize to an `effects*` token — the family is the contract, not a suggestion.
+- Never hand-roll a `spring()` or `tween()` outside `HarkenMotion` — a hand-rolled spec skips the reduced-motion collapse.
+- No infinite loop may be the sole carrier of state (see the recording spin above) — always pair it with a non-animated signal (shape, colour, text) that survives reduced motion.
+
+---
+
 ## Changelog
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.3 | 2026-08-29 | Removed the stale self-hosted/backend narrative left over from before ADR-0011's on-device pivot (Quick Reference positioning line, §4 voice/tone evidence, the dead "BACKEND" eyebrow label) — see UI-032 finding 4. Replaced with copy that matches the shipped on-device transcription flow. Added a §1 "ink surface" section documenting `Organic`/`LocalInk` as a deliberate, `ProtoColors`-independent palette for audio surfaces only, previously undocumented (UI-032 finding 6). |
+| 2.2 | 2026-08-29 | Added §6 Motion (spatial/effects spring tokens, the record button's circle→cookie morph, reduced-motion contract) reverse-derived from `ui/theme/Motion.kt` and `MorphShapes.kt` — no motion direction existed in this doc before. Added a build-time JUnit test (`WindowBackgroundConsistencyTest`) that fails compilation the next time `window_background` drifts from `ProtoColors.screenBg`, closing the UI-009/UI-024 gap this doc had only documented, not enforced. |
 | 2.1 | 2026-08-28 | Corrected after UI-031's Standards/Spec review: §3's splash→Record handoff description fixed to match the actual cross-fade (was asserting the wordmark "travels" as one object); §4 backend-pill note updated — the pill's fill is neutral, not a false "Connected" claim. |
 | 2.0 | 2026-08-28 | Brought back in line with the code after UI-009 (Wire palette), UI-010 (Space Grotesk), UI-020/UI-024 (tan accent, slate ground), UI-022 (floating nav) and UI-019–UI-027 (splash, waveform). Every colour, font and radius updated; added the launch-window rule, the waveform motif, and the touch-target/role rule for hand-rolled controls. |
 | 1.0 | 2026-08-27 | Initial guidelines, reverse-derived from the merged prototype UI (`ui/theme/ProtoColors.kt`, Record/Library/Settings/Onboarding screens) after the prototype-to-main promotion. |

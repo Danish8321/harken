@@ -14,14 +14,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-enum class UploadStatus { Idle, Uploading, Succeeded, Failed }
+// No Uploading state: saveLocal() below is a synchronous Room write, never a network
+// call (ADR-0011) — there is nothing between "idle" and "done" to show a spinner for.
+enum class UploadStatus { Idle, Succeeded, Failed }
 
 data class CaptureUiState(
     val isRecording: Boolean = false,
     val uploadStatus: UploadStatus = UploadStatus.Idle,
     val lastError: String? = null,
     val lastSessionId: java.util.UUID? = null,
-    val lastSavedLocally: Boolean = false,
 )
 
 // Every recording is on-device only (ADR-0011): every stop routes through
@@ -77,7 +78,6 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
             _uiState.value = _uiState.value.copy(
                 uploadStatus = UploadStatus.Succeeded,
                 lastSessionId = recordingId,
-                lastSavedLocally = true,
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed saving local session $recordingId", e)

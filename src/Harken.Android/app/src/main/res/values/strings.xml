@@ -35,10 +35,6 @@
     <string name="record_format_line">16 kHz mono · caps at 3 h</string>
     <string name="record_capturing">CAPTURING</string>
     <string name="record_cap_warning">Approaching the 3-hour cap — it\'ll stop and upload on its own.</string>
-    <string name="record_upload_uploading_title">Uploading…</string>
-    <string name="record_upload_uploading_body">Sending the recording to %1$s</string>
-    <string name="record_upload_ok_title">Uploaded · transcribing</string>
-    <string name="record_upload_ok_body">Tap to follow the transcript</string>
     <string name="record_saved_local_title">Saved</string>
     <string name="record_saved_local_body">Transcribe it from the Library when you\'re ready</string>
     <string name="record_upload_failed_title">Upload failed · tap to retry</string>
@@ -59,11 +55,8 @@
     <string name="library_filter_meetings">Meetings</string>
     <string name="library_filter_field">Field</string>
     <string name="library_filter_ideas">Ideas</string>
-    <string name="library_error_title">Backend unreachable</string>
-    <string name="library_error_body">Nothing answered at %1$s. Check the machine is awake and on this Wi-Fi — recordings keep saving locally meanwhile.</string>
-    <string name="library_error_change_address">Change address</string>
     <string name="library_empty_title">Nothing recorded yet</string>
-    <string name="library_empty_body">Recordings appear here the moment an upload lands. The phone keeps the file either way, so nothing is lost if the backend is asleep.</string>
+    <string name="library_empty_body">Recordings appear here as soon as you stop one. Everything is transcribed on this phone — nothing leaves it.</string>
     <string name="library_empty_action">Record something</string>
     <string name="library_empty_filtered_title">Nothing tagged %1$s</string>
     <string name="library_empty_filtered_body">Tags are local to this phone. Open a recording to add one.</string>
@@ -111,6 +104,7 @@
         <item quantity="other">%1$d segments</item>
     </plurals>
     <string name="session_transcript_meta_voices">%1$s · %2$d voices</string>
+    <string name="session_no_playback">Audio is saved on this phone. Playback isn\'t built yet — read the transcript below instead.</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

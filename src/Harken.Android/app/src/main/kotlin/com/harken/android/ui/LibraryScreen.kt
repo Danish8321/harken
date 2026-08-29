@@ -151,6 +151,8 @@ fun LibraryScreen(
                                 c = c,
                                 s = session,
                                 longestSeconds = longest,
+                                sessionCount = visible.size,
+                                isTranscribing = session.id == state.transcribingSessionId,
                                 onOpen = { onOpenSession(session.id) },
                                 onTranscribe = { viewModel.transcribe(session) },
                                 transcribeEnabled = state.transcribingSessionId == null,
@@ -192,12 +194,18 @@ private fun SessionCard(
     c: ProtoColors,
     s: SessionRepository.SessionView,
     longestSeconds: Int,
+    sessionCount: Int,
+    isTranscribing: Boolean,
     onOpen: () -> Unit,
     onTranscribe: () -> Unit,
     transcribeEnabled: Boolean,
 ) {
-    val transcribing = s.status == "Pending" || s.status == "Running"
-    val recorded = s.status == "Recorded"
+    // isTranscribing (from TranscriptionCoordinator.activeSessionId) is set the instant
+    // Transcribe is tapped; s.status flips Recorded -> Pending/Running only once Room's
+    // write lands, one coroutine hop later. Without the OR, that gap showed a disabled
+    // Transcribe button instead of the Transcribing chip.
+    val transcribing = isTranscribing || s.status == "Pending" || s.status == "Running"
+    val recorded = s.status == "Recorded" && !isTranscribing
     val failed = s.status == "Failed"
     val (chipBg, chipFg, chipLabel) = when {
         transcribing -> Triple(c.stateDone, c.stateDoneFg, R.string.library_chip_transcribing)
@@ -235,30 +243,42 @@ private fun SessionCard(
                 }
             }
         }
-        Spacer(Modifier.height(10.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            // A bar scaled to REAL duration, relative to the longest recording in the
-            // list. Honest data in the space the fake waveform used to fill.
-            //
-            // Deliberately unanimated: LazyColumn discards and recreates this composable's
-            // state every time the row scrolls out of view and back, so an animateFloatAsState
-            // here restarted from 0 on every re-entry, reading as a glitch during a scroll.
-            // The duration itself never changes while the row is visible, so there is
-            // nothing to animate.
-            LinearProgressIndicator(
-                progress = { fraction },
-                modifier = Modifier.weight(1f).height(5.dp),
-                color = barColor,
-                trackColor = c.cardBorder,
-            )
-            s.tags.firstOrNull()?.let { tag ->
-                Text(
-                    tag.uppercase(),
-                    color = c.textSecondary,
-                    fontFamily = ProtoBodyFont,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp,
-                )
+        val tag = s.tags.firstOrNull()
+        // The bar communicates duration RELATIVE TO OTHER ROWS, so with one session in
+        // the list (or one filtered into view) it always fills end to end regardless of
+        // actual length — a meaningless "always full" bar that reads as illegible/broken
+        // rather than as data. Duration is already in metaLine above, so just drop the
+        // bar in that case instead of rendering a comparison with nothing to compare to.
+        if (sessionCount > 1 || tag != null) {
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (sessionCount > 1) {
+                    // A bar scaled to REAL duration, relative to the longest recording in the
+                    // list. Honest data in the space the fake waveform used to fill.
+                    //
+                    // Deliberately unanimated: LazyColumn discards and recreates this composable's
+                    // state every time the row scrolls out of view and back, so an animateFloatAsState
+                    // here restarted from 0 on every re-entry, reading as a glitch during a scroll.
+                    // The duration itself never changes while the row is visible, so there is
+                    // nothing to animate.
+                    LinearProgressIndicator(
+                        progress = { fraction },
+                        modifier = Modifier.weight(1f).height(5.dp),
+                        color = barColor,
+                        trackColor = c.cardBorder,
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+                tag?.let {
+                    Text(
+                        it.uppercase(),
+                        color = c.textSecondary,
+                        fontFamily = ProtoBodyFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                    )
+                }
             }
         }
     }

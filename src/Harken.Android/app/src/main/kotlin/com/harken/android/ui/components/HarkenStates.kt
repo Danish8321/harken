@@ -27,21 +27,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
-import com.harken.android.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.harken.android.R
 import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.PillShape
 import com.harken.android.ui.theme.ProtoBodyFont
 
-// Empty, error and loading are the SAME card at the SAME radius as a populated row, so a
-// list that is empty, broken or loading still reads as the same screen. The previous
-// build had none of these three states on any screen.
+// Empty and loading are the SAME card at the SAME radius as a populated row, so a list
+// that is empty or loading still reads as the same screen. The previous build had
+// neither state on any screen. ErrorState (backend-unreachable) was removed with the
+// on-device pivot (ADR-0011) — see UI-032; ProtoColors's error tokens (c.stateError)
+// remain for the destructive-delete confirmation, unrelated to network errors.
 
 @Composable
 fun EmptyState(
