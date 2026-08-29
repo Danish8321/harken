@@ -1,7 +1,7 @@
 package com.harken.android.speech
 
 import com.harken.android.audio.WavFormat
-import com.harken.android.data.SessionRepository
+import com.harken.android.data.TranscriptionSink
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
@@ -42,9 +42,9 @@ object TranscriptionCoordinator {
      * this is a safety net, not the primary guard.
      */
     fun transcribe(
-        repository: SessionRepository,
-        modelDownloadManager: ModelDownloadManager,
-        onDeviceTranscriber: OnDeviceTranscriber,
+        repository: TranscriptionSink,
+        modelDownloadManager: ModelProvider,
+        onDeviceTranscriber: Transcriber,
         sessionId: UUID,
         filePath: String,
     ): Boolean {
@@ -59,6 +59,7 @@ object TranscriptionCoordinator {
             } catch (e: Exception) {
                 repository.failLocal(sessionId, e.message ?: "On-device transcription failed")
             } finally {
+                onDeviceTranscriber.release()
                 active.set(null)
                 _activeSessionId.value = null
             }

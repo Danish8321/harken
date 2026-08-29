@@ -67,12 +67,15 @@ Verify: compileDebugKotlin, then `grep -rE "HarkenApi|NetworkModule|AzureBatch|T
   code) as resolved-by-removal (code deleted, not just noted).
 Verify: read-through, no build step.
 
-## Task 8 — Full verification
-- `cd src/Harken.Android && ./gradlew.bat compileDebugKotlin -q` clean.
-- `./gradlew.bat assembleDebug -q` clean.
-- Fresh install on device (uninstall+reinstall per standing rule), walk onboarding
-  (confirm no backend-URL step), Settings (confirm no backend-URL field), record →
-  Transcribe from Library → confirm transcript, confirm Session Sheet has no Summarize
-  button anywhere (it never should now, matches existing slice-09-followups confirmation).
-- `adb logcat` crash-free through the walkthrough.
-Verify: named commands above, outputs pasted in the completion report.
+## Task 8 — Full verification — DONE (2026-08-29)
+- `compileDebugKotlin` clean, `assembleDebug` clean.
+- Fresh install on SM-E625F (serial RZ8R20CRB9T; confirmed backup manager already disabled,
+  so state was genuinely fresh). Onboarding: 3 steps, no backend-URL step, model download
+  reached "Model ready". Settings: no backend-URL field. Recorded 19s clip → local-only
+  save → Library → Transcribe → completed clean (~1min on-device inference, 0
+  SIGSEGV/FATAL EXCEPTION, stable pid throughout). Session Sheet: no Summarize button
+  anywhere, correct "Recorded on-device; no audio file to play back" message, duration
+  matches (0m 19s).
+- Found and fixed one leftover along the way (`1ac32c7`): Settings capture-limits footer
+  still said a forgotten session "lands on the backend" — updated to reflect local save.
+- `adb logcat` crash-free through the entire walkthrough (0 SIGSEGV/FATAL EXCEPTION).

@@ -14,9 +14,19 @@ import java.util.UUID
  * Room is the source of truth: recordings are transcribed entirely on-device and never
  * synced from/to a backend.
  */
+/**
+ * Seam so TranscriptionCoordinator can be unit-tested with a hand-written fake instead of
+ * the real Room-backed [SessionRepository].
+ */
+interface TranscriptionSink {
+    suspend fun startLocalTranscription(id: UUID)
+    suspend fun completeLocal(id: UUID, segments: List<LocalTranscribedSegment>, durationSeconds: Int)
+    suspend fun failLocal(id: UUID, reason: String)
+}
+
 class SessionRepository(
     private val db: HarkenDatabase,
-) {
+) : TranscriptionSink {
     private val dao = db.sessions()
 
     data class SessionView(
@@ -43,7 +53,7 @@ class SessionRepository(
     fun observeSummary(id: UUID) = dao.observeSummary(id)
 
     /** Flips a "Recorded" (recorded, not yet transcribed) session to "Running". */
-    suspend fun startLocalTranscription(id: UUID) = dao.markLocalTranscriptionStarted(id)
+    override suspend fun startLocalTranscription(id: UUID) = dao.markLocalTranscriptionStarted(id)
 
     /** Local rename. Passing null restores the derived name. */
     suspend fun rename(id: UUID, title: String?) = dao.setTitle(id, title?.trim()?.ifBlank { null })
@@ -79,7 +89,7 @@ class SessionRepository(
     }
 
     /** Settles a local-only session as transcribed, using the same voice heuristic refreshDetail() uses. */
-    suspend fun completeLocal(id: UUID, segments: List<LocalTranscribedSegment>, durationSeconds: Int) {
+    override suspend fun completeLocal(id: UUID, segments: List<LocalTranscribedSegment>, durationSeconds: Int) {
         val offsets = segments.map { it.offsetSeconds }
         val voices = SpeakerHeuristic.assign(offsets)
         dao.completeLocalTranscription(
@@ -98,7 +108,7 @@ class SessionRepository(
     }
 
     /** Marks a local-only session's on-device transcription as failed. */
-    suspend fun failLocal(id: UUID, reason: String) = dao.failLocalTranscription(id, reason)
+    override suspend fun failLocal(id: UUID, reason: String) = dao.failLocalTranscription(id, reason)
 
     suspend fun purge(id: UUID): Result<Unit> = runCatching {
         dao.deleteSession(id)

@@ -23,8 +23,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -158,12 +156,7 @@ fun SessionSheet(
                         modifier = Modifier.padding(top = 8.dp),
                     )
                     TagRow(tags = state.tags, onAdd = { viewModel.addTag(sessionId, it) }, modifier = Modifier.padding(top = 14.dp))
-                    PlayerCard(
-                        state = state,
-                        onSeek = { viewModel.seekTo(it) },
-                        onTogglePlay = viewModel::togglePlay,
-                        modifier = Modifier.padding(top = 18.dp),
-                    )
+                    NoPlaybackCard(modifier = Modifier.padding(top = 18.dp))
                     state.summary?.let { summary ->
                         SummaryCard(
                             summary = summary,
@@ -188,9 +181,7 @@ fun SessionSheet(
                 items(state.segments, key = { it.id }) { segment ->
                     TranscriptRow(
                         segment = segment,
-                        active = segment.id == state.activeSegmentId && state.playing,
                         showVoice = state.voiceCount > 1,
-                        onSeek = { viewModel.seekTo(segment.offsetSeconds) },
                     )
                 }
             }
@@ -230,93 +221,19 @@ fun SessionSheet(
     }
 }
 
-/** The ink player. Scrubbable, and the transcript follows the playhead. */
+/**
+ * On-device sessions never had audio uploaded anywhere, so there is nothing to stream or
+ * play back (ADR-0011) — this states that plainly instead of showing dead player controls.
+ */
 @Composable
-private fun PlayerCard(
-    state: SessionSheetUiState,
-    onSeek: (Int) -> Unit,
-    onTogglePlay: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun NoPlaybackCard(modifier: Modifier = Modifier) {
     val ink = LocalInk.current
     InkSurface(modifier) {
-        // Local-only sessions were never uploaded, so there is no audio to stream —
-        // the controls are visibly disabled with a reason rather than silently dead
-        // (ADR-0011).
-        ScrubbableWaveform(
-            bars = state.waveform,
-            progress = state.progressFraction,
-            enabled = state.audioAvailable && state.canPlayAudio,
-            onSeekFraction = { onSeek((it * state.durationSeconds).toInt()) },
-            modifier = Modifier.fillMaxWidth().height(76.dp),
+        Text(
+            "Recorded on-device; no audio file to play back",
+            style = MaterialTheme.typography.bodyMedium,
+            color = ink.onInkDim,
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            val radius by animateFloatAsState(
-                targetValue = if (state.playing) 20f else 28f,
-                animationSpec = com.harken.android.ui.theme.HarkenMotion.spatialDefault(),
-                label = "playShape",
-            )
-            Surface(
-                onClick = onTogglePlay,
-                enabled = state.audioAvailable && state.canPlayAudio,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(radius.dp),
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(56.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        if (state.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (state.playing) "Pause" else "Play",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(28.dp),
-                    )
-                }
-            }
-            Column(Modifier.weight(1f)) {
-                Text(formatElapsed(state.playheadSeconds), style = MaterialTheme.typography.titleLarge, color = ink.onInk, maxLines = 1)
-                Text(
-                    when {
-                        !state.canPlayAudio -> "Recorded on-device; no audio file to play back"
-                        state.audioAvailable -> "of ${formatElapsed(state.durationSeconds)} · seek on the wave"
-                        else -> "Playback needs the audio endpoint"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = ink.onInkDim,
-                    maxLines = 1,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ScrubbableWaveform(
-    bars: List<Float>,
-    progress: Float,
-    enabled: Boolean,
-    onSeekFraction: (Float) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val played = MaterialTheme.colorScheme.primary
-    val remaining = LocalInk.current.onInkDim
-    androidx.compose.foundation.Canvas(
-        modifier.pointerInput(enabled) {
-            if (!enabled) return@pointerInput
-            detectTapGestures { offset -> onSeekFraction((offset.x / size.width).coerceIn(0f, 1f)) }
-        },
-    ) {
-        if (bars.isEmpty()) return@Canvas
-        val slot = size.width / bars.size
-        val barWidth = slot * 0.6f
-        bars.forEachIndexed { index, value ->
-            val h = (size.height * value).coerceAtLeast(3f)
-            drawRoundRect(
-                color = if (index.toFloat() / bars.size <= progress) played else remaining,
-                topLeft = androidx.compose.ui.geometry.Offset(index * slot, (size.height - h) / 2f),
-                size = androidx.compose.ui.geometry.Size(barWidth, h),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2f),
-            )
-        }
     }
 }
 
@@ -368,13 +285,9 @@ private fun TagRow(tags: List<String>, onAdd: (String) -> Unit, modifier: Modifi
 @Composable
 private fun TranscriptRow(
     segment: TranscriptRowModel,
-    active: Boolean,
     showVoice: Boolean,
-    onSeek: () -> Unit,
 ) {
-    // Colour follows the playhead on an effects spring — a fade, never a bounce.
-    val container = if (active) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background
-    Surface(onClick = onSeek, shape = MaterialTheme.shapes.medium, color = container) {
+    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.background) {
         Row(Modifier.padding(horizontal = 15.dp, vertical = 13.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.size(width = 34.dp, height = 44.dp)) {
                 if (showVoice) {

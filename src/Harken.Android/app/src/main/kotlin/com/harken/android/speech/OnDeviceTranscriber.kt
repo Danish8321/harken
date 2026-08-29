@@ -25,20 +25,31 @@ private data class NativeSegment(
 )
 
 /**
- * Thin Kotlin wrapper over the JNI bridge in
- * app/src/main/cpp/harken_whisper_jni.cpp. Loads the whisper.cpp model once and reuses
- * the native handle for subsequent transcriptions; native calls are blocking CPU work,
- * so they're dispatched off Main.
+ * Seam so TranscriptionCoordinator can be unit-tested with a hand-written fake instead of
+ * the real JNI-backed [OnDeviceTranscriber] (whose companion object loads a native library
+ * that doesn't exist on the JVM test runner).
  */
-class OnDeviceTranscriber {
+interface Transcriber {
+    suspend fun transcribe(wavPath: String, modelPath: String): List<LocalTranscribedSegment>
+    fun release()
+}
+
+/**
+ * Thin Kotlin wrapper over the JNI bridge in
+ * app/src/main/cpp/harken_whisper_jni.cpp. TranscriptionCoordinator releases the native
+ * handle after every transcription (single-flight, so no concurrent use is possible);
+ * native calls are blocking CPU work, so they're dispatched off Main.
+ */
+class OnDeviceTranscriber : Transcriber {
     private val gson = Gson()
     private var modelHandle: Long? = null
 
     /**
      * Transcribes a 16kHz mono 16-bit PCM WAV file (the shape WavWriter always produces)
-     * at [modelPath], loading the model on first use and reusing the handle afterward.
+     * at [modelPath]. Loads the model if it isn't already loaded — the caller is expected
+     * to call [release] when done, per instance, per transcription.
      */
-    suspend fun transcribe(wavPath: String, modelPath: String): List<LocalTranscribedSegment> =
+    override suspend fun transcribe(wavPath: String, modelPath: String): List<LocalTranscribedSegment> =
         withContext(Dispatchers.Default) {
             val handle = modelHandle ?: nativeLoadModel(modelPath).also { loaded ->
                 if (loaded == 0L) {
@@ -60,7 +71,7 @@ class OnDeviceTranscriber {
         }
 
     /** Releases the native model handle. Safe to call even if a model was never loaded. */
-    fun release() {
+    override fun release() {
         modelHandle?.let { nativeFreeModel(it) }
         modelHandle = null
     }

@@ -21,11 +21,16 @@ model itself" and "First launch runs a 3-step onboarding wizard: enter the backe
 backend-optional (ADR-0011 §3). README is a root standards source; a slice that inverts its
 stated architecture must update it in the same slice.
 
-#### S2. Verification contract — no automated tests for new pure-JVM logic
-Only new automated test on the branch is `SessionDatabaseMigrationTest.kt`, which is
-instrumented and therefore excluded from `test-fast.sh`. `TranscriptionCoordinator`,
-`ModelDownloadManager`, and `OnDeviceTranscriber` are all pure-JVM-testable and ship with
-zero tests. CLAUDE.md's "tests at every tier crossed" is not met.
+#### S2. Verification contract — no automated tests for new pure-JVM logic — FIXED (partial)
+`TranscriptionCoordinatorTest.kt` added: happy path, transcription-failure path,
+single-flight rejection while a session is in flight, and re-entry after release —
+using hand-written `TranscriptionSink`/`ModelProvider`/`Transcriber` fakes (interfaces
+extracted from `SessionRepository`/`ModelDownloadManager`/`OnDeviceTranscriber` for this
+seam). `OnDeviceTranscriber` and `ModelDownloadManager` themselves remain untested — the
+former's companion `init{}` calls `System.loadLibrary` (no native lib on the JVM test
+runner), the latter needs a real `android.content.Context` — both need Robolectric or
+instrumented tests to cover directly, deliberately deferred as a follow-up rather than
+add that dependency now.
 
 #### S3. Model download has no integrity check — PARTIALLY FIXED
 Content-Length vs bytes-actually-written is now validated (throws on mismatch). No
@@ -118,11 +123,13 @@ since `6300f16`.
 
 ### Scope creep
 
-#### SP4. Slice-10 artifacts landed in the slice-09 branch
+#### SP4. Slice-10 artifacts landed in the slice-09 branch — FIXED
 `docs/adr/0013-organic-design-system-adoption.md`, `docs/plans/slice-10-organic-design-system.md`,
 and `docs/design/claude-design-modernization/` (~2,900 lines including two `.dc.html` mocks and
 `organic-styles.css`). Slice-10's own plan says its branch starts "only after
 `feat/on-device-transcription` (slice-09) merges" — its artifacts shouldn't be inside slice-09.
+Removed via `git rm -r`; preserved on branch `slice-10-staging` (cut off this branch's HEAD
+before deletion) for whoever starts slice-10 properly, after this merges.
 
 #### SP5. Unrequested removals and additions
 - `SessionRepository.softDelete` deleted — no caller, but no task asked for it.
@@ -144,17 +151,24 @@ duration bar and the player's "of MM:SS". Worst finding on this axis.
 download. The "kill app mid-download" manual check in `slice-09-followups.md` item 3 is
 likely to fail. Same root shape as S8.
 
-#### SP8. `OnDeviceTranscriber.release()` never called
+#### SP8. `OnDeviceTranscriber.release()` never called — FIXED
 The native model handle is held for process lifetime. Relevant to
 [bug-ggml-sigsegv-vec-dot-f16.md](bug-ggml-sigsegv-vec-dot-f16.md).
+`release()` now called from `TranscriptionCoordinator.transcribe()`'s `finally` block —
+safe because the coordinator's own single-flight `active.compareAndSet` guard already
+guarantees no concurrent use of the handle across calls (release-in-`onCleared()` was
+considered and rejected: the coordinator deliberately outlives any ViewModel so a
+transcription started from Library survives navigating away — releasing on ViewModel
+teardown would race an in-flight native call).
 
-#### SP9. `SessionSheetViewModel`'s playback path is now permanently dead — found 2026-08-28
+#### SP9. `SessionSheetViewModel`'s playback path is now permanently dead — found 2026-08-28 — FIXED
 `canPlayAudio = session != null && !session.isLocalOnly` — with the backend/upload path
 deleted (`.scratch/plan-remove-backend-android.md`), every session is `isLocalOnly`, so
 `canPlayAudio` is always `false`. `MediaPlayer`, `preparePlayer()`, `togglePlay()`,
-`tickerJob`, and the waveform-scrubber UI in `SessionSheet.kt` can never execute. Not
-fixed as part of the backend removal (out of that task's scope) — worth a follow-up to
-delete the dead player code outright rather than carry it.
+`tickerJob`, and the waveform-scrubber UI in `SessionSheet.kt` can never execute.
+Deleted outright rather than carried: all playback state/logic removed from
+`SessionSheetViewModel`, `PlayerCard`/`ScrubbableWaveform` replaced with a static
+`NoPlaybackCard` ("Recorded on-device; no audio file to play back") in `SessionSheet.kt`.
 
 ---
 
