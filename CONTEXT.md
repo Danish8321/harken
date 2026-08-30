@@ -3,19 +3,14 @@
 Glossary for the Harken project. Terms only. No implementation details.
 
 ## User
-A person with an account in Harken. Owns Sessions. Users are isolated from one
-another: a User can never read another User's Sessions, Transcripts, or Summaries.
-
-## Owner
-The User a Session belongs to — established when the Session is created, from the
-authenticated identity, and never reassigned. Transcript Segments inherit ownership
-through their Session.
+The person using Harken. There is exactly one and it is implicit: no accounts, no login,
+nothing to authenticate (ADR-0009). Separation between people is a property of the device
+they hold, not of the software.
 
 ## Session
-One captured recording and everything derived from it. Belongs to exactly one Owner.
-Has a start time, an end time, a Source, and a Recording. Gains a Transcript once
-transcribed, and may gain a Summary. A Session exists on the client from the moment
-capture starts, before it has an Owner.
+One captured recording and everything derived from it. Has a start time, an end time, a
+Source, and a Recording. Gains a Transcript once transcribed, and may gain a Summary.
+Exists from the moment capture starts.
 
 ## Recording
 The captured audio of a Session, as a file. Created on the device and the only artifact
@@ -91,8 +86,8 @@ because the User stopped it. Always attributed: a Session states which of the th
 was, so an Auto-stop is never mistaken for a crash.
 
 ## Source
-Where a Session's audio comes from — declared by the client when capture starts, not
-assumed by the backend. Mic (console, mobile) or system/tab audio (browser extension).
+Where a Session's audio comes from, declared when capture starts rather than inferred
+later. Today every Source is a microphone.
 
 ## Record screen
 The Android client's capture tab (`RecordScreen`, route `record`). Formerly "Capture".
@@ -103,7 +98,7 @@ The Android client's list tab (`LibraryScreen`, route `library`). Formerly "Reco
 which sat confusingly next to the tab that records.
 
 ## Session sheet
-The modal sheet showing one session's player, summary and transcript (`SessionSheet`).
+The modal sheet showing one Session's transcript, summary and details (`SessionSheet`).
 Formerly "Session detail screen".
 
 ## Capture stage
@@ -115,9 +110,11 @@ The output of `SpeakerHeuristic`, which flips a voice index on a gap of two seco
 more. NOT diarization: Whisper base.en returns no speaker data, so the UI never says
 "Speaker A" and never uses a name. See ADR-0010.
 
-## Local mirror
-The client-side Room database (`harken-local.db`) holding sessions, segments and
-summaries, plus local-only titles and tags the backend has no field for.
+## Local store
+The Room database on the device (`harken-local.db`) holding Sessions, Transcript
+Segments, Summaries, titles and tags. It is the source of truth, not a cache of one:
+nothing reconciles it against a server. Called the "local mirror" while it still
+mirrored a backend.
 
 ## Live Update
 Android 16's promoted ongoing notification. Harken uses two: recording (chronometer +
@@ -133,6 +130,9 @@ because they will return if live captioning does (ADR-0007).
 - **Caption** — live on-screen text as it forms during capture.
 - **Partial Result** — an in-progress recognition, revised as more audio arrives.
 - **Final Result** — a stabilized recognition the engine will not revise.
+- **Owner** — the User a Session belonged to, established from an authenticated identity
+  and never reassigned. Removed with authentication itself (ADR-0009). It returns only if
+  Cloud Mode turns out to need accounts, which ADR-0014 does not assume.
 
 All three are live-recognition concepts. Under record-then-transcribe there is no live
 recognition: a Recording produces Transcript Segments directly, and nothing the User
