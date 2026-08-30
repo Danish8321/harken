@@ -11,10 +11,11 @@ its URL into a mandatory Onboarding step before the app is usable at all. There 
 
 [ADR-0008](0008-local-whisper-first.md) chose Whisper.net (a .NET binding of whisper.cpp)
 running *server-side* as the default transcription Provider, specifically to avoid a
-per-call cloud cost. [ADR-0010](0010-azure-batch-transcription-provider.md) added Azure
-Batch Transcription as an explicit second, opt-in Provider, selected per Session and
-resolved by `TranscriptionBackgroundService` — still server-side, still requires a
-reachable backend for every Session regardless of which Provider is chosen.
+per-call cloud cost, and named Azure as the second Provider the same seam would take.
+That second Provider was never built: `Program.cs` registers
+`WhisperTranscriptionProvider` alone, and no Azure ADR was ever written. Either way,
+transcription at the time of this ADR was still server-side and still required a
+reachable backend for every Session.
 
 This ADR asks: can the free, default transcription path work with **zero backend**, and
 keep the backend purely as an **optional upgrade** (cloud transcription via Azure,
@@ -49,10 +50,9 @@ Recordings transcribed this way never touch a network:
    covers that as Phase 2). The Summarize action is hidden/disabled on a session when no
    backend is configured, rather than shown and failing — a session with no backend
    reachable should never present a button that's guaranteed to error.
-5. **Azure Batch Transcription** ([ADR-0010](0010-azure-batch-transcription-provider.md))
-   is unaffected: still backend-mediated, still requires a configured `baseUrl` to be
-   selectable at all (the provider picker already degrades unavailable-or-unreachable
-   choices, per that ADR).
+5. **Cloud transcription** is unaffected: whenever a second Provider is added behind
+   ADR-0008's seam it stays backend-mediated and still requires a configured `baseUrl` to
+   be selectable at all.
 
 ## Alternatives considered
 - **Bundle the existing ASP.NET `Harken.Api` process inside the Android app** (e.g. via
@@ -81,11 +81,13 @@ Recordings transcribed this way never touch a network:
 - Onboarding UX changes: no longer a hard gate; needs new copy explaining the
   optional backend connection and what each of cloud transcription / summaries requires.
 - Cost: $0 to build (existing free libraries/hosting) and $0 to run for the on-device
-  default path — unchanged from ADR-0008's cost rationale. Cloud options remain exactly
-  as priced in ADR-0010.
+  default path — unchanged from ADR-0008's cost rationale. Cloud options carry whatever
+  the eventual provider charges; nothing is priced here because nothing cloud-side is
+  built.
 - Summarization remains a capability gap for backend-less users until ADR-0012 (Phase 2)
   is implemented, if ever.
 
 ## Related
-[ADR-0008](0008-local-whisper-first.md), [ADR-0010](0010-azure-batch-transcription-provider.md),
-[ADR-0012](0012-full-standalone-local-summarization.md)
+[ADR-0008](0008-local-whisper-first.md),
+[ADR-0012](0012-full-standalone-local-summarization.md),
+[ADR-0014](0014-local-first-with-optional-cloud-mode.md)

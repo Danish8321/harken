@@ -8,7 +8,7 @@ Implements [ADR-0011](../adr/0011-on-device-transcription.md). Branch:
 Not merged — the full gate below (real-device manual checks) is still outstanding.
 [Slice 10](slice-10-organic-design-system.md) is blocked on this merging to `master`.
 
-Room already exists as a full local mirror (ADR-0010 in the Android tree,
+Room already exists as a full local mirror (ADR-0010,
 `HarkenDatabase`/`SessionDao`/`SessionRepository`) — this slice does NOT introduce a new
 local DB, it adds a **local-only session** mode to the existing one (a session that is
 never synced from/to the backend), plus the native transcription pipeline that produces
