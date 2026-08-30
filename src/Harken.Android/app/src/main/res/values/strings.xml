@@ -13,7 +13,7 @@
     <string name="onboarding2_step_of">STEP %1$d OF 2</string>
     <string name="onboarding2_skip_for_now">Skip for now</string>
     <string name="onboarding2_step1_title">Meet Harken</string>
-    <string name="onboarding2_step1_body">A quiet recorder for meetings and field notes. Audio, transcripts and summaries — kept on your own network.</string>
+    <string name="onboarding2_step1_body">A quiet recorder for meetings and field notes. Audio, transcripts and summaries — all of it stays on this phone.</string>
     <string name="onboarding2_step4_title">Get the\nspeech model</string>
     <string name="onboarding2_step4_body">On-device transcription needs a one-time download (about 140 MB). You can also do this later from Settings.</string>
     <string name="onboarding2_download_model">Download model</string>
@@ -34,12 +34,12 @@
     <string name="record_idle_headline">Ready when\nyou are.</string>
     <string name="record_format_line">16 kHz mono · caps at 3 h</string>
     <string name="record_capturing">CAPTURING</string>
-    <string name="record_cap_warning">Approaching the 3-hour cap — it\'ll stop and upload on its own.</string>
+    <string name="record_cap_warning">Approaching the 3-hour cap — it\'ll stop and save on its own.</string>
     <string name="record_saved_local_title">Saved</string>
     <string name="record_saved_local_body">Transcribe it from the Library when you\'re ready</string>
-    <string name="record_upload_failed_title">Upload failed · tap to retry</string>
-    <string name="record_upload_failed_body">Still on this phone at %1$s.</string>
-    <string name="record_upload_failed_path_unknown">its original path</string>
+    <string name="record_save_failed_title">Couldn\'t save it · tap to retry</string>
+    <string name="record_save_failed_body">The audio is still on this phone. %1$s</string>
+    <string name="record_save_failed_unknown_reason">No reason given.</string>
     <string name="record_silence_hint">Stops after 5 min silence</string>
     <string name="record_meter_idle">INPUT IDLE</string>
     <string name="record_meter_idle_elapsed">0:00</string>
@@ -117,7 +117,7 @@
     <string name="settings_silence_timeout_value">5 minutes</string>
     <string name="settings_format">Format</string>
     <string name="settings_format_value">16 kHz · 16-bit · mono</string>
-    <string name="settings_capture_note">Both limits end the recording and upload it, so a forgotten session lands on the backend rather than on the phone.</string>
+    <string name="settings_capture_note">Both limits end the recording and save it, so a forgotten session becomes a finished recording in the Library rather than running until the battery goes.</string>
     <string name="settings_model_header">SPEECH MODEL</string>
     <string name="settings_model_ready">Ready — used for on-device transcription</string>
     <string name="settings_model_downloading">Downloading… %1$d%%</string>

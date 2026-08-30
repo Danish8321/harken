@@ -28,10 +28,10 @@ data class SessionRow(
     val localTitle: String? = null,
     /** Local: comma-separated, empty means untagged. */
     val localTags: String = "",
-    /** Local: set when a recording was captured but never reached the backend. */
+    /** Where this recording's WAV file sits on this phone. Null once it is gone. */
     val pendingUploadPath: String? = null,
     val syncedAt: Long = 0L,
-    /** Local: true when this session was transcribed on-device and never reached the backend. */
+    /** True for every session this app creates today: recorded and transcribed here. */
     val isLocalOnly: Boolean = false,
 )
 

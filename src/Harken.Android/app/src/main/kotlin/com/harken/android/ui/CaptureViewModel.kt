@@ -14,13 +14,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-// No Uploading state: saveLocal() below is a synchronous Room write, never a network
-// call (ADR-0011) — there is nothing between "idle" and "done" to show a spinner for.
-enum class UploadStatus { Idle, Succeeded, Failed }
+// No in-progress state: saveLocal() below is a Room write, never a network call
+// (ADR-0011, ADR-0014) — there is nothing between "idle" and "done" to show a spinner
+// for. The name says save, not upload, because nothing here leaves the phone.
+enum class SaveStatus { Idle, Succeeded, Failed }
 
 data class CaptureUiState(
     val isRecording: Boolean = false,
-    val uploadStatus: UploadStatus = UploadStatus.Idle,
+    val saveStatus: SaveStatus = SaveStatus.Idle,
     val lastError: String? = null,
     val lastSessionId: java.util.UUID? = null,
 )
@@ -58,7 +59,7 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
         RecordingController.stopRecording(getApplication())
     }
 
-    fun retryUpload() {
+    fun retrySave() {
         val recordingId = lastRecordingId ?: return
         val filePath = lastFilePath ?: return
         viewModelScope.launch { saveLocal(recordingId, filePath) }
@@ -76,12 +77,12 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
                 filePath = filePath,
             )
             _uiState.value = _uiState.value.copy(
-                uploadStatus = UploadStatus.Succeeded,
+                saveStatus = SaveStatus.Succeeded,
                 lastSessionId = recordingId,
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed saving local session $recordingId", e)
-            _uiState.value = _uiState.value.copy(uploadStatus = UploadStatus.Failed, lastError = e.message)
+            _uiState.value = _uiState.value.copy(saveStatus = SaveStatus.Failed, lastError = e.message)
         }
     }
 }
