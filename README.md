@@ -1,106 +1,174 @@
 # Harken
 
-Record → transcript → AI summary. MVP 1 is single-user and unauthenticated: one
-implicit user, no accounts, no login, every endpoint open on the LAN
-([ADR-0009](docs/adr/0009-remove-auth-for-mvp1.md), which supersedes ADR-0004).
-See `docs/plans/` for slice scope, `CONTEXT.md` for glossary, `docs/adr/` for the
-decisions behind the shape of this thing.
+An Android recorder that turns what was said into text you can read, on the phone
+itself. Record, then transcribe — no account, no upload, no per-minute cost, and no
+server to stand up before the app is useful.
+
+Harken has two Modes ([ADR-0014](docs/adr/0014-local-first-with-optional-cloud-mode.md)):
+
+- **Local Mode** — the default, and the whole product on its own. Recording,
+  transcription and (once [ADR-0012](docs/adr/0012-full-standalone-local-summarization.md)
+  ships) summarization all run on the phone. Works in airplane mode, start to finish.
+- **Cloud Mode** — an opt-in upgrade for better transcription, expert summaries and chat
+  over a recording's findings. Off by default, behind a Settings flag. **Not built yet.**
+  In Cloud Mode the recording itself is uploaded; Local Mode sends nothing anywhere.
+
+See `CONTEXT.md` for the glossary, `docs/adr/` for the decisions behind the shape of this
+thing, and `docs/plans/roadmap-2026-08-30-two-modes.md` for what is being built next and
+in what order.
+
+## What works today
+
+| | State |
+| --- | --- |
+| Record on Android (foreground service, screen locked, silence and duration caps) | Shipped |
+| On-device transcription (whisper.cpp, `ggml-base.en.bin`, arm64-v8a) | Shipped |
+| Library, rename, tags, copy/share transcript, delete | Shipped |
+| On-device summarization | Decided ([ADR-0012](docs/adr/0012-full-standalone-local-summarization.md), [ADR-0016](docs/adr/0016-on-device-inference-runtime.md)), not built |
+| Cloud Mode: cloud transcription, expert summary, chat | Decided ([ADR-0014](docs/adr/0014-local-first-with-optional-cloud-mode.md)), not built |
+| Audio playback | Not built — a recording is read, not replayed |
+
+The app has **no backend URL setting** and makes no network call other than the one-time
+model download. The .NET solution in this repo is not a product surface: it is the
+offline evaluation harness the on-device models get measured against (ADR-0014).
 
 > **Record-then-transcribe, not live captions.** The live captioning path was deleted in
-> [ADR-0007](docs/adr/0007-record-then-transcribe.md); Harken now records to a file,
-> uploads it, and transcribes it in the background — there is no word-by-word caption
-> stream. Transcription runs on local Whisper ([ADR-0008](docs/adr/0008-local-whisper-first.md)):
-> no Azure, no cloud account, no cost. Measured on this project's dev machine (RTX 3050
-> 4 GB, CPU fallback — no CUDA toolkit installed) with the `ggml-base.en.bin` model:
-> a 4–5 second clip transcribed in 3–5 seconds, roughly real-time. Accuracy on longer or
-> quieter audio is still unmeasured — see `docs/plans/slice-04-record-then-transcribe.md`,
-> "Carried, unresolved".
+> [ADR-0007](docs/adr/0007-record-then-transcribe.md). Transcription is an explicit
+> action taken later from the Library, one recording at a time, never automatically on
+> stop.
 
-## What is this
+## Target device
 
-Harken turns spoken audio — a meeting, a lecture, a voice memo, a conversation — into
-searchable text and a short AI summary, with zero cloud dependency and zero cost per
-recording. Point a phone or a mic at a conversation, hit record, and later read what was
-said instead of re-listening to it.
+[ADR-0015](docs/adr/0015-target-device-floor.md) sets the floor at Nothing Phone
+(2)-class hardware: an SD 8+ Gen 1 calibre prime core, 8 GB RAM, Android 13. Lower-end
+phones are not a target. Timing, memory and thermal numbers taken on anything below the
+floor do not describe the product — the Exynos 850 test device in this project's notes is
+a lower-bound canary, not the reference.
 
-- **Capture** from either client: the Android app (phone as a portable recorder — a
-  foreground service keeps recording through a locked screen) or the console app (PC mic).
-- **Transcribe** locally via Whisper (`ggml-base.en.bin`), running on this machine — no
-  audio ever leaves the LAN, no per-minute billing, no API key.
-- **Summarize** on request via a local Gemma model through Ollama — same story, no cloud
-  account.
-- **Review** transcripts and summaries from either client, whenever transcription finishes
-  — recording and playback of results are decoupled; you don't wait around for a summary.
+`abiFilters` ships **arm64-v8a only**, so the app does not install on an x86_64 emulator.
+A physical arm64 device is required to run it.
 
-It is intentionally single-user for MVP 1: one implicit user, no accounts, no auth, meant
-for one person's own recordings on their own LAN (ADR-0009). The design bet is that most
-of the friction in "I recorded something, now what" is turnaround time and cost, not
-accuracy at scale — so the whole pipeline is built to run entirely on hardware someone
-already owns.
+---
 
-## Prerequisites
+## Android app
 
-**Setting up a machine from scratch? Start at [`docs/setup.md`](docs/setup.md)** — it
-covers the Whisper model, Ollama, generating and storing the secrets, and proving each
-piece works before you run anything. This section is the short list; that doc is the
-go-to.
+### Prerequisites
+
+- Android SDK (API 36) + JDK 17. Point `src/Harken.Android/local.properties`
+  (gitignored) at your SDK, e.g. `sdk.dir=C:\\Users\\<you>\\AppData\\Local\\Android\\Sdk`.
+- Android NDK + CMake — whisper.cpp is vendored as source and built into
+  `libharken_whisper_jni.so` as part of the Gradle build
+  ([ADR-0011](docs/adr/0011-on-device-transcription.md)).
+- A physical arm64 Android phone with **USB debugging** enabled (Settings → About phone →
+  tap Build number ×7 → Developer options → USB debugging).
+
+No backend, no LAN setup, no firewall rule.
+
+### Run
+
+```
+cd src/Harken.Android
+./gradlew installDebug
+```
+
+then launch it from the app drawer, or open `src/Harken.Android` in Android Studio and
+hit Run.
+
+### First launch
+
+A two-step onboarding: what the app is, then the one-time speech-model download
+(~140 MB, fetched from a GitHub release asset — the model is deliberately not bundled in
+the APK). The download is skippable and can be run later from **Settings**; a partial or
+truncated download is refused rather than promoted to a real model, so a dropped
+connection costs a retry, not a silently broken install.
+
+Permissions are requested at the point of first **Record**, not at launch — a prompt
+means something to someone who just tapped Record and nothing to someone who just opened
+the app. Denying the microphone is handled: the app says what is blocked and where to
+grant it. Notification permission (Android 13+) is asked for too but never blocks
+recording.
+
+### Use
+
+Three tabs: **Record**, **Library**, **Settings**.
+
+- **Record → Stop.** Audio is captured to a WAV file in the app's private storage and
+  saved as a session. Nothing is uploaded.
+- **Library.** Each recording carries a **Transcribe** button. Transcription runs on the
+  phone, one recording at a time app-wide, and only when asked
+  ([ADR-0011](docs/adr/0011-on-device-transcription.md)). A transcription interrupted by
+  the process dying is settled on next launch and offers **Retry** rather than showing a
+  spinner forever.
+- **Session detail.** Read the transcript, rename the recording, tag it, copy or share
+  the text, or delete it — which removes the row, its segments and the WAV file.
+  Speakers are labelled "Voice 1" / "Voice 2" from a gap heuristic, never a name: base.en
+  returns no speaker information at all, and the label says so honestly (ADR-0010).
+
+### Recording limits and storage cost
+
+| | Value | Why |
+| --- | --- | --- |
+| Format | 16 kHz / 16-bit / mono WAV | What Whisper wants natively. No encoder dependency. |
+| Storage | **~115 MB per hour** | The cost of uncompressed WAV. Opus would be ~10 MB/hour; revisit when device storage actually hurts. |
+| Silence timeout | **5 minutes** | Below an amplitude threshold for that long ends the recording. |
+| Session cap | **3 hours** | Hard bound on any one recording. |
+
+Both limits end the recording and save it, so a forgotten session becomes a finished
+recording in the Library rather than running until the battery goes. ADR-0007 moved these
+from the server to the client, where they bound battery and storage rather than spend.
+
+### The recording notification
+
+While recording you'll see an ongoing "Harken — Recording…" notification carrying a live
+elapsed counter and a **Stop** button. Per
+[ADR-0003](docs/adr/0003-mobile-foreground-service.md) this is not decoration: with the
+screen locked it is the only surface you can see or act on, which is the whole scenario
+the foreground service exists for. Android also requires it to keep the microphone alive
+in the background, and it is a deliberate signal that the app isn't recording silently.
+
+---
+
+## The .NET solution — an evaluation harness, not a product
+
+`Harken.Api`, `Harken.Core` and `Harken.Console` are how transcription and summarization
+quality get measured off-device: a known-good pipeline to compare an on-device model
+against, running the same audio through server-side Whisper and a local Gemma model via
+Ollama. ADR-0014 retired it as something a user is ever asked to install.
+
+It is not required to build, install or use the Android app, and the app cannot talk to
+it — there is no client left.
+
+### Prerequisites
 
 - .NET 10 SDK (10.0.302 — pinned in `global.json`).
 - A Whisper GGML model file (e.g. `ggml-base.en.bin` from
-  https://huggingface.co/ggerganov/whisper.cpp/tree/main), and its path set via
-  `Whisper:ModelPath` (see Configure secrets, below). Without it the API starts fine but
-  every transcription fails with "Whisper model not found".
-- **Ollama** running locally, with a Gemma model pulled:
+  https://huggingface.co/ggerganov/whisper.cpp/tree/main), with its path set via
+  `Whisper:ModelPath`. Without it the API starts fine but every transcription fails with
+  "Whisper model not found".
+- **Ollama** running locally, with a Gemma model pulled, for the summarize path:
   ```
   ollama pull gemma3:4b
   ```
-  Phase 1 summarize agent talks to Ollama, not Azure — see ADR-0002. Summarize is
-  optional — recording and transcription work without it.
-- A working microphone.
 
-## Configure secrets
-
-Never commit real keys. There are no required secrets — MVP 1 has no cloud
-credentials and no signing key (ADR-0009): everything runs on local Whisper and a
-local Gemma model (ADR-0008).
+`docs/setup.md` covers the model, Ollama and secrets in full.
 
 ```
 dotnet user-secrets set "Whisper:ModelPath" "<path to ggml-base.en.bin>" --project src/Harken.Api
 ```
 
 Ollama endpoint/model default to `http://localhost:11434` / `gemma3:4b`
-(`src/Harken.Api/appsettings.json`, section `Ollama`) — override there or via
-`OLLAMA_ENDPOINT`/`OLLAMA_MODEL_NAME`-style config if your setup differs.
+(`src/Harken.Api/appsettings.json`, section `Ollama`), overridable there or via
+`OLLAMA_ENDPOINT` / `OLLAMA_MODEL_NAME`.
 
-## Run
-
-Terminal 1 — backend (applies no migrations automatically; already applied during
-build — see below if starting fresh):
+### Run
 
 ```
-dotnet run --project src/Harken.Api
+dotnet run --project src/Harken.Api        # note the port, default http://localhost:5057
+dotnet run --project src/Harken.Console    # R record · L list and summarize · Q quit
 ```
 
-Note the port printed (see `src/Harken.Api/Properties/launchSettings.json`,
-currently `http://localhost:5057`).
-
-Terminal 2 — console client:
-
-```
-dotnet run --project src/Harken.Console
-```
-
-No sign-in step — offers straight away:
-
-- **R** — record from the mic (ENTER to stop), upload, poll until transcribed, print the
-  transcript, offer to summarize.
-- **L** — list sessions and summarize one.
-- **Q** — quit.
-
-## API
-
-Every endpoint is anonymous (ADR-0009) — MVP 1 has one implicit user, so there is
-nothing to authenticate.
+Every endpoint is anonymous — there is one implicit user, no accounts and no login
+([ADR-0009](docs/adr/0009-remove-auth-for-mvp1.md), superseding ADR-0004).
 
 | Endpoint | Purpose |
 | --- | --- |
@@ -110,16 +178,14 @@ nothing to authenticate.
 | `GET /sessions/{id}` | one session + its ordered transcript segments + `TranscriptionStatus` (poll this) |
 | `POST /sessions/{id}/summary` | generate (or re-read) the stored summary |
 
-```
-curl http://localhost:5057/sessions
-```
+`recordingId` is optional and makes upload idempotent: re-sending a recording after a
+dropped connection returns **200** with the session that already exists rather than
+**201** and a duplicate. A malformed value is a 400.
 
-`recordingId` is optional and makes upload idempotent: a client that generates one at
-record-start can re-send a recording after a dropped connection and get **200** with the
-session that already exists, rather than **201** and a duplicate. Clients that omit it
-(the console) are unaffected. A malformed value is a 400.
+When Cloud Mode is built it gets a versioned `/v1` contract from its first release
+(ADR-0014); the routes above are the harness's, and are not that contract.
 
-## Fresh database
+### Fresh database
 
 If `src/Harken.Api/harken.db` doesn't exist yet:
 
@@ -127,100 +193,14 @@ If `src/Harken.Api/harken.db` doesn't exist yet:
 dotnet ef database update --project src/Harken.Api
 ```
 
-## Verification gates
-
-- `.claude/scripts/check.sh` — full solution build, warnings-as-errors.
-- `.claude/scripts/test-fast.sh` — automated tests (excludes anything tagged
-  Manual/E2E — live Azure/Ollama calls aren't run automatically).
-
 ---
 
-## Mobile (Android)
+## Verification gates
 
-The phone is a capture device: record → upload → poll → transcript, the console's flow on
-Android. Native Kotlin + Jetpack Compose (`src/Harken.Android`) — chosen over an earlier
-MAUI client for direct, bridge-free access to `AudioRecord` and the foreground service.
-See `docs/adr/0003-mobile-foreground-service.md` for why recording runs as a foreground
-service.
+- `.claude/scripts/check.sh` — full solution build plus `assembleDebug`,
+  warnings-as-errors.
+- `.claude/scripts/test-fast.sh` — .NET tests and Android JVM unit tests.
 
-### Prerequisites
-
-- Android SDK (API 36) + JDK 17. Point `src/Harken.Android/local.properties`
-  (gitignored) at your SDK, e.g. `sdk.dir=C:\\Users\\<you>\\AppData\\Local\\Android\\Sdk`.
-- A device to run on: a physical Android phone with **USB debugging enabled**
-  (Settings → About phone → tap Build number ×7 → Developer options → USB debugging),
-  or an Android Studio emulator.
-- Backend running and reachable on the same Wi-Fi/LAN as the phone (or via a USB
-  `adb reverse` tunnel — see `docs/onboarding.md` §5b) — note your PC's LAN IP
-  (`ipconfig`), not `localhost`. `launchSettings.json` binds to `localhost` only, which the
-  phone cannot reach, so start the API bound to all interfaces:
-
-  ```
-  dotnet run --project src/Harken.Api --urls http://0.0.0.0:5057
-  ```
-
-  Allow the Windows Firewall prompt on the private network the first time.
-
-### Configure
-
-First launch runs a 3-step onboarding wizard: enter the backend base URL as
-`http://<your-pc-LAN-IP>:5057` and tap **Test connection** before it saves. Change it
-later from **Settings**.
-
-### Run
-
-```
-cd src/Harken.Android
-./gradlew installDebug
-```
-
-then launch it from the phone's app drawer, or open `src/Harken.Android` in Android
-Studio and hit Run.
-
-Permissions are requested at the point of first **Record**, not at launch — a prompt means
-something to someone who just tapped Record and nothing to someone who just opened the app.
-Denying the microphone is handled: the app says what is blocked and where to grant it,
-rather than failing silently. Notification permission (Android 13+) is asked for too but
-never blocks recording.
-
-### Use
-
-No sign-in step (ADR-0009) — the app opens straight on **Record**, one of three tabs
-reachable from a bottom navigation bar: **Record**, **Recordings**, **Settings**.
-
-- **Record → Stop.** Audio is captured to a WAV file in the app's private storage, then
-  uploaded on stop. A **View transcript** button appears once the upload succeeds and
-  opens that session's detail screen. ADR-0007 keeps all transcription on the backend, so
-  the phone never runs a model itself.
-- **Session detail screen** (opened from Record's "View transcript" or by tapping a row in
-  Recordings): shows the transcript, polling while transcription is still running, and a
-  **Summarize** button (needs Ollama running on the backend host, same as the console
-  flow). A summarize failure surfaces as a dismissible banner without blanking an
-  already-loaded transcript.
-- If the upload fails, the recording is **kept** and the page names its path. A recording
-  that never reached the backend is not deleted.
-- **Recordings list**: **Refresh** re-fetches from the backend. **Delete** hides a
-  recording from the list but keeps the row and audio file (soft delete). **Delete
-  permanently** asks for confirmation, then removes the row and the WAV file from disk
-  for good.
-
-### Recording limits and storage cost
-
-| | Value | Why |
-| --- | --- | --- |
-| Format | 16 kHz / 16-bit / mono WAV | What Whisper wants natively and the only format the backend accepts. No encoder dependency. |
-| Storage | **~115 MB per hour** | The cost of uncompressed WAV. Opus would be ~10 MB/hour; revisit when device storage actually hurts. |
-| Silence Timeout | **5 minutes** | Below an amplitude threshold for that long ends the recording. |
-| Session Cap | **3 hours** | Hard bound on any one recording. |
-
-Both limits end the recording **and upload it** — a forgotten recording ends up on the
-backend, not sitting on the device waiting to be noticed. ADR-0007 moved these from the
-server to the client, where they bound battery and storage rather than spend.
-
-### The recording notification
-
-While recording you'll see an ongoing "Harken — Recording…" notification carrying a live
-elapsed counter and a **Stop** button. Per ADR-0003 this is not decoration: with the screen
-locked it is the only surface you can see or act on, which is the whole scenario the
-foreground service exists for. Android also requires it to keep the microphone alive in the
-background, and it is a deliberate signal that the app isn't recording silently.
+Instrumented Android tests (`src/Harken.Android/app/src/androidTest`) need a connected
+device and are deliberately outside the fast gate — run them with
+`./gradlew connectedDebugAndroidTest`.
