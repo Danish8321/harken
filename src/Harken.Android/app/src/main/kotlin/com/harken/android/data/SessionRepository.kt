@@ -4,6 +4,7 @@ import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.data.local.SegmentRow
 import com.harken.android.data.local.SessionRow
 import com.harken.android.speech.LocalTranscribedSegment
+import java.io.File
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
@@ -113,8 +114,21 @@ class SessionRepository(
     suspend fun recoverInterruptedTranscriptions(reason: String): Int =
         dao.failInterruptedTranscriptions(reason)
 
+    /**
+     * Removes a recording and everything derived from it: the session row, its segments,
+     * its summary, and the audio file itself. The delete confirmation promises the
+     * recording leaves the phone, and a ~115 MB/hour WAV left behind on disk would make
+     * that a lie in the most expensive way available.
+     *
+     * The file is deleted after the rows, not before: a failed database delete leaves a
+     * session the user can still open, which is recoverable, where the reverse leaves a
+     * session pointing at audio that is gone.
+     */
     suspend fun purge(id: UUID): Result<Unit> = runCatching {
-        dao.deleteSession(id)
+        val audioPath = dao.findSession(id)?.pendingUploadPath
+        dao.deleteSessionCompletely(id)
+        audioPath?.let { File(it).delete() }
+        Unit
     }
 
     private fun toView(row: SessionRow) = SessionView(

@@ -165,8 +165,25 @@ interface SessionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun replaceSummary(summary: SummaryRow)
 
+    @Query("SELECT * FROM sessions WHERE id = :id")
+    suspend fun findSession(id: UUID): SessionRow?
+
     @Query("DELETE FROM sessions WHERE id = :id")
     suspend fun deleteSession(id: UUID)
+
+    @Query("DELETE FROM summaries WHERE sessionId = :id")
+    suspend fun clearSummary(id: UUID)
+
+    // Neither segments nor summaries declare a foreign key on sessions, so SQLite has no
+    // cascade to run: deleting the session row alone orphans every row that referenced
+    // it, invisibly, for the life of the database. Delete is the one place that has to
+    // know that.
+    @Transaction
+    suspend fun deleteSessionCompletely(id: UUID) {
+        clearSegments(id)
+        clearSummary(id)
+        deleteSession(id)
+    }
 
     @Query("SELECT DISTINCT localTags FROM sessions WHERE localTags != ''")
     fun observeTagStrings(): Flow<List<String>>
