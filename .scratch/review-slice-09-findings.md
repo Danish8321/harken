@@ -4,7 +4,8 @@ Opened 2026-08-28. Two-axis review of `git diff master...HEAD` (fixed point `mas
 2f8c21a, 16 commits, 32 non-vendored files). Vendored `src/Harken.Android/app/src/main/cpp/whisper`
 excluded — third-party, not ours to review.
 
-Status: open, none actioned yet.
+Status: triaged and closed out on 2026-08-30 (slice 11). See **Disposition** at the
+bottom for what was fixed, what died with the architecture, and what is still open.
 
 ---
 
@@ -147,3 +148,51 @@ own architecture.
 Spec: 8 findings. Worst — SP6, wrong duration shipping visibly incorrect values to users.
 
 Not yet triaged into merge-blockers vs. follow-ups.
+
+
+---
+
+## Disposition (2026-08-30, slice 11)
+
+This review was written against a branch that never merged. `master` moved on: the
+backend stopped being a product surface (ADR-0014), the device floor rose (ADR-0015),
+and slice 11 ran a truth pass over the repo. Every finding is settled below, so this file
+is history rather than a queue.
+
+### Fixed
+
+| | Where |
+| --- | --- |
+| S1 README contradicts the architecture | Rewritten for the two Modes, slice 11 |
+| S2 no automated tests for new JVM logic | `TranscriptionCoordinatorTest` (4), `ModelDownloadManagerTest` (5) |
+| S3 model download has no integrity check | Bytes are compared against the declared length; a response with no length is refused |
+| SP6 `durationSeconds` from the wrong value | Derived from the WAV byte length on `master` |
+| SP8 `release()` never called | Called in `transcribe`'s `finally` on `master` |
+
+### Moot — the thing they were about no longer exists
+
+- **S6, SP1** (provider switching, Azure unreachable): there is no provider setting and no
+  Azure provider. Which engine runs follows from the Mode (ADR-0014).
+- **SP2, SP3** (plan/ADR text vs. shipped onboarding): onboarding is two steps and has no
+  connect-a-backend step at all. ADR-0011's status now records that decision 3 is
+  superseded.
+- **SP4, SP5** (slice-10 artifacts in the branch, unrequested removals): the branch is
+  being deleted rather than merged; its two useful docs commits were cherry-picked.
+
+### Still open, deliberately
+
+Refactors, not truths — none of them makes the app lie to a user, so none was in slice
+11's scope. They are real debt and stay recorded here:
+
+- **S5 / S8 / SP7** — `ensureModel()` and `downloadProgress()` duplicate the whole
+  mkdirs / `.tmp` / rename / cleanup dance, `downloadProgress()` wraps a blocking
+  `withContext` in a `callbackFlow`, and because of that a collector cancelling cannot
+  abort an in-flight download. One `flow { }` with `flowOn(IO)`, called by both, closes
+  all three.
+- **S4** — `OnboardingViewModel` and `SettingsViewModel` still hold the same three
+  download fields and the same collect block, verbatim.
+- **S7** — `transcriptionStatus` is still a raw `String` compared against literals in the
+  DAO, `LibraryScreen`, `LibraryViewModel` and `SessionSheet`.
+- **S9** — `TranscriptionCoordinator` still takes its collaborators on every call.
+- **S10** — `SessionRow.pendingUploadPath` still names an upload that never happens. It
+  is a Room column, so the rename is a migration, not an edit.

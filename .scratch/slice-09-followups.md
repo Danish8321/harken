@@ -1,6 +1,12 @@
 # Slice 9 on-device transcription — follow-ups
 
-Branch: `feat/on-device-transcription`. Opened 2026-08-27.
+Branch: `feat/on-device-transcription`. Opened 2026-08-27. **Closed 2026-08-30.**
+
+All three items are done. The branch itself was never merged and never will be: it
+predates the design merge, so merging it would revert the UI modernization and resurrect
+a deleted HTTP client. Its two useful commits (the manual-check results recorded below)
+were cherry-picked into slice 11; the branch is deleted. What the review found is settled
+in [review-slice-09-findings.md](review-slice-09-findings.md).
 
 ## 1. First-run "download model" setup step + Settings re-download/update option
 Status: done (`732f552`).
@@ -41,15 +47,17 @@ Also live-confirmed on-device: the SP6 duration fix (session showed "Transcribed
 0m 36s", matching the actual 0:36 recording) and the SP3 onboarding copy fix (step 3 now
 reads "whenever you tap Transcribe").
 
-Blocks: full gate in `docs/plans/slice-09-on-device-transcription.md`, and merge to
-`master` ([slice-10](../docs/plans/slice-10-organic-design-system.md) and
-[slice-11](../docs/plans/slice-11-on-device-summarization.md) are both blocked on this
-merging). All three manual checks are now confirmed; remaining pre-merge work is the
-still-open items in [review-slice-09-findings.md](review-slice-09-findings.md) and the
-unresolved [SIGSEGV bug](bug-ggml-sigsegv-vec-dot-f16.md) (mitigated, not root-caused).
+Recorded here because these are the only on-device measurements the project has, and
+[ADR-0015](../docs/adr/0015-target-device-floor.md) voids them as evidence: SM-E625F is
+an Exynos 850, well below the Nothing Phone (2)-class floor. They prove the pipeline runs
+end to end and transcribes correctly. They prove nothing about speed, memory or thermals
+on a device this app is actually for, which is what slice 12's evidence gate is for.
 
-## Note (2026-08-28)
+## Note (2026-08-28, overtaken 2026-08-30)
 Found and discarded unrelated uncommitted working-tree changes (predating this session)
-that removed backend-URL configuration from Settings/Onboarding entirely — conflicted
-with ADR-0012's on-device-summarization plan, which needs a configurable backend URL for
-its Cloud provider option. Confirmed with user: discard, not part of this slice's scope.
+that removed backend-URL configuration from Settings/Onboarding entirely — judged at the
+time to conflict with ADR-0012, which was read as needing a configurable backend URL for
+a Cloud provider option. That reading did not survive: `master` has no backend URL
+setting anywhere, ADR-0014 made Cloud Mode a Settings feature flag rather than a URL
+field, and ADR-0012 was promoted to a fully local decision. The discarded change was the
+direction the product went.

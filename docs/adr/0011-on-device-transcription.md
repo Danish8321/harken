@@ -1,7 +1,13 @@
 # ADR-0011: On-device transcription, backend optional
 
 ## Status
-Accepted
+Accepted, and partly superseded by [ADR-0014](0014-local-first-with-optional-cloud-mode.md).
+
+Decision 3 below keeps a configurable backend URL and an optional "connect a backend"
+onboarding step. Neither exists: ADR-0014 retired the backend as a product surface, the
+`baseUrl` setting is gone, and onboarding is two steps (what the app is, then the model
+download). The on-device decision this ADR exists for stands unchanged — what changed is
+what the backend is for, which is now Cloud Mode and nothing else.
 
 ## Context
 Today, "install and run Harken" means: install the APK, then separately stand up
