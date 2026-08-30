@@ -50,11 +50,11 @@ blocker.
   `ndk { abiFilters += "arm64-v8a" }`, so the APK carries no x86_64 native library and
   will not run on a standard x86-host emulator image at all. Testing requires either real
   arm64 hardware or a device farm.
-- **`minSdk 26` no longer describes the floor.** No device at this tier ships below
-  Android 13 (API 33); the reference device launched on it. API 26–32 support is a claim
-  the project neither tests nor needs, and it forces compatibility branches for platform
-  features that every supported device has. Whether to raise `minSdk` to 33 is an open
-  question, not settled here.
+- **`minSdk` rises to 33.** No device at this tier ships below Android 13 (API 33); the
+  reference device launched on it. API 26–32 support was a claim the project neither
+  tested nor needed, and it bought compatibility branches for platform features every
+  supported device has. Raised in slice 11, which also removed the notification-channel
+  and POST_NOTIFICATIONS version guards those branches existed for.
 - **Model sizing is unlocked.** An X2-class, 8 GB-plus device with an Adreno 730 hosts a
   3–4B parameter quantized summarizer comfortably, and a GPU-delegated runtime is a real
   option rather than an aspiration. The binding constraint on the local model is its

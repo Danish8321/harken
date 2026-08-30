@@ -11,18 +11,20 @@ android {
 
     defaultConfig {
         applicationId = "com.harken.android"
-        // Foreground service microphone type needs API 26+ (Service.startForeground with
-        // a type); AudioRecord/notification-action Stop button work fine from there too.
-        minSdk = 26
+        // The device floor is a decision, not a compatibility floor: ADR-0015 sets it at
+        // Nothing Phone (2)-class hardware, which is Android 13. Building for anything
+        // older would ship compatibility branches for phones this app is not for and
+        // cannot run local inference on anyway.
+        minSdk = 33
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
         resValue("string", "app_name", "Harken")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Single ABI for now — matches minSdk 26+modern-device assumption, avoids
-        // multi-ABI native build time while on-device transcription is unproven
-        // (ADR-0011).
+        // arm64 only. Every device at or above the ADR-0015 floor is arm64, so a second
+        // ABI would only buy x86_64 emulator support at the cost of native build time,
+        // and an emulator cannot produce a timing or thermal number worth having.
         ndk {
             abiFilters += "arm64-v8a"
         }
