@@ -61,7 +61,16 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         base.Dispose(disposing);
         if (disposing)
         {
-            SqliteConnection.ClearAllPools();
+            // ClearPool, not ClearAllPools: the pool has to be released before the file
+            // can be deleted, but ClearAllPools is process-wide and disposes the pooled
+            // sqlite3 handles belonging to every other factory running in parallel. The
+            // next one to open a connection then hits "Cannot access a disposed object:
+            // SQLitePCL.sqlite3" from inside EnsureCreated, intermittently and in
+            // whichever test happened to run next.
+            using (var pooled = new SqliteConnection(ConnectionString))
+            {
+                SqliteConnection.ClearPool(pooled);
+            }
 
             foreach (var path in new[] { _dbPath, _dbPath + "-wal", _dbPath + "-shm" })
             {
