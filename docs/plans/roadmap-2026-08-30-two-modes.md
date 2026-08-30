@@ -45,6 +45,10 @@ Everything found during the session, and where it gets closed. Each has a file b
 | F21 | Uncommitted spike work written during the design session (mtimes 2026-08-29 21:24–21:29), never committed or pushed, touching `AppNav.kt` and `SettingsScreen.kt` too | `git status`, file mtimes | Slice 11 |
 | F22 | Download validation was lost in the squash merge: `downloadTo` never checks bytes written against `Content-Length`, so a dropped connection renames a truncated file into place as a valid model | `ModelDownloadManager.kt:114-140` vs commit `1972818` | Slice 11 |
 | F23 | Three commits stranded on `origin/feat/on-device-transcription`, including the slice-09 manual-check evidence. The branch predates the design merge — it still carries `network/HarkenApi.kt` and lacks `ProtoColors`/`strings.xml`, so merging it would revert the UI work and resurrect the deleted HTTP client | `git diff master origin/feat/on-device-transcription` | Slice 11 |
+| F24 | Delete removes the session row only. Segments and summaries declare no foreign key so nothing cascades, and the WAV file is never touched — while the dialog promises the recording leaves the phone | `SessionRepository.purge`; `session_delete_confirm_body` | Slice 11 (found during it) |
+| F25 | A failed transcription renders as a reassuring "Kept on device" chip, with the stored failure reason shown nowhere and no way to retry | `LibraryScreen.kt:212`; `failureReason` had no reader | Slice 11 (found during it) |
+| F26 | The save-failure banner passes an exception message into copy written for a file path: "Still on this phone at UNIQUE constraint failed" | `RecordScreen.kt:467`, `record_upload_failed_body` | Slice 11 (found during it) |
+| F27 | The manifest declares `ACCESS_NETWORK_STATE`, which no code uses, and `usesCleartextTraffic="true"`, which outlived the `http://` backend URL setting | `AndroidManifest.xml` | Slice 11 (found during it) |
 
 ---
 
@@ -86,6 +90,19 @@ so one green run proves nothing. A reader who knows nothing about the project ca
 `README.md` and `CONTEXT.md` and describe the product correctly.
 
 **Not in this slice.** Any native or model work.
+
+### Outcome (2026-08-30)
+
+Closed: F4, F5, F6, F7, F8, F9, F10, F11, F19, F21, F22, F23, and F24–F27, which
+were found while checking the others. Not closed and moved on: F1, F2, F3, F13–F18 by
+design; the six refactors carried in `.scratch/review-slice-09-findings.md` (S4, S5, S7,
+S8, S9, S10, SP7) by decision — none of them makes the app lie to a user.
+
+Three of the fixes are covered by instrumented tests rather than JVM ones, because they
+are Room and file-system behaviour: `InterruptedTranscriptionRecoveryTest` and
+`SessionPurgeTest` compile under `assembleDebugAndroidTest` but have not been run — no
+device was attached. Running them is the first thing slice 12 does, since it needs the
+reference device anyway.
 
 ---
 
