@@ -18,28 +18,38 @@ transcribed, and may gain a Summary. A Session exists on the client from the mom
 capture starts, before it has an Owner.
 
 ## Recording
-The captured audio of a Session, as a file. Created on the client, held there until
-Uploaded, and the only artifact that cannot be recreated — a lost Recording is a lost
-Session. Capture never requires the User to be authenticated or online. Retained after
-Transcription rather than discarded, so a Session can be re-transcribed by a different
-Provider or a better model.
-
-## Upload
-Moving a Recording from the client to the backend. The first point at which a Session
-acquires an Owner, and therefore the point where authentication is required. May be
-retried; a Recording that has been Uploaded is not deleted from the client until the
-backend confirms it holds it.
+The captured audio of a Session, as a file. Created on the device and the only artifact
+that cannot be recreated — a lost Recording is a lost Session. Capture never requires the
+User to be online, whatever the Mode. Retained after Transcription rather than discarded,
+so a Session can be re-transcribed by a better Provider or a better model later.
 
 ## Transcription
-Turning a Recording into a Transcript. Happens on the backend after Upload, never on
-the client and never during capture. Takes real time and reports progress, so a Session
-is always in one of a known set of states rather than merely "not done yet". May be run
-again over a retained Recording.
+Turning a Recording into a Transcript. Happens after capture ends, never during it
+(ADR-0007). Where it runs is decided by the Mode: on the device in Local Mode, remotely
+in Cloud Mode. Started explicitly by the User rather than automatically when capture
+stops, and at most one on-device Transcription runs at a time. Takes real time and
+reports progress, so a Session is always in one of a known set of states rather than
+merely "not done yet". May be run again over a retained Recording.
 
 ## Provider
-The engine that performs Transcription. Interchangeable: local Whisper, or a cloud
-service. Which Providers exist is declared by the backend; the User selects among
-those, and can never select one the backend has no credentials for.
+The engine that performs Transcription or Summarization. Which Provider runs follows from
+the Mode, not from a separate picker: Local Mode always uses the on-device Provider, Cloud
+Mode uses the remote one. Every output states the Provider that produced it, so a
+Transcript or Summary is never of unknown origin.
+
+## Mode
+Where a Session's Transcription and Summarization run. Two exist, and the User chooses
+(ADR-0014):
+
+- **Local Mode** — the default and the whole product on its own. Everything runs on the
+  device; every core workflow completes with no network, no account and no configuration.
+- **Cloud Mode** — opt-in, off by default, enabled by a Settings feature flag. Buys expert
+  Transcription, expert Summarization, and Chat. Never automatic: the app never falls back
+  from one Mode to the other on its own, in either direction.
+
+## Upload
+Moving a Session's data from the device to the backend. Exists only in Cloud Mode; in
+Local Mode nothing is ever uploaded and a Recording never leaves the device.
 
 ## Transcript Segment
 A timestamped piece of recognized text belonging to a Session. Ordered within its
@@ -50,11 +60,20 @@ The full stored text of a Session — its ordered Transcript Segments joined. Th
 durable artifact the User owns and runs Agents over. The product's hero.
 
 ## Agent
-An AI worker that consumes a Transcript and produces a derived output. Phase 1 has
-one Agent: Summarize. Runs on demand against a stored Transcript.
+An AI worker that consumes a Session's content and produces a derived output. Runs on
+demand, never automatically. Two exist:
+
+- **Summarize** — one fixed instruction, no input from the User.
+- **Chat** — the User supplies the instruction.
 
 ## Summary
 The output of the Summarize Agent over a Transcript.
+
+## Chat
+The instruction-driven Agent. The User asks for something in their own words — pull out
+the decisions, draft a follow-up, find what was said about a topic — and gets a result
+grounded in that Session rather than the one fixed Summary. What separates Chat from
+Summarize is who writes the instruction, not how long the answer is.
 
 ## Silence Timeout
 The period without detected speech after which capture stops on its own. Bounds

@@ -1,7 +1,14 @@
-# ADR-0012: Full standalone — on-device summarization (Phase 2, not yet started)
+# ADR-0012: Full standalone — on-device summarization
 
 ## Status
-Proposed — deferred, not scheduled
+Accepted — 2026-08-30. Was "Proposed — deferred, not scheduled".
+
+[ADR-0014](0014-local-first-with-optional-cloud-mode.md) makes Local Mode the whole
+product on its own, which promises a Summary with no network. That turns this from an
+optional Phase 2 into required scope, and the "why this is deferred" section below is
+now history rather than a live position. [ADR-0016](0016-on-device-inference-runtime.md)
+settles the runtime and model-family question this ADR left open — llama.cpp on a shared
+ggml with an Apache-2.0 GGUF model, *not* the MediaPipe/Gemma option floated below.
 
 ## Context
 [ADR-0011](0011-on-device-transcription.md) (Phase 1) moves default transcription and
@@ -24,7 +31,7 @@ Add on-device summarization as an alternative to the existing `SummarizeAgent`/
 - Cloud summarization via the existing backend `IChatClient` seam remains available as
   an opt-in alternative, same as cloud transcription is opt-in today.
 
-## Why this is deferred, not decided
+## Why this was deferred (historical)
 Raised and priced during ADR-0011's grilling session (2026-08-25):
 - Scope is materially larger than Phase 1: local DB schema, a model-selection and
   quality-evaluation pass (on-device LLM output quality is unproven for this use case),
@@ -42,9 +49,11 @@ Raised and priced during ADR-0011's grilling session (2026-08-25):
 ## Consequences
 - Until this is implemented, backend-less users get transcripts only, no AI summaries —
   an accepted, explicit gap per ADR-0011.
-- Revisit this ADR (move to Accepted) once Phase 1 has shipped and there's appetite to
-  spend the larger estimated effort, or once a concrete on-device model is validated as
-  good enough on real hardware.
+- Phase 1 shipped (commit `80c463d`), and ADR-0014 removed the option of leaving this
+  undone, so this moved to Accepted. The "unproven model quality" risk it named is real
+  and unretired: it is now discharged by benchmarking on the reference device
+  ([ADR-0015](0015-target-device-floor.md)) rather than by deferral.
 
 ## Related
-[ADR-0011](0011-on-device-transcription.md)
+[ADR-0011](0011-on-device-transcription.md), [ADR-0014](0014-local-first-with-optional-cloud-mode.md),
+[ADR-0015](0015-target-device-floor.md), [ADR-0016](0016-on-device-inference-runtime.md)

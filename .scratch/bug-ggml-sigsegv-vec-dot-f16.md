@@ -1,6 +1,13 @@
 # Native SIGSEGV in ggml_vec_dot_f16 during on-device transcription
 
-Status: open, root cause unknown. Opened 2026-08-28.
+Status: open, root cause unknown, **deprioritised**. Opened 2026-08-28.
+
+Scope note (2026-08-29, [ADR-0015](../docs/adr/0015-target-device-floor.md)): the SM-E625F
+is *below* the supported device floor (Snapdragon 888-class and newer). This crash has
+only ever been seen on out-of-scope hardware, so it does not block release. It is not
+closed either — it is an unexplained memory fault in vendored native code that runs on
+every device. Closing it requires a root cause, or a clean reproduction attempt on an
+in-scope device.
 
 ## Symptom
 
