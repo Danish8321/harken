@@ -27,15 +27,20 @@ interface ModelProvider {
  * Ensures the on-device whisper.cpp model file is present, downloading it on first use
  * (ADR-0011: no bundled model, lazy fetch on first recording). A killed or failed
  * download must never leave a corrupt file mistaken for a real model, so the download is
- * written to a `.tmp` sibling and only renamed to the final path after the stream
- * completes successfully.
+ * written to a `.tmp` sibling and only renamed to the final path once the bytes received
+ * match the length the server declared.
  */
 class ModelDownloadManager(
-    private val context: Context,
+    private val modelsDir: File,
     private val client: OkHttpClient = OkHttpClient(),
 ) : ModelProvider {
-    private val modelsDir: File
-        get() = File(context.filesDir, "models")
+    /**
+     * The app's constructor. The primary one takes a plain directory instead of a
+     * Context so the download path can be exercised on the JVM test runner, where
+     * Context.filesDir does not exist.
+     */
+    constructor(context: Context, client: OkHttpClient = OkHttpClient()) :
+        this(File(context.filesDir, "models"), client)
 
     private val modelFile: File
         get() = File(modelsDir, ModelFileName)
@@ -81,7 +86,7 @@ class ModelDownloadManager(
     /**
      * Emits download progress as a percentage (0-100) while [ensureModel] would perform a
      * download, then completes. If the model is already present, emits 100 immediately.
-     * Emits -1 if the server did not report a Content-Length (progress unknown).
+     * Fails the flow if the download is truncated or its length cannot be verified.
      */
     fun downloadProgress(): Flow<Int> = callbackFlow {
         if (modelFile.exists()) {
@@ -122,10 +127,10 @@ class ModelDownloadManager(
             val body = response.body ?: throw IOException("Model download response had no body")
             val contentLength = body.contentLength()
 
+            var bytesRead: Long = 0
             destination.outputStream().use { output ->
                 body.byteStream().use { input ->
                     val buffer = ByteArray(8 * 1024)
-                    var bytesRead: Long = 0
                     var read: Int
                     while (input.read(buffer).also { read = it } != -1) {
                         output.write(buffer, 0, read)
@@ -135,6 +140,19 @@ class ModelDownloadManager(
                         }
                     }
                 }
+            }
+
+            // A dropped connection ends the read loop normally — the stream just stops.
+            // Without this check the caller renames a truncated file into place and the
+            // user gets a model that fails to load, with no reason to suspect the
+            // download. There is no published checksum for the model, so declared length
+            // is the strongest check available; a server that reports no length at all
+            // leaves the download unverifiable and is refused rather than trusted.
+            if (contentLength <= 0) {
+                throw IOException("Model download response declared no length; cannot verify it completed")
+            }
+            if (bytesRead != contentLength) {
+                throw IOException("Model download truncated: got $bytesRead bytes, expected $contentLength")
             }
         }
     }
