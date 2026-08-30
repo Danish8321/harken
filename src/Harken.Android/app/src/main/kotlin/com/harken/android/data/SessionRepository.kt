@@ -104,6 +104,15 @@ class SessionRepository(
     /** Marks a local-only session's on-device transcription as failed. */
     override suspend fun failLocal(id: UUID, reason: String) = dao.failLocalTranscription(id, reason)
 
+    /**
+     * Settles sessions that were transcribing when the process died. Call once at process
+     * start, before anything can begin a new transcription: at that moment a row still
+     * marked as running cannot be running, so it is an interrupted one. Returns how many
+     * rows were recovered.
+     */
+    suspend fun recoverInterruptedTranscriptions(reason: String): Int =
+        dao.failInterruptedTranscriptions(reason)
+
     suspend fun purge(id: UUID): Result<Unit> = runCatching {
         dao.deleteSession(id)
     }

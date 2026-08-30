@@ -61,10 +61,12 @@
     <string name="library_empty_filtered_title">Nothing tagged %1$s</string>
     <string name="library_empty_filtered_body">Tags are local to this phone. Open a recording to add one.</string>
     <string name="library_chip_transcribing">Transcribing</string>
-    <string name="library_chip_kept_on_device">Kept on device</string>
     <string name="library_chip_summarized">Summarized</string>
     <string name="library_chip_transcribed">Transcribed</string>
     <string name="library_action_transcribe">Transcribe</string>
+    <string name="library_action_retry">Retry</string>
+    <string name="library_failed_unknown_reason">Transcribing didn\'t finish.</string>
+    <string name="transcription_interrupted_reason">Transcribing stopped when the app closed.</string>
     <plurals name="library_recording_count">
         <item quantity="one">%1$d recording</item>
         <item quantity="other">%1$d recordings</item>

@@ -145,6 +145,23 @@ interface SessionDao {
     )
     suspend fun failLocalTranscription(id: UUID, reason: String)
 
+    // Transcription runs in a coroutine owned by TranscriptionCoordinator, in this
+    // process — nowhere else. If the process dies mid-run (the ggml SIGSEGV, a
+    // low-memory kill, a force stop) the row keeps the 'Running' it was given and the
+    // Library shows a spinner that can never finish and offers no way out. Nothing can
+    // still be in flight at process start, so every row left in a running state there is
+    // by definition interrupted. 'Pending' is included because backend-mirrored rows used
+    // it for the same in-flight meaning.
+    @Query(
+        """
+        UPDATE sessions SET
+            transcriptionStatus = 'Failed',
+            transcriptionFailureReason = :reason
+        WHERE transcriptionStatus IN ('Running', 'Pending')
+        """,
+    )
+    suspend fun failInterruptedTranscriptions(reason: String): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun replaceSummary(summary: SummaryRow)
 

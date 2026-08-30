@@ -209,10 +209,14 @@ private fun SessionCard(
     // Transcribe button instead of the Transcribing chip.
     val transcribing = isTranscribing || s.status == "Pending" || s.status == "Running"
     val recorded = s.status == "Recorded" && !isTranscribing
-    val failed = s.status == "Failed"
+    val failed = s.status == "Failed" && !isTranscribing
+    // A failed transcription used to render as a "Kept on device" chip: a reassuring
+    // label on a dead row, with the reason stored but never shown and no way to try
+    // again. Failed rows get the same button a recorded one gets, since the audio is
+    // still there and re-running it is the only thing to do about it.
+    val actionable = recorded || failed
     val (chipBg, chipFg, chipLabel) = when {
         transcribing -> Triple(c.stateDone, c.stateDoneFg, R.string.library_chip_transcribing)
-        failed -> Triple(c.stateError, c.stateErrorFg, R.string.library_chip_kept_on_device)
         s.hasSummary -> Triple(c.stateDone, c.stateDoneFg, R.string.library_chip_summarized)
         else -> Triple(c.pillTrack, c.textSecondary, R.string.library_chip_transcribed)
     }
@@ -228,10 +232,21 @@ private fun SessionCard(
             Column(Modifier.weight(1f)) {
                 Text(s.title, color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(metaLine, color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+                if (failed) {
+                    Text(
+                        s.failureReason ?: stringResource(R.string.library_failed_unknown_reason),
+                        // stateErrorFg is the on-chip foreground and is nearly invisible on
+                        // the card; the error hue itself is what reads here.
+                        color = c.stateError,
+                        fontFamily = ProtoBodyFont,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
             }
-            if (recorded) {
+            if (actionable) {
                 Button(onClick = onTranscribe, enabled = transcribeEnabled) {
-                    Text(stringResource(R.string.library_action_transcribe))
+                    Text(stringResource(if (failed) R.string.library_action_retry else R.string.library_action_transcribe))
                 }
             } else {
                 Row(
