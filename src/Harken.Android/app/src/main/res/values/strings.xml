@@ -37,6 +37,9 @@
     <string name="record_cap_warning">Approaching the 3-hour cap — it\'ll stop and save on its own.</string>
     <string name="record_saved_local_title">Saved</string>
     <string name="record_saved_local_body">Transcribe it from the Library when you\'re ready</string>
+    <string name="record_saved_silence_title">Stopped after 5 minutes of silence</string>
+    <string name="record_saved_cap_title">Stopped at the 3-hour cap</string>
+    <string name="record_saved_auto_body">Saved — transcribe it from the Library when you\'re ready</string>
     <string name="record_save_failed_title">Couldn\'t save this recording · tap to retry</string>
     <string name="record_save_failed_body">The audio is safe on this phone. %1$s</string>
     <string name="record_save_failed_reason_unknown">Tap to try saving it again.</string>
@@ -91,7 +94,7 @@
     <string name="session_summary_collapse">Collapse summary</string>
     <string name="session_summary_expand">Expand summary</string>
     <string name="session_delete_confirm_title">Delete this recording?</string>
-    <string name="session_delete_confirm_body">The transcript and its segments are removed from this phone. This cannot be undone.</string>
+    <string name="session_delete_confirm_body">The audio, the transcript and its segments are removed from this phone. This cannot be undone.</string>
     <string name="session_delete_confirm">Delete</string>
     <string name="session_delete_keep">Keep it</string>
     <string name="session_add_tag">+ Tag</string>

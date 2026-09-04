@@ -80,6 +80,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
+import com.harken.android.audio.RecordingStopReason
 import com.harken.android.data.AppSettings
 import com.harken.android.recording.RecordingState
 import com.harken.android.ui.theme.HarkenMotion
@@ -241,7 +242,15 @@ fun RecordScreen(
         AnimatedVisibility(state.saveStatus != SaveStatus.Idle, enter = fadeIn(fade), exit = fadeOut(fade)) {
             Column {
                 Spacer(Modifier.height(14.dp))
-                SaveStatusCard(c, state.saveStatus, state.lastSessionId, state.lastError, onOpenSession, viewModel::retrySave)
+                SaveStatusCard(
+                    c,
+                    state.saveStatus,
+                    state.stopReason,
+                    state.lastSessionId,
+                    state.lastError,
+                    onOpenSession,
+                    viewModel::retrySave,
+                )
             }
         }
 
@@ -385,6 +394,7 @@ private fun LiveDot(c: ProtoColors) {
 private fun SaveStatusCard(
     c: ProtoColors,
     status: SaveStatus,
+    stopReason: RecordingStopReason,
     lastSessionId: UUID?,
     lastError: String?,
     onOpenSession: (UUID) -> Unit,
@@ -455,12 +465,24 @@ private fun SaveStatusCard(
             val bodyColor = if (status == SaveStatus.Failed) c.stateErrorFg else c.textSecondary
             when (status) {
                 SaveStatus.Succeeded -> {
+                    // A recording that ended itself leads with why. Tapping Stop needs no
+                    // explanation; coming back to a phone that stopped on its own does.
+                    val title = when (stopReason) {
+                        RecordingStopReason.SilenceTimeout -> R.string.record_saved_silence_title
+                        RecordingStopReason.SessionCap -> R.string.record_saved_cap_title
+                        RecordingStopReason.None -> R.string.record_saved_local_title
+                    }
+                    val body = if (stopReason == RecordingStopReason.None) {
+                        R.string.record_saved_local_body
+                    } else {
+                        R.string.record_saved_auto_body
+                    }
                     Text(
-                        stringResource(R.string.record_saved_local_title),
+                        stringResource(title),
                         color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp,
                     )
                     Text(
-                        stringResource(R.string.record_saved_local_body),
+                        stringResource(body),
                         color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp,
                     )
                 }

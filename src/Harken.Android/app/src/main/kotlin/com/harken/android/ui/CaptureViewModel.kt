@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.harken.android.audio.RecordingStopReason
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.recording.RecordingController
@@ -23,6 +24,13 @@ data class CaptureUiState(
     val saveStatus: SaveStatus = SaveStatus.Idle,
     val lastError: String? = null,
     val lastSessionId: java.util.UUID? = null,
+    /**
+     * Why the last recording ended. A recording that stopped itself has to say so: the
+     * save card read the same "Saved" whether the user tapped Stop or the recorder ended
+     * a session they had forgotten about (ADR-0007), which is the one case where they did
+     * not already know what happened.
+     */
+    val stopReason: RecordingStopReason = RecordingStopReason.None,
 )
 
 // Every recording is on-device only (ADR-0011): every stop routes through
@@ -34,6 +42,7 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
     private var lastRecordingId: java.util.UUID? = null
     private var lastFilePath: String? = null
     private var lastDurationSeconds: Int = 0
+    private var lastStopReason: RecordingStopReason = RecordingStopReason.None
 
     private val _uiState = MutableStateFlow(CaptureUiState())
     val uiState: StateFlow<CaptureUiState> = _uiState.asStateFlow()
@@ -46,7 +55,12 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
         }
         viewModelScope.launch {
             RecordingState.completed.collect { completed ->
-                saveLocal(completed.recordingId, completed.filePath, completed.durationSeconds)
+                saveLocal(
+                    completed.recordingId,
+                    completed.filePath,
+                    completed.durationSeconds,
+                    completed.stopReason,
+                )
             }
         }
     }
@@ -62,14 +76,20 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
     fun retrySave() {
         val recordingId = lastRecordingId ?: return
         val filePath = lastFilePath ?: return
-        viewModelScope.launch { saveLocal(recordingId, filePath, lastDurationSeconds) }
+        viewModelScope.launch { saveLocal(recordingId, filePath, lastDurationSeconds, lastStopReason) }
     }
 
-    private suspend fun saveLocal(recordingId: java.util.UUID, filePath: String, durationSeconds: Int) {
+    private suspend fun saveLocal(
+        recordingId: java.util.UUID,
+        filePath: String,
+        durationSeconds: Int,
+        stopReason: RecordingStopReason,
+    ) {
         lastRecordingId = recordingId
         lastFilePath = filePath
         lastDurationSeconds = durationSeconds
-        _uiState.value = _uiState.value.copy(lastError = null)
+        lastStopReason = stopReason
+        _uiState.value = _uiState.value.copy(lastError = null, stopReason = stopReason)
         try {
             // This runs at stop, so "now" is the end of the capture, not its start —
             // stamping startedAt with it dated a 40-minute recording to when it finished
