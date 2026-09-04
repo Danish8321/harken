@@ -3,6 +3,7 @@ package com.harken.android.speech
 import android.util.Log
 import com.harken.android.audio.WavFormat
 import com.harken.android.data.TranscriptionSink
+import com.harken.android.telemetry.Telemetry
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
@@ -54,13 +55,39 @@ object TranscriptionCoordinator {
         if (!active.compareAndSet(null, sessionId)) return false
         _activeSessionId.value = sessionId
         scope.launch {
+            val startNs = System.nanoTime()
+            val audioSeconds = wavDurationSeconds(filePath)
+            Telemetry.event(
+                "transcribe_started",
+                "session" to Telemetry.shortId(sessionId),
+                "audioSeconds" to audioSeconds,
+            )
             try {
                 repository.startLocalTranscription(sessionId)
                 val modelPath = modelDownloadManager.ensureModel().getOrThrow()
                 val segments = onDeviceTranscriber.transcribe(filePath, modelPath)
-                repository.completeLocal(sessionId, segments, wavDurationSeconds(filePath))
+                repository.completeLocal(sessionId, segments, audioSeconds)
+                // The event the whisper-on-silence defect needed and did not have: a
+                // successful transcription that reports its own magnitudes. Eleven segments
+                // for five minutes of silence is only obviously wrong if something says so.
+                Telemetry.event(
+                    "transcribe_finished",
+                    "session" to Telemetry.shortId(sessionId),
+                    "outcome" to "succeeded",
+                    "audioSeconds" to audioSeconds,
+                    "segments" to segments.size,
+                    "elapsedMs" to Telemetry.elapsedMsSince(startNs),
+                )
             } catch (e: Exception) {
                 Log.e(TAG, "On-device transcription failed for session $sessionId", e)
+                Telemetry.event(
+                    "transcribe_finished",
+                    "session" to Telemetry.shortId(sessionId),
+                    "outcome" to "failed",
+                    "audioSeconds" to audioSeconds,
+                    "error" to (e.javaClass.simpleName),
+                    "elapsedMs" to Telemetry.elapsedMsSince(startNs),
+                )
                 repository.failLocal(sessionId, e.message ?: "On-device transcription failed")
             } finally {
                 onDeviceTranscriber.release()

@@ -13,6 +13,7 @@ import com.harken.android.audio.AudioRecordCapture
 import com.harken.android.audio.RecordingStopReason
 import com.harken.android.audio.SilenceDetector
 import com.harken.android.audio.WavWriter
+import com.harken.android.telemetry.Telemetry
 import java.io.RandomAccessFile
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -25,6 +26,13 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "RecordingForegroundService"
 
+/**
+ * A chunk write slower than this is worth counting. AudioRecordCapture hands over roughly
+ * ten chunks a second, so anything near 100 ms means the writer is racing the microphone
+ * and the internal buffer is the only thing preventing a gap in the recording.
+ */
+private const val SlowChunkMs = 50L
+
 // Ports src/Harken.Mobile/Platforms/Android/RecordingForegroundService.cs — direct
 // android.app.Service + NotificationCompat, no MAUI wrapper layer.
 class RecordingForegroundService : Service() {
@@ -34,6 +42,19 @@ class RecordingForegroundService : Service() {
     private var silenceDetector: SilenceDetector? = null
     private var capture: AudioRecordCapture? = null
     private var startedAtElapsedMs: Long = 0
+
+    // Named so every line of this recording's life can be joined: capture, transcription,
+    // playback. Without it a recording's chunk-write failures and its transcription timings
+    // are two unrelated piles of logcat.
+    private var sessionTag: String = Telemetry.shortId(null)
+
+    // Capture-side counters, summed on the capture thread and reported once on stop. A
+    // per-chunk event would emit ten lines a second for three hours; the aggregate answers
+    // the same question — did writing to disk ever fall behind the microphone?
+    private var chunkCount: Long = 0
+    private var byteCount: Long = 0
+    private var maxChunkWriteMs: Long = 0
+    private var slowChunks: Long = 0
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -84,6 +105,13 @@ class RecordingForegroundService : Service() {
 
         RecordingState.markStarted(recordingId, filePath)
 
+        sessionTag = Telemetry.shortId(recordingId)
+        chunkCount = 0
+        byteCount = 0
+        maxChunkWriteMs = 0
+        slowChunks = 0
+        Telemetry.event("recording_started", "session" to sessionTag)
+
         capture = AudioRecordCapture(onChunk = ::writeChunk, onError = ::onCaptureError, scope = scope)
         capture?.start()
 
@@ -92,6 +120,7 @@ class RecordingForegroundService : Service() {
 
     private fun writeChunk(chunk: ByteArray) {
         var stopReason = RecordingStopReason.None
+        val writeStartNs = System.nanoTime()
         try {
             synchronized(writerGate) {
                 writer?.write(chunk, 0, chunk.size)
@@ -99,10 +128,22 @@ class RecordingForegroundService : Service() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed writing an audio chunk to disk", e)
+            Telemetry.event(
+                "chunk_write_failed",
+                "session" to sessionTag,
+                "afterChunks" to chunkCount,
+                "error" to e.javaClass.simpleName,
+            )
             RecordingState.publishError(e.message ?: "Recording stopped — couldn't write to disk")
             stopRecording(RecordingStopReason.None)
             return
         }
+        val writeMs = Telemetry.elapsedMsSince(writeStartNs)
+        chunkCount += 1
+        byteCount += chunk.size
+        if (writeMs > maxChunkWriteMs) maxChunkWriteMs = writeMs
+        if (writeMs > SlowChunkMs) slowChunks += 1
+
         RecordingState.publishAmplitude(pcm16Rms(chunk))
         if (stopReason != RecordingStopReason.None) {
             stopRecording(stopReason)
@@ -144,6 +185,16 @@ class RecordingForegroundService : Service() {
                 writer = null
                 silenceDetector = null
             }
+            Telemetry.event(
+                "recording_stopped",
+                "session" to sessionTag,
+                "reason" to stopReason,
+                "elapsedMs" to SystemClock.elapsedRealtime() - startedAtElapsedMs,
+                "chunks" to chunkCount,
+                "bytes" to byteCount,
+                "maxChunkWriteMs" to maxChunkWriteMs,
+                "slowChunks" to slowChunks,
+            )
             RecordingState.markStopped(stopReason)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
