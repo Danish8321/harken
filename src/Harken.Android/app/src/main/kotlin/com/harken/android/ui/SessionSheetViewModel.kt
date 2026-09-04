@@ -1,6 +1,8 @@
 package com.harken.android.ui
 
 import android.app.Application
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.util.Log
 import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
@@ -9,16 +11,23 @@ import com.harken.android.R
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.SpeakerHeuristic
 import com.harken.android.data.local.HarkenDatabase
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import java.util.UUID
 
 private const val TAG = "SessionSheetViewModel"
+
+// Fast enough that the scrubber and the highlighted transcript line track the audio, slow
+// enough not to recompose the sheet on every frame.
+private const val PLAYBACK_TICK_MS = 200L
 
 data class SessionSheetUiState(
     val title: String = "",
@@ -39,6 +48,15 @@ data class SessionSheetUiState(
     val summaryOptionsOpen: Boolean = false,
     val toast: String? = null,
     val loadError: String? = null,
+    /** The WAV this session was recorded to, or null once it is no longer on disk. */
+    val audioPath: String? = null,
+    val isPlaying: Boolean = false,
+    val positionMs: Int = 0,
+    /**
+     * Taken from the decoder once the file is opened, falling back to the session's own
+     * duration so the scrubber has a scale before the first tap.
+     */
+    val playbackDurationMs: Int = 0,
 ) {
     val plainText: String
         get() = segments.joinToString("\n") { "[${it.offsetSeconds}s] ${it.text}" }
@@ -51,6 +69,10 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
     val uiState: StateFlow<SessionSheetUiState> = _uiState.asStateFlow()
 
     private var observeJob: Job? = null
+
+    // One player at a time, created on the first play tap and released with the sheet.
+    private var player: MediaPlayer? = null
+    private var ticker: Job? = null
 
     fun load(id: UUID) {
         // A prior session's job must not keep running once a new one loads — otherwise
@@ -80,12 +102,112 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
                     status = session?.status,
                     durationSeconds = duration,
                     loadError = null,
+                    audioPath = session?.pendingUploadPath?.takeIf { java.io.File(it).exists() },
+                    playbackDurationMs = _uiState.value.playbackDurationMs.takeIf { it > 0 }
+                        ?: (duration * 1000),
                 )
-            }.catch { e ->
+            }.flowOn(Dispatchers.Default).catch { e ->
                 Log.e(TAG, "Failed loading session $id", e)
                 _uiState.value = _uiState.value.copy(loadError = e.message)
             }.collect { _uiState.value = it }
         }
+    }
+
+    /**
+     * Starts playing, or pauses if it already is.
+     *
+     * The player is created on the first tap rather than at load, so opening a session to
+     * read its transcript costs no decoder. It survives pausing — pausing and resuming
+     * keeps the position — and is torn down when the sheet closes or another session
+     * loads.
+     */
+    fun togglePlayback() {
+        val existing = player
+        if (existing != null) {
+            if (existing.isPlaying) {
+                existing.pause()
+                ticker?.cancel()
+                _uiState.value = _uiState.value.copy(isPlaying = false)
+            } else {
+                existing.start()
+                startTicking()
+            }
+            return
+        }
+
+        val path = _uiState.value.audioPath ?: return
+        try {
+            player = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build(),
+                )
+                setDataSource(path)
+                prepare()
+                setOnCompletionListener {
+                    // Rewind rather than sit at the end, so the same button plays it again.
+                    ticker?.cancel()
+                    seekTo(0)
+                    _uiState.value = _uiState.value.copy(isPlaying = false, positionMs = 0)
+                }
+                seekTo(_uiState.value.positionMs)
+                start()
+            }
+            _uiState.value = _uiState.value.copy(playbackDurationMs = player?.duration ?: 0)
+            startTicking()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed playing ${_uiState.value.audioPath}", e)
+            releasePlayer()
+            _uiState.value = _uiState.value.copy(
+                toast = getApplication<Application>().getString(R.string.session_playback_failed),
+            )
+        }
+    }
+
+    /** Moves the playhead, whether or not anything is playing yet. */
+    fun seekTo(positionMs: Int) {
+        val target = positionMs.coerceAtLeast(0)
+        player?.seekTo(target)
+        _uiState.value = _uiState.value.copy(positionMs = target)
+    }
+
+    /** Jumps to a transcript segment. Tapping a line is how you navigate a long recording. */
+    fun seekToSegment(offsetSeconds: Int) = seekTo(offsetSeconds * 1000)
+
+    /**
+     * Drops the player and its ticker. Called when the sheet closes: a MediaPlayer holds a
+     * decoder the rest of the system wants back, and audio playing on from a sheet the user
+     * has dismissed is not something they asked for.
+     */
+    fun stopPlayback() {
+        releasePlayer()
+        _uiState.value = _uiState.value.copy(isPlaying = false, positionMs = 0)
+    }
+
+    private fun startTicking() {
+        ticker?.cancel()
+        _uiState.value = _uiState.value.copy(isPlaying = true)
+        ticker = viewModelScope.launch {
+            while (true) {
+                val current = player ?: break
+                _uiState.value = _uiState.value.copy(positionMs = current.currentPosition)
+                delay(PLAYBACK_TICK_MS)
+            }
+        }
+    }
+
+    private fun releasePlayer() {
+        ticker?.cancel()
+        ticker = null
+        player?.release()
+        player = null
+    }
+
+    override fun onCleared() {
+        releasePlayer()
+        super.onCleared()
     }
 
     /** A blank [title] clears the local name, so the session goes back to its derived one. */

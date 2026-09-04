@@ -109,7 +109,11 @@
     </plurals>
     <string name="session_transcript_meta_voices">%1$s · %2$d voices</string>
     <string name="session_transcript_silent">No speech in this recording — nothing to transcribe.</string>
-    <string name="session_no_playback">Audio is saved on this phone. Playback isn\'t built yet — read the transcript below instead.</string>
+    <string name="session_play">Play</string>
+    <string name="session_pause">Pause</string>
+    <string name="session_scrub">Playback position</string>
+    <string name="session_playback_failed">Couldn\'t play this recording.</string>
+    <string name="session_audio_missing">The audio for this recording is no longer on this phone. The transcript is below.</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

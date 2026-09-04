@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -39,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -50,6 +53,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -59,6 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
@@ -116,6 +121,11 @@ fun SessionSheet(
     var summaryMenuOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(sessionId) { viewModel.load(sessionId) }
+
+    // Audio must not outlive the sheet it was started from. The ViewModel is remembered
+    // across sheet openings, so releasing here rather than only in onCleared is what
+    // actually stops a recording playing on into the Library.
+    DisposableEffect(sessionId) { onDispose { viewModel.stopPlayback() } }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(state.toast) {
@@ -206,7 +216,15 @@ fun SessionSheet(
                         onRemove = { viewModel.removeTag(sessionId, it) },
                         modifier = Modifier.padding(top = 14.dp),
                     )
-                    NoPlaybackCard(modifier = Modifier.padding(top = 18.dp))
+                    PlaybackCard(
+                        audioPath = state.audioPath,
+                        isPlaying = state.isPlaying,
+                        positionMs = state.positionMs,
+                        durationMs = state.playbackDurationMs,
+                        onToggle = viewModel::togglePlayback,
+                        onSeek = viewModel::seekTo,
+                        modifier = Modifier.padding(top = 18.dp),
+                    )
                     state.summary?.let { summary ->
                         SummaryCard(
                             summary = summary,
@@ -242,6 +260,11 @@ fun SessionSheet(
                     }
                 }
 
+                val activeSegment = PlaybackCursor.activeSegment(
+                    state.segments.map { it.offsetSeconds },
+                    state.positionMs,
+                )
+
                 itemsIndexed(state.segments, key = { _, it -> it.id }) { index, segment ->
                     val shown = com.harken.android.ui.components.rememberStaggerShown(
                         segment.id, index, revealedSegmentIds, reducedMotion, TRANSCRIPT_STAGGER_CAP, TRANSCRIPT_STAGGER_STEP_MS,
@@ -254,6 +277,11 @@ fun SessionSheet(
                         TranscriptRow(
                             segment = segment,
                             showVoice = state.voiceCount > 1,
+                            isPlaying = state.isPlaying && activeSegment == index,
+                            onPlayFromHere = {
+                                viewModel.seekToSegment(segment.offsetSeconds)
+                                if (!state.isPlaying) viewModel.togglePlayback()
+                            },
                         )
                     }
                 }
@@ -305,17 +333,69 @@ fun SessionSheet(
     }
 }
 
-// The recording stays on the phone (ADR-0011) — this card is not reporting a missing
-// file, only that there's no player UI for it yet, so the copy must not read as an error.
+/**
+ * Play/pause and a scrubber over the session's own WAV.
+ *
+ * The recording never leaves the phone (ADR-0011), so there is nothing to stream and no
+ * buffering state to show — the position bar is the whole of the transport. A recording
+ * whose audio has gone (deleted underneath us, or a row that outlived its file) says so
+ * rather than offering a button that cannot work.
+ */
 @Composable
-private fun NoPlaybackCard(modifier: Modifier = Modifier) {
+private fun PlaybackCard(
+    audioPath: String?,
+    isPlaying: Boolean,
+    positionMs: Int,
+    durationMs: Int,
+    onToggle: () -> Unit,
+    onSeek: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val ink = LocalInk.current
     InkSurface(modifier) {
-        Text(
-            stringResource(R.string.session_no_playback),
-            style = MaterialTheme.typography.bodyMedium,
-            color = ink.onInkDim,
-        )
+        if (audioPath == null) {
+            Text(
+                stringResource(R.string.session_audio_missing),
+                style = MaterialTheme.typography.bodyMedium,
+                color = ink.onInkDim,
+            )
+            return@InkSurface
+        }
+
+        // While a finger is on the scrubber the bar follows the finger, not the playhead:
+        // seeking on every drag pixel stutters the decoder and fights the ticker.
+        var scrubbing by remember { mutableStateOf<Float?>(null) }
+        val scrubLabel = stringResource(R.string.session_scrub)
+        val progress = scrubbing ?: PlaybackCursor.progress(positionMs, durationMs)
+        val shownMs = scrubbing?.let { PlaybackCursor.seekTarget(it, durationMs) } ?: positionMs
+
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            IconButton(onClick = onToggle) {
+                Icon(
+                    if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = stringResource(if (isPlaying) R.string.session_pause else R.string.session_play),
+                )
+            }
+            Text(
+                PlaybackCursor.formatClock(shownMs),
+                style = MaterialTheme.typography.labelMedium,
+                color = ink.onInkDim,
+            )
+            Slider(
+                value = progress,
+                onValueChange = { scrubbing = it },
+                onValueChangeFinished = {
+                    scrubbing?.let { onSeek(PlaybackCursor.seekTarget(it, durationMs)) }
+                    scrubbing = null
+                },
+                modifier = Modifier.weight(1f).semantics { contentDescription = scrubLabel },
+            )
+            Text(
+                PlaybackCursor.formatClock(durationMs),
+                style = MaterialTheme.typography.labelMedium,
+                color = ink.onInkDim,
+            )
+        }
     }
 }
 
@@ -410,8 +490,16 @@ private fun TagRow(
 private fun TranscriptRow(
     segment: TranscriptRowModel,
     showVoice: Boolean,
+    isPlaying: Boolean,
+    onPlayFromHere: () -> Unit,
 ) {
-    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.background) {
+    // Tapping a line plays from it: the transcript is how you navigate a recording, and
+    // the offset each line already carries is exactly the seek target.
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = if (isPlaying) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.background,
+        modifier = Modifier.clickable(role = Role.Button, onClick = onPlayFromHere),
+    ) {
         Row(Modifier.padding(horizontal = 15.dp, vertical = 13.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.size(width = 34.dp, height = 44.dp)) {
                 if (showVoice) {
