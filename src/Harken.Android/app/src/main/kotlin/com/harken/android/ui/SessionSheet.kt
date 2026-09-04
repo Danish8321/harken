@@ -228,6 +228,20 @@ fun SessionSheet(
                     }
                 }
 
+                // A transcribed recording with no segments is a real outcome now that pure
+                // silence is skipped instead of decoded: say so, rather than showing the
+                // transcript header over nothing at all.
+                if (state.status == "Succeeded" && state.segments.isEmpty()) {
+                    item {
+                        Text(
+                            stringResource(R.string.session_transcript_silent),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 8.dp),
+                        )
+                    }
+                }
+
                 itemsIndexed(state.segments, key = { _, it -> it.id }) { index, segment ->
                     val shown = com.harken.android.ui.components.rememberStaggerShown(
                         segment.id, index, revealedSegmentIds, reducedMotion, TRANSCRIPT_STAGGER_CAP, TRANSCRIPT_STAGGER_STEP_MS,

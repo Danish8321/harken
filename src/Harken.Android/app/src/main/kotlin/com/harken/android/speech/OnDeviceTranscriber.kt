@@ -2,6 +2,7 @@ package com.harken.android.speech
 
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import com.harken.android.audio.SpeechSpans
 import com.harken.android.audio.WavFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -59,14 +60,27 @@ class OnDeviceTranscriber : Transcriber {
             }
 
             val pcm16 = readWavPcm16(wavPath)
-            val json = nativeTranscribe(handle, pcm16, WavFormat.SampleRate)
-            val nativeSegments = gson.fromJson(json, Array<NativeSegment>::class.java) ?: emptyArray()
 
-            nativeSegments.map { segment ->
-                LocalTranscribedSegment(
-                    offsetSeconds = (segment.offsetMs / 1000L).toInt(),
-                    text = segment.text,
+            // Silence is decoded once and only where it borders speech. Handing a whole
+            // recording to whisper made it pay full price for the quiet parts and invent
+            // words to fill them — see SpeechSpans.
+            SpeechSpans.find(pcm16).flatMap { span ->
+                val json = nativeTranscribe(
+                    handle,
+                    pcm16.copyOfRange(span.startSample, span.endSampleExclusive),
+                    WavFormat.SampleRate,
                 )
+                val nativeSegments = gson.fromJson(json, Array<NativeSegment>::class.java) ?: emptyArray()
+                val spanOffsetMs = span.startSample * 1000L / WavFormat.SampleRate
+
+                nativeSegments.map { segment ->
+                    // Whisper times each segment from the start of what it was given, so
+                    // offsets are relative to the span, not to the recording.
+                    LocalTranscribedSegment(
+                        offsetSeconds = ((spanOffsetMs + segment.offsetMs) / 1000L).toInt(),
+                        text = segment.text,
+                    )
+                }
             }
         }
 
