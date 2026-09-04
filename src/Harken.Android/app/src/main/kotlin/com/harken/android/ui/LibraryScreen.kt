@@ -93,7 +93,7 @@ fun LibraryScreen(
     Column(Modifier.fillMaxSize().background(c.screenBg).padding(horizontal = 20.dp, vertical = 6.dp)) {
         Text(stringResource(R.string.library_title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 26.sp)
         Text(
-            viewModel.subtitle(state),
+            viewModel.subtitle(state, visible),
             color = c.textSecondary,
             fontFamily = ProtoBodyFont,
             fontSize = 13.5.sp,

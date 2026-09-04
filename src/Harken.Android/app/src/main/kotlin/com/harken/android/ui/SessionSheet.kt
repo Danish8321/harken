@@ -62,6 +62,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -101,7 +103,14 @@ fun SessionSheet(
     val clipboard = LocalClipboardManager.current
 
     var editingTitle by remember { mutableStateOf(false) }
-    var titleDraft by remember(state.title) { mutableStateOf(state.title) }
+    // Seeded from the *local* title only. Seeding it from state.title put the derived
+    // name ("Afternoon recording") in the box, so saving without editing froze that
+    // wording as a real title and left no way back to a derived one. Empty now means
+    // "no local name", which is exactly what Save writes.
+    var titleDraft by remember(state.title, state.hasLocalTitle) {
+        mutableStateOf(if (state.hasLocalTitle) state.title else "")
+    }
+    val titleFocus = remember { FocusRequester() }
     var summaryOpen by remember { mutableStateOf(true) }
     var confirmDelete by remember { mutableStateOf(false) }
     var summaryMenuOpen by remember { mutableStateOf(false) }
@@ -147,16 +156,24 @@ fun SessionSheet(
                     // Rename is inline and local — no dialog, and no round trip, because
                     // the backend has no title field yet (see ADR-0010).
                     if (editingTitle) {
+                        // Opened by a deliberate tap on the title, so it takes the caret
+                        // and the keyboard itself — it used to appear unfocused, needing a
+                        // second tap before anything could be typed.
+                        LaunchedEffect(Unit) { titleFocus.requestFocus() }
                         OutlinedTextField(
                             value = titleDraft,
                             onValueChange = { titleDraft = it },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().focusRequester(titleFocus),
                             singleLine = true,
                             shape = PillShape,
                             label = { Text(stringResource(R.string.session_name_label)) },
+                            placeholder = { Text(state.title) },
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { editingTitle = false; titleDraft = state.title }) { Text(stringResource(R.string.session_cancel)) }
+                            TextButton(onClick = {
+                                editingTitle = false
+                                titleDraft = if (state.hasLocalTitle) state.title else ""
+                            }) { Text(stringResource(R.string.session_cancel)) }
                             Button(
                                 onClick = { viewModel.rename(sessionId, titleDraft); editingTitle = false },
                                 shape = PillShape,

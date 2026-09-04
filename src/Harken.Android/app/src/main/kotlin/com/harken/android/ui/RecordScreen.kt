@@ -115,11 +115,11 @@ fun RecordScreen(
     val haptics = LocalHapticFeedback.current
 
     // Fires exactly once per genuine upload-status transition, not on every recomposition —
-    // LaunchedEffect only restarts when the key (state.uploadStatus) itself changes.
-    LaunchedEffect(state.uploadStatus) {
-        when (state.uploadStatus) {
-            UploadStatus.Succeeded -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-            UploadStatus.Failed -> haptics.performHapticFeedback(HapticFeedbackType.Reject)
+    // LaunchedEffect only restarts when the key (state.saveStatus) itself changes.
+    LaunchedEffect(state.saveStatus) {
+        when (state.saveStatus) {
+            SaveStatus.Succeeded -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            SaveStatus.Failed -> haptics.performHapticFeedback(HapticFeedbackType.Reject)
             else -> Unit
         }
     }
@@ -238,10 +238,10 @@ fun RecordScreen(
             }
         }
 
-        AnimatedVisibility(state.uploadStatus != UploadStatus.Idle, enter = fadeIn(fade), exit = fadeOut(fade)) {
+        AnimatedVisibility(state.saveStatus != SaveStatus.Idle, enter = fadeIn(fade), exit = fadeOut(fade)) {
             Column {
                 Spacer(Modifier.height(14.dp))
-                UploadStatusCard(c, state.uploadStatus, state.lastSessionId, state.lastError, onOpenSession, viewModel::retryUpload)
+                SaveStatusCard(c, state.saveStatus, state.lastSessionId, state.lastError, onOpenSession, viewModel::retrySave)
             }
         }
 
@@ -382,9 +382,9 @@ private fun LiveDot(c: ProtoColors) {
  * renders nothing; the caller gates visibility.
  */
 @Composable
-private fun UploadStatusCard(
+private fun SaveStatusCard(
     c: ProtoColors,
-    status: UploadStatus,
+    status: SaveStatus,
     lastSessionId: UUID?,
     lastError: String?,
     onOpenSession: (UUID) -> Unit,
@@ -396,7 +396,7 @@ private fun UploadStatusCard(
 
     val bg by animateColorAsState(
         when (status) {
-            UploadStatus.Failed -> c.stateError
+            SaveStatus.Failed -> c.stateError
             else -> c.card
         },
         HarkenMotion.effectsDefault(),
@@ -409,10 +409,10 @@ private fun UploadStatusCard(
             .fillMaxWidth()
             .offset(x = shake.value.dp)
             .background(bg, RoundedCornerShape(24.dp))
-            .clickable(role = Role.Button, enabled = status == UploadStatus.Succeeded || status == UploadStatus.Failed) {
+            .clickable(role = Role.Button, enabled = status == SaveStatus.Succeeded || status == SaveStatus.Failed) {
                 when (status) {
-                    UploadStatus.Succeeded -> lastSessionId?.let(onOpenSession)
-                    UploadStatus.Failed -> {
+                    SaveStatus.Succeeded -> lastSessionId?.let(onOpenSession)
+                    SaveStatus.Failed -> {
                         onRetry()
                         if (!reduced) {
                             scope.launch {
@@ -433,7 +433,7 @@ private fun UploadStatusCard(
         val iconEffects = HarkenMotion.effectsFast<Float>()
         AnimatedContent(
             targetState = status,
-            label = "uploadStatusIcon",
+            label = "saveStatusIcon",
             transitionSpec = {
                 if (reduced) {
                     EnterTransition.None togetherWith ExitTransition.None
@@ -444,17 +444,17 @@ private fun UploadStatusCard(
             },
         ) { s ->
             when (s) {
-                UploadStatus.Succeeded -> Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = c.success, modifier = Modifier.size(20.dp))
-                UploadStatus.Failed -> Icon(Icons.Filled.Warning, contentDescription = null, tint = c.stateErrorFg, modifier = Modifier.size(20.dp))
-                UploadStatus.Idle -> Unit
+                SaveStatus.Succeeded -> Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = c.success, modifier = Modifier.size(20.dp))
+                SaveStatus.Failed -> Icon(Icons.Filled.Warning, contentDescription = null, tint = c.stateErrorFg, modifier = Modifier.size(20.dp))
+                SaveStatus.Idle -> Unit
             }
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            val titleColor = if (status == UploadStatus.Failed) c.stateErrorFg else c.text
-            val bodyColor = if (status == UploadStatus.Failed) c.stateErrorFg else c.textSecondary
+            val titleColor = if (status == SaveStatus.Failed) c.stateErrorFg else c.text
+            val bodyColor = if (status == SaveStatus.Failed) c.stateErrorFg else c.textSecondary
             when (status) {
-                UploadStatus.Succeeded -> {
+                SaveStatus.Succeeded -> {
                     Text(
                         stringResource(R.string.record_saved_local_title),
                         color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp,
@@ -464,14 +464,14 @@ private fun UploadStatusCard(
                         color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp,
                     )
                 }
-                UploadStatus.Failed -> {
-                    Text(stringResource(R.string.record_upload_failed_title), color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                SaveStatus.Failed -> {
+                    Text(stringResource(R.string.record_save_failed_title), color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Text(
-                        stringResource(R.string.record_upload_failed_body, lastError ?: stringResource(R.string.record_upload_failed_path_unknown)),
+                        stringResource(R.string.record_save_failed_body, lastError ?: stringResource(R.string.record_save_failed_reason_unknown)),
                         color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp,
                     )
                 }
-                UploadStatus.Idle -> Unit
+                SaveStatus.Idle -> Unit
             }
         }
     }

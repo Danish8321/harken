@@ -37,9 +37,9 @@
     <string name="record_cap_warning">Approaching the 3-hour cap — it\'ll stop and save on its own.</string>
     <string name="record_saved_local_title">Saved</string>
     <string name="record_saved_local_body">Transcribe it from the Library when you\'re ready</string>
-    <string name="record_upload_failed_title">Couldn\'t save this recording · tap to retry</string>
-    <string name="record_upload_failed_body">The audio is safe on this phone. %1$s</string>
-    <string name="record_upload_failed_path_unknown">Tap to try saving it again.</string>
+    <string name="record_save_failed_title">Couldn\'t save this recording · tap to retry</string>
+    <string name="record_save_failed_body">The audio is safe on this phone. %1$s</string>
+    <string name="record_save_failed_reason_unknown">Tap to try saving it again.</string>
     <string name="record_silence_hint">Stops after 5 min silence</string>
     <string name="record_meter_idle">INPUT IDLE</string>
     <string name="record_meter_idle_elapsed">0:00</string>

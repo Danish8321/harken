@@ -8,7 +8,12 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.lifecycle.lifecycleScope
 import com.harken.android.data.AppSettings
+import com.harken.android.data.SessionRepository
+import com.harken.android.data.local.HarkenDatabase
+import com.harken.android.recording.RecordingRecovery
+import kotlinx.coroutines.launch
 import com.harken.android.ui.AppNav
 import com.harken.android.ui.ThemeMode
 import com.harken.android.ui.theme.HarkenTheme
@@ -17,6 +22,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        recoverOrphanedRecordings()
         setContent {
             val settings = remember { AppSettings(this) }
             val themeMode by settings.themeMode.collectAsState(initial = ThemeMode.System)
@@ -29,6 +35,18 @@ class MainActivity : ComponentActivity() {
             HarkenTheme(darkTheme = darkTheme, dynamicColor = dynamicColor) {
                 AppNav()
             }
+        }
+    }
+
+    /**
+     * A capture killed mid-recording (process death, low memory) leaves its WAV on disk
+     * with no session row. Reconciled here, on every launch, rather than left for the user
+     * to notice audio they can no longer reach.
+     */
+    private fun recoverOrphanedRecordings() {
+        val repository = SessionRepository(db = HarkenDatabase.get(application))
+        lifecycleScope.launch {
+            RecordingRecovery(filesDir, repository, repository::sessionIds).recover()
         }
     }
 }

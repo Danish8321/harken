@@ -48,6 +48,9 @@ class SessionRepository(
 
     fun observeSegments(id: UUID) = dao.observeSegments(id)
 
+    /** Every session the database holds, for reconciling it against the WAVs on disk. */
+    suspend fun sessionIds(): List<UUID> = dao.allIds()
+
     fun observeSummary(id: UUID) = dao.observeSummary(id)
 
     /** Flips a "Recorded" (recorded, not yet transcribed) session to "Running". */

@@ -18,6 +18,10 @@ interface SessionDao {
     @Query("SELECT * FROM sessions ORDER BY startedAt DESC")
     fun observeSessions(): Flow<List<SessionRow>>
 
+    /** Every session's id, for reconciling the recordings on disk against the database. */
+    @Query("SELECT id FROM sessions")
+    suspend fun allIds(): List<UUID>
+
     @Query("SELECT * FROM sessions WHERE id = :id")
     fun observeSession(id: UUID): Flow<SessionRow?>
 

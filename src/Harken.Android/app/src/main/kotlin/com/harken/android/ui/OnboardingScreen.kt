@@ -260,10 +260,6 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                                 }
                             }
                         }
-                        TextButton(
-                            onClick = { viewModel.finish(onFinished) },
-                            modifier = Modifier.padding(top = 4.dp),
-                        ) { Text(stringResource(R.string.onboarding2_skip_for_now)) }
                     }
                 }
             }
@@ -281,7 +277,21 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
                 onClick = { if (state.step < 2) viewModel.next() else viewModel.finish(onFinished) },
                 modifier = Modifier.weight(1f).height(56.dp),
                 shape = PillShape,
-            ) { Text(stringResource(if (state.step < 2) R.string.onboarding2_continue else R.string.onboarding2_start_recording)) }
+            ) {
+                // One way out of the last step, not two. It used to carry both a "Skip for
+                // now" text button and this one, which finished onboarding identically —
+                // the label is what differs, so it is the label that changes: without the
+                // model, leaving really is skipping something.
+                Text(
+                    stringResource(
+                        when {
+                            state.step < 2 -> R.string.onboarding2_continue
+                            state.modelDownloadState == ModelDownloadState.Ready -> R.string.onboarding2_start_recording
+                            else -> R.string.onboarding2_skip_for_now
+                        },
+                    ),
+                )
+            }
         }
     }
 }

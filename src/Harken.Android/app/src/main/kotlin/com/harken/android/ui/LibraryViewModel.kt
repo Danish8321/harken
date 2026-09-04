@@ -71,12 +71,17 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
-    fun subtitle(state: LibraryUiState): String {
+    /**
+     * Counts [visible], not everything held: the subtitle sits directly above a filtered
+     * list, and reading "4 recordings" over an empty Field filter made the filter look
+     * broken rather than empty.
+     */
+    fun subtitle(state: LibraryUiState, visible: List<SessionRepository.SessionView> = state.sessions): String {
         // "Recorded" sessions are waiting on the user, not actively transcribing — not
         // counted here.
-        val transcribing = state.sessions.count { it.status == "Pending" || it.status == "Running" }
+        val transcribing = visible.count { it.status == "Pending" || it.status == "Running" }
         val res = getApplication<Application>().resources
-        val count = res.getQuantityString(R.plurals.library_recording_count, state.sessions.size, state.sessions.size)
+        val count = res.getQuantityString(R.plurals.library_recording_count, visible.size, visible.size)
         return if (transcribing > 0) res.getString(R.string.library_subtitle_transcribing, count, transcribing) else count
     }
 

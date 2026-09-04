@@ -22,6 +22,12 @@ private const val TAG = "SessionSheetViewModel"
 
 data class SessionSheetUiState(
     val title: String = "",
+    /**
+     * False while [title] is the name derived from the time of day. The rename field
+     * seeds from this: prefilling a derived title made "save without editing" quietly
+     * freeze it as a real one, and there was then no way back to a derived name.
+     */
+    val hasLocalTitle: Boolean = false,
     val meta: String = "",
     val tags: List<String> = emptyList(),
     val segments: List<TranscriptRowModel> = emptyList(),
@@ -64,6 +70,7 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
                 val duration = session?.durationSeconds ?: rows.lastOrNull()?.offsetSeconds ?: 0
                 _uiState.value.copy(
                     title = session?.title.orEmpty(),
+                    hasLocalTitle = session?.hasLocalTitle == true,
                     meta = buildMeta(session, duration, rows.isNotEmpty()),
                     tags = session?.tags.orEmpty(),
                     segments = rows,
@@ -81,10 +88,11 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    /** A blank [title] clears the local name, so the session goes back to its derived one. */
     fun rename(id: UUID, title: String) {
         viewModelScope.launch {
             try {
-                repository.rename(id, title)
+                repository.rename(id, title.ifBlank { null })
                 confirm(R.string.session_toast_renamed)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed renaming session $id", e)
