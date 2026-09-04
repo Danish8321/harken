@@ -383,8 +383,11 @@ with an empty-ish filesystem.
 4. **`SpeechSpans` constants** (10 s minimum skippable silence, 1 s padding) remain
    untuned against real multi-speaker audio. The `span_decoded` events now make
    this measurable from a single real meeting.
-5. **Interrupted model download** — the last unverified item from
-   [slice-09-followups.md](slice-09-followups.md).
+5. ~~**Interrupted model download**~~ — verified and one defect fixed
+   (`a36a506`); see [slice-09-followups.md](slice-09-followups.md), which now
+   also lists five adjacent findings left unfixed, two of them user-facing (raw
+   socket text on screen, and a failed Settings update destroying the working
+   model).
 6. ~~**Native heap reaches 451 MB during a decode**~~ — measured, see Finding 4.
    `MaxSpanSeconds = 300` is not the driver and stands. The residual risk is
    low-RAM devices, now open item 7.
