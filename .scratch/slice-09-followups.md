@@ -56,7 +56,7 @@ Status: **done**.
   verified on device, and the path now emits telemetry where it previously
   emitted only `Log.e`.
 
-## 4. Found while verifying item 3 — not fixed
+## 4. Found while verifying item 3 — all fixed 2026-09-05
 
 1. **Raw exception text is shown to the user.** Cutting the network mid-download
    puts *"Software caused connection abort"* on screen, in both onboarding and
@@ -79,3 +79,38 @@ Status: **done**.
    OkHttp raises on a premature close when `Content-Length` is known, which
    covers the common case, but a chunked or length-less response could rename a
    truncated file into place as a valid model.
+
+All five fixed in `7269302`, on a fresh install on the Nothing Phone 2:
+
+- Errors are classified once (`ModelDownloadFailure`) and each screen maps the
+  class to a sentence. Cutting the network now reads *"No connection. The
+  download will pick up where it left off when you retry."*
+- Settings "Update" downloads to `.tmp` and replaces only on success. An
+  interrupted update left `ggml-base.en.bin` intact on disk, the screen said
+  *"Update failed; the model you have still works."*, and the button stayed
+  "Update" rather than reverting to "Download".
+- Resume works: the network was cut at 29,422,404 bytes and the retry sent a
+  `Range` header — `model_download_stream resumedFromBytes=29422404
+  httpCode=206` — finishing at exactly 147,964,211 bytes.
+- `runCatchingDownload` rethrows `CancellationException`.
+- The transferred size is checked against `Content-Length` before the move.
+
+Because a partial is now a resume point, the launch sweep keeps it and discards
+only partials older than `StalePartialAgeMs` (24 h). Verified: a relaunch two
+minutes after a failure logged `model_partial_kept ageMs=128380` and left the
+44 MB partial in place.
+
+## 5. Found while verifying the crash breadcrumb (item 3 of the perf report)
+
+Both fixed in `2a07c85`.
+
+1. **A transcription killed with the process was stuck forever.** The session
+   row stayed `Running`, so the Library showed a spinning "Transcribing" chip
+   with nothing running behind it, on every launch thereafter. A transcription
+   cannot outlive the process, so `Running` rows are now settled as failed at
+   launch (`transcription_interrupted_recovered sessions=1`).
+2. **A failed transcription offered no retry.** The Library rendered only a
+   "kept on device" chip for `Failed`, so *any* failure left the recording with
+   no way forward. Failed rows now offer Transcribe, like never-started ones.
+   The recovered session retried to completion: 221 s in, 81 s decoded over 6
+   spans, 13 segments, `realtimeFactor=0.19`.

@@ -326,7 +326,9 @@ with an empty-ish filesystem.
 
 ## Remaining performance risks — not addressed
 
-1. **The release build was never measured.** Everything here is the debug variant.
+1. ~~**The release build was never measured**~~ — measured 2026-09-05, see open
+   items 9 and 10 and the jank table. Original note follows.
+   **The release build was never measured.** Everything here is the debug variant.
    `CMAKE_BUILD_TYPE=Release` would have supplied `-O2` on its own, so the release
    APK was probably never as slow as 6.72 — but it was also never measured, and
    `-O3` on the kernels is now explicit in both. Measure a release build before
@@ -342,7 +344,9 @@ with an empty-ish filesystem.
    deliberately: the open SIGSEGV is in `ggml_vec_dot_f16` on a different device
    (Exynos 850), and narrowing the ISA baseline is exactly the wrong move while
    that is unexplained.
-5. **Native crash breadcrumb still missing.** The `span_decoded` events now act as
+5. ~~**Native crash breadcrumb still missing**~~ — added in `2805632`, see open
+   item 3. The paragraph below describes the state before that.
+   The `span_decoded` events now act as
    breadcrumbs while a device is attached — logcat survives process death, so the
    last span before a SIGSEGV is identifiable. In the field, with no logcat reader,
    it still leaves nothing. A file breadcrumb written before `nativeTranscribe` and
@@ -378,21 +382,28 @@ with an empty-ish filesystem.
    0.21–0.25 is a shipping number. Two things it opened instead: item 9 (the
    release build does not compile) and item 10 (release cold start still
    unmeasured).
-3. **`ggml_vec_dot_f16` SIGSEGV** — still open, still no repro, still unblocked by
-   a field breadcrumb.
+3. ~~**`ggml_vec_dot_f16` SIGSEGV**~~ — no repro yet, but no longer invisible.
+   `NativeDecodeBreadcrumb` (`2805632`) writes the span index, offset and length
+   before every native decode and clears it after, so a process that dies inside
+   whisper.cpp is reported at the next launch. Verified by killing the app
+   mid-decode: `native_decode_crash spanIndex=4 startSecond=167 spanSeconds=12`.
+   Numbers only — no path, audio or transcript (ADR-0011).
 4. **`SpeechSpans` constants** (10 s minimum skippable silence, 1 s padding) remain
    untuned against real multi-speaker audio. The `span_decoded` events now make
    this measurable from a single real meeting.
-5. ~~**Interrupted model download**~~ — verified and one defect fixed
-   (`a36a506`); see [slice-09-followups.md](slice-09-followups.md), which now
-   also lists five adjacent findings left unfixed, two of them user-facing (raw
-   socket text on screen, and a failed Settings update destroying the working
-   model).
+5. ~~**Interrupted model download**~~ — verified, and all six defects now fixed
+   (`a36a506`, then `7269302`): the abandoned partial, raw socket text on
+   screen, a failed Settings update destroying the working model, no resume,
+   swallowed cancellation, and no integrity check. See
+   [slice-09-followups.md](slice-09-followups.md) for the device evidence.
 6. ~~**Native heap reaches 451 MB during a decode**~~ — measured, see Finding 4.
    `MaxSpanSeconds = 300` is not the driver and stands. The residual risk is
    low-RAM devices, now open item 7.
 7. **Peak PSS is ~580 MB on any transcription, of any length.** Fine on this
-   phone's 12 GB; on a 4 GB device it is squarely in low-memory-killer range,
+   phone's 7.4 GB (`MemTotal: 7444948 kB` — an earlier draft of this report said
+   12 GB, which was wrong and made the headroom look better than it is; with
+   `MemAvailable` around 3.1 GB the decode takes roughly a fifth of what is
+   actually free). On a 4 GB device it is squarely in low-memory-killer range,
    and the app has no smaller-model option to fall back to. Decide the minimum
    supported device before shipping, or ship a quantized model alongside
    `base.en`. This is the ceiling that Finding 3 did **not** remove.
@@ -402,21 +413,44 @@ with an empty-ish filesystem.
    transcription, so no concurrent native use is possible), and invisible at one
    recording at a time. Transcribing a whole library back to back pays it per
    item. Worth revisiting only if batch transcription is ever a feature.
-9. **`assembleRelease` fails** — lint tooling version mismatch, see Finding 5.
-   **Blocking: there is no shippable APK.** Fix by aligning AGP / lint /
-   `lifecycle` / Kotlin versions, not by disabling the detector, and verify with
-   lint enabled. Then add `assembleRelease` to `check.sh` so the gate can see it.
-10. **Release cold start unmeasured** — the 1532–1565 ms figure in Finding 6 is
-    the `isDebuggable = true` workaround, not the real build. Needs either a
-    route to import a fixture WAV that does not go through `run-as`, or a real
-    microphone recording on a genuine release install.
+9. ~~**`assembleRelease` fails**~~ — fixed in `f83266c`. The cause was the
+   version mismatch, not the detector: `lifecycle` is declared at 2.8.7 but
+   resolves to 2.9.0 through the Compose BOM, and 2.9.0's lint checks are built
+   against the Kotlin 2.1 analysis API that AGP 8.7.3's lint does not carry.
+   AGP 8.12.0 carries the matching lint and Gradle 8.14.3 already supports it.
+   `lintVital` still runs — nothing was suppressed — and `assembleRelease` is
+   now part of `check.sh`, since this broke unnoticed precisely because nothing
+   built the release variant.
+10. ~~**Release cold start unmeasured**~~ — measured on a genuine release
+    install (`assembleRelease`, `isDebuggable` untouched, signed with the debug
+    keystore only for installation): **149 / 152 / 181 ms** across three cold
+    starts, against **713 ms** for the debug build on the same phone.
+
+## Jank — is it stuttery?
+
+Measured with `dumpsys gfxinfo` on the Nothing Phone 2 (120 Hz LTPO), 2026-09-05.
+`Number High input latency` is high in every run and is an artifact of
+`adb shell input` injection, not something a finger would see.
+
+| Scenario | Build | Frames | Janky | p50 | p90 | p95 | p99 |
+|---|---|---|---|---|---|---|---|
+| Tab switching + scrolling | debug | 937 | 6.72% | 7 ms | 14 ms | 29 ms | 101 ms |
+| Tab switching + scrolling | release | 949 | **4.53%** | 7 ms | 13 ms | 18 ms | 48 ms |
+| Live recording (animating waveform) | debug | 2406 | **0.17%** | 6 ms | 8 ms | 9 ms | 12 ms |
+
+The live recording screen is the answer to the question actually asked: 2406
+frames in 20 s is sustained 120 Hz with four dropped frames, while the audio
+pipeline is running. Navigation is the rougher path — the p99 outliers are
+first-composition costs on screen entry, and they roughly halve in release.
+Nothing here reads as stutter in use; the remaining lever, if navigation is ever
+felt, is R8 (`isMinifyEnabled = false` today), not the frame loop.
 
 ## Device state left behind
 
-**The release build (`com.harken.android`) currently installed is the temporary
-`isDebuggable = true` APK from Finding 6, signed with the debug keystore.** It
-is not the tree's release variant — the flag was reverted after the run and
-never committed. Uninstall it before trusting anything measured against it.
+`com.harken.android` is the real release variant built from this tree
+(`assembleRelease`, `isDebuggable` untouched), signed with the debug keystore
+only so it could be installed. `com.harken.android.debug` is the debug build at
+`2a07c85`, holding one 51 s microphone recording and one 221 s injected fixture.
 
 The debug build (`com.harken.android.debug`) is also installed, holding 7
 injected fixture recordings (20 s, 71 s x2,
