@@ -4,6 +4,7 @@ import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.data.local.SegmentRow
 import com.harken.android.data.local.SessionRow
 import com.harken.android.speech.LocalTranscribedSegment
+import com.harken.android.telemetry.Telemetry
 import java.time.Instant
 import java.time.ZoneId
 import kotlinx.coroutines.flow.Flow
@@ -117,6 +118,19 @@ class SessionRepository(
 
     /** Marks a local-only session's on-device transcription as failed. */
     override suspend fun failLocal(id: UUID, reason: String) = dao.failLocalTranscription(id, reason)
+
+    /**
+     * Settles transcriptions the process died in the middle of, so they offer a retry
+     * instead of showing "Transcribing" for good. Called at launch, alongside the other
+     * reconciliation sweeps.
+     */
+    suspend fun failInterruptedTranscriptions(reason: String): Int {
+        val stuck = dao.failInterruptedTranscriptions(reason)
+        if (stuck > 0) {
+            Telemetry.event("transcription_interrupted_recovered", "sessions" to stuck)
+        }
+        return stuck
+    }
 
     /**
      * Deletes the session and the audio it was recorded from.

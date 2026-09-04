@@ -152,6 +152,24 @@ interface SessionDao {
     )
     suspend fun failLocalTranscription(id: UUID, reason: String)
 
+    /**
+     * Settles transcriptions that were running when the process died. Only one on-device
+     * transcription runs at a time and none survives the process, so at launch every
+     * 'Running' row is a leftover — left alone it shows "Transcribing" forever, with no
+     * way for the user to retry it.
+     *
+     * @return how many rows were stuck.
+     */
+    @Query(
+        """
+        UPDATE sessions SET
+            transcriptionStatus = 'Failed',
+            transcriptionFailureReason = :reason
+        WHERE transcriptionStatus = 'Running'
+        """,
+    )
+    suspend fun failInterruptedTranscriptions(reason: String): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun replaceSummary(summary: SummaryRow)
 

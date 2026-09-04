@@ -56,6 +56,10 @@ class MainActivity : ComponentActivity() {
         val repository = SessionRepository(db = HarkenDatabase.get(application))
         lifecycleScope.launch {
             RecordingRecovery(filesDir, repository, repository::sessionIds).recover()
+            // A transcription cannot outlive the process, so anything still marked running
+            // died with it. Left alone the session shows "Transcribing" forever and offers
+            // the user no way to start it again.
+            repository.failInterruptedTranscriptions(getString(R.string.error_transcription_interrupted))
         }
     }
 }

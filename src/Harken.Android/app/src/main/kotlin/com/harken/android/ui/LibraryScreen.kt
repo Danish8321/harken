@@ -229,7 +229,10 @@ private fun SessionCard(
                 Text(s.title, color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(metaLine, color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
             }
-            if (recorded) {
+            // A failed transcription offers the same action as one never started. Showing
+            // only the "kept on device" chip left the recording with no way forward at all,
+            // which is what an interrupted transcription looks like after recovery.
+            if (recorded || failed) {
                 Button(onClick = onTranscribe, enabled = transcribeEnabled) {
                     Text(stringResource(R.string.library_action_transcribe))
                 }

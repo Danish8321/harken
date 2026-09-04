@@ -146,6 +146,7 @@
     <!-- Shared states -->
     <string name="state_retry">Retry</string>
     <string name="state_dismiss">Dismiss</string>
+    <string name="error_transcription_interrupted">Transcription stopped when the app closed. Tap to try again.</string>
     <string name="error_recording_failed">Recording failed</string>
     <string name="error_recording_start_failed">Couldn\'t start recording. %1$s</string>
     <string name="error_recording_aborted">Recording stopped early. %1$s</string>
