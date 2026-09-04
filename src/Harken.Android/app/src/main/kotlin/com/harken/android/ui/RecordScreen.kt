@@ -548,13 +548,20 @@ private fun RecordButton(recording: Boolean, onTap: () -> Unit) {
     // stateLive now rides the same accent as the resting button (UI-020), so the
     // recording/idle transition is carried entirely by the shape morph (MorphShapes.kt)
     // — no separate recolor needed.
+    //
+    // Elevation drops to 0 the moment the morph leaves the circle: the cookie is a
+    // concave outline, and a concave spot shadow is tessellated from scratch on every
+    // frame (SkShadowTessellator::MakeSpot -> computeConcaveShadow). The shape also spins,
+    // so the path is new every frame and nothing caches — that pegged RenderThread hard
+    // enough to block the main thread in syncAndDrawFrame and ANR the app on record start.
+    val elevation = if (recording) 0.dp else 10.dp
     FloatingActionButton(
         onClick = onTap,
         modifier = Modifier.size(88.dp).scale(scale),
         shape = rememberRecordShape(recording),
         containerColor = c.accent,
         contentColor = c.onAccent,
-        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 10.dp, pressedElevation = 4.dp),
+        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = elevation, pressedElevation = elevation),
         interactionSource = interaction,
     ) {
         Icon(
