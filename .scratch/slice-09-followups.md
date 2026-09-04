@@ -1,39 +1,41 @@
 # Slice 9 on-device transcription — follow-ups
 
-Branch: `feat/on-device-transcription`. Opened 2026-08-27.
+Branch: `feat/on-device-transcription`, merged. Opened 2026-08-27,
+reviewed 2026-09-04 against the device regression run
+([device-regression-2026-09-04.md](device-regression-2026-09-04.md)).
 
 ## 1. First-run "download model" setup step + Settings re-download/update option
-Status: not started.
+Status: **done**.
 
-Currently the whisper model downloads lazily on first recording
-(`ModelDownloadManager.ensureModel()`, called from `CaptureViewModel.transcribeOnDevice`).
-User wants an explicit setup step instead:
-- First-run onboarding: an explicit "download model" step, not silently triggered by
-  the first recording.
-- Settings page: a manual "update/re-download model" action.
-
-Touches: `OnboardingScreen.kt`/`OnboardingViewModel.kt`, Settings screen (find current
-file), `ModelDownloadManager.kt` (already has `downloadProgress(): Flow<Int>` to wire
-into a progress UI).
+Onboarding step 2 is the explicit download (`onboarding2_step4_title`
+"Get the speech model", `onboarding2_download_model`, progress via
+`onboarding2_downloading`, terminal state `onboarding2_model_ready`). Settings
+carries the manual action (`settings_model_update` / `settings_model_download`
+with `settings_model_downloading` and `settings_model_download_failed`).
+Both exercised on device 2026-09-04 on a fresh install — the download ran from
+onboarding and reached "Model ready".
 
 ## 2. Revert temporary MODEL_DOWNLOAD_URL
-Status: dirty in working tree, not committed.
+Status: **done**.
 
-`ModelDownloadManager.kt`'s `MODEL_DOWNLOAD_URL` was temporarily pointed at
-`https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin` for the
-on-device smoke test. Must revert to a real GitHub Release asset hosted on this repo
-(`https://github.com/danish/harken/releases/download/models-v1/ggml-base.en.bin` was the
-original placeholder — need an actual release with the model asset uploaded) before
-merging to `master`.
+`ModelDownloadManager.kt:145` points at
+`https://github.com/Danish8321/harken/releases/download/models-v1/ggml-base.en.bin`,
+and that release asset exists — a fresh install downloaded ~140 MB from it on
+2026-09-04.
 
 ## 3. Remaining manual on-device checks
-Status: not confirmed.
+Status: **two of three done**.
 
-- Transcript accuracy — asked user, not yet answered.
-- Summarize button hidden + playback shows "no audio file" message for local-only
-  session — asked user, not yet confirmed on-screen.
-- Offline / interrupted-download handling: kill app mid-download, confirm no corrupt
-  `.tmp` file left behind, confirm retry works cleanly.
-
-Blocks: full gate in `docs/plans/slice-09-on-device-transcription.md`, and merge to
-`master` (slice-10 is blocked on that merge).
+- **Transcript accuracy — done.** A deterministic 41.04 s TTS fixture
+  (speech / 25 s silence / speech) transcribed to 3 correct segments at
+  0:00, 0:04 and 0:32. Silence-only audio now yields 0 segments instead of
+  eleven hallucinated " you" lines.
+- **Playback — done, and the "no audio file" message it was written against no
+  longer exists.** `NoPlaybackCard` was replaced by a real transport
+  (`PlaybackCard` + `PlaybackCursor` + MediaPlayer in `SessionSheetViewModel`);
+  `session_no_playback` is gone and `session_audio_missing` covers only the
+  case where the WAV is genuinely off the phone. Play / pause / scrub /
+  tap-a-segment / end-of-file / sheet-close all verified on device.
+- **Offline / interrupted-download handling — still not confirmed.** Kill the
+  app mid-download, confirm no corrupt `.tmp` is left behind, confirm retry is
+  clean. This is the only item from this list still open.
