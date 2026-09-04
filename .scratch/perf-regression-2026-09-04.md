@@ -181,6 +181,80 @@ than a tuning one — open item 7.
 Memory is released cleanly: PSS returns to ~195 MB within three seconds of
 `transcribe_finished` on every run.
 
+## Finding 5 — `assembleRelease` fails (blocking, unrelated to performance)
+
+Found while trying to measure the release build. It does not build:
+
+```
+Execution failed for task ':app:lintVitalAnalyzeRelease'.
+> Unexpected failure during lint analysis of AudioRecordCapture.kt
+  Message: Found class org.jetbrains.kotlin.analysis.api.resolution.KaCallableMemberCall,
+           but interface was expected
+  The crash seems to involve the detector
+  `androidx.lifecycle.lint.NonNullableMutableLiveDataDetector`.
+```
+
+A binary incompatibility between the lint version AGP runs and the Kotlin
+analysis API the bundled `lifecycle-lint` detector was compiled against — a
+tooling version mismatch, not a finding about `AudioRecordCapture.kt`, which
+lint never got far enough to judge. `lintVital` only runs on a non-debuggable
+release, which is exactly why no debug workflow has ever hit it.
+
+**There is no shippable APK today.** Not a suppression job: disabling the
+detector hides a broken analyser rather than fixing it, and every other lint
+check on the release variant is dark for the same reason. The fix is a version
+alignment (AGP / lint / `lifecycle` / Kotlin), and it needs to be verified by
+`assembleRelease` passing with lint *enabled*.
+
+`check.sh` builds `assembleDebug` only, so the gate cannot see this. Worth
+adding `assembleRelease` to it once the build is green — a release build that
+only breaks on release day is the whole reason this went unnoticed.
+
+## Finding 6 — release decodes at the same speed as debug (expected, now measured)
+
+Every number in this report before this section is the debug variant. Measured
+directly, on a fresh install of the release APK with the same four fixtures.
+
+Release native flags confirmed from `.cxx/RelWithDebInfo/*/arm64-v8a/
+compile_commands.json`: `-O2 -g -DNDEBUG` from AGP, then our `-O3` last, which
+wins. Debug gets `-g -O3` and keeps asserts. So the two variants run
+near-identical kernels, and the measurement bears that out:
+
+| Fixture | Debug RTF | Release RTF | Segments |
+|---|---|---|---|
+| speech 71 s | 0.25 | 0.21 | 13 = 13 |
+| mixed 221 s | 0.13 | 0.12 | 13 = 13 |
+| silence 300 s | — | — | 0 = 0 |
+| long 427 s | 0.25 | 0.25 | 102 = 102 |
+
+Span counts, span boundaries and segment counts are identical across variants.
+Release is a few percent faster on the shortest fixture, which is the `-DNDEBUG`
+assert removal and nothing more. Peak memory on the 427 s decode: native 482 MB,
+PSS 609 MB, against debug's 451 / 594 — the same ceiling, so open item 7 is a
+release problem too, not a debug artefact.
+
+**`0.21–0.25` is now a shipping number, not a debug number.**
+
+### What this measurement could not establish
+
+The release APK is not debuggable, so `run-as` cannot place fixtures in its
+`filesDir` and there is no other route in. The variant was therefore built with
+`isDebuggable = true` for the run and the flag reverted immediately — it was
+never committed.
+
+That contaminates the ART-side numbers, and it visibly did: cold start measured
+**1532–1565 ms** against debug's 561–769 ms. That is the debuggable flag
+disabling AOT/baseline-profile use, not a release regression — the release
+variant generates a baseline profile (`app/build/outputs/apk/release/
+baselineProfiles/`) that a debuggable process will not use. **Release cold start
+remains unmeasured.** The decode figures above stand regardless, because the
+decode is one JNI call into identical native code and ART's mode does not reach
+inside it.
+
+To measure release cold start properly, the app needs a way to import a WAV
+that does not depend on `run-as` — or the measurement needs a real recording
+made through the microphone on the release build.
+
 ## Full measurement matrix
 
 Same fixtures, same order, fresh install each pass.
@@ -300,8 +374,10 @@ with an empty-ish filesystem.
 ## Open items
 
 1. ~~**Memory ceiling for long recordings**~~ — done in `e9f9b2b` (Finding 3).
-2. **Measure a release build** before quoting any of these numbers as shipping
-   performance.
+2. ~~**Measure a release build**~~ — decode measured, see Finding 6; RTF
+   0.21–0.25 is a shipping number. Two things it opened instead: item 9 (the
+   release build does not compile) and item 10 (release cold start still
+   unmeasured).
 3. **`ggml_vec_dot_f16` SIGSEGV** — still open, still no repro, still unblocked by
    a field breadcrumb.
 4. **`SpeechSpans` constants** (10 s minimum skippable silence, 1 s padding) remain
@@ -323,10 +399,24 @@ with an empty-ish filesystem.
    transcription, so no concurrent native use is possible), and invisible at one
    recording at a time. Transcribing a whole library back to back pays it per
    item. Worth revisiting only if batch transcription is ever a feature.
+9. **`assembleRelease` fails** — lint tooling version mismatch, see Finding 5.
+   **Blocking: there is no shippable APK.** Fix by aligning AGP / lint /
+   `lifecycle` / Kotlin versions, not by disabling the detector, and verify with
+   lint enabled. Then add `assembleRelease` to `check.sh` so the gate can see it.
+10. **Release cold start unmeasured** — the 1532–1565 ms figure in Finding 6 is
+    the `isDebuggable = true` workaround, not the real build. Needs either a
+    route to import a fixture WAV that does not go through `run-as`, or a real
+    microphone recording on a genuine release install.
 
 ## Device state left behind
 
-App freshly reinstalled and holding 7 injected fixture recordings (20 s, 71 s x2,
+**The release build (`com.harken.android`) currently installed is the temporary
+`isDebuggable = true` APK from Finding 6, signed with the debug keystore.** It
+is not the tree's release variant — the flag was reverted after the run and
+never committed. Uninstall it before trusting anything measured against it.
+
+The debug build (`com.harken.android.debug`) is also installed, holding 7
+injected fixture recordings (20 s, 71 s x2,
 142 s, 221 s, 284 s, 300 s, 427 s), all transcribed. Onboarding completed, model
 present at `files/models/ggml-base.en.bin`, `svc power stayon usb` set. Fixtures
 also left at `/data/local/tmp/fixture-*.wav` for the next run.
