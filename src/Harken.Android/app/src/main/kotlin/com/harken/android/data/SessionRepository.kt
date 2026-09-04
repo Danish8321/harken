@@ -4,6 +4,8 @@ import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.data.local.SegmentRow
 import com.harken.android.data.local.SessionRow
 import com.harken.android.speech.LocalTranscribedSegment
+import java.time.Instant
+import java.time.ZoneId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
@@ -141,8 +143,13 @@ class SessionRepository(
  * the session sheet.
  */
 object DerivedTitle {
-    fun of(startedAtIso: String): String {
-        val hour = startedAtIso.substringAfter('T', "").take(2).toIntOrNull() ?: return "Recording"
+    fun of(startedAtIso: String, zone: ZoneId = ZoneId.systemDefault()): String {
+        // Parsed into the reader's zone, not read off the string: startedAt is stored as
+        // UTC, so a 1:41 pm capture in UTC+5:30 carried the hour "08" and was titled
+        // "Morning recording" while the card beside it read "1:41 pm".
+        val hour = runCatching { Instant.parse(startedAtIso).atZone(zone).hour }
+            .getOrElse { startedAtIso.substringAfter('T', "").take(2).toIntOrNull() }
+            ?: return "Recording"
         val partOfDay = when (hour) {
             in 5..11 -> "Morning"
             in 12..16 -> "Afternoon"
