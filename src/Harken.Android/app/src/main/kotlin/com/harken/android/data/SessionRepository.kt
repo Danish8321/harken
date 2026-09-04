@@ -118,8 +118,24 @@ class SessionRepository(
     /** Marks a local-only session's on-device transcription as failed. */
     override suspend fun failLocal(id: UUID, reason: String) = dao.failLocalTranscription(id, reason)
 
+    /**
+     * Deletes the session and the audio it was recorded from.
+     *
+     * The file has to go with the row: it is the recording, deleting is the user asking
+     * for it to be gone, and [com.harken.android.recording.RecordingRecovery] would
+     * otherwise adopt the leftover WAV on the next launch and bring the deleted recording
+     * straight back.
+     */
     suspend fun purge(id: UUID): Result<Unit> = runCatching {
+        val audio = dao.findById(id)?.pendingUploadPath
         dao.deleteSession(id)
+        audio?.let { path ->
+            val file = java.io.File(path)
+            if (file.exists() && !file.delete()) {
+                android.util.Log.w("SessionRepository", "Deleted session $id but could not delete $path")
+            }
+        }
+        Unit
     }
 
     private fun toView(row: SessionRow) = SessionView(

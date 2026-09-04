@@ -25,6 +25,9 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE id = :id")
     fun observeSession(id: UUID): Flow<SessionRow?>
 
+    @Query("SELECT * FROM sessions WHERE id = :id")
+    suspend fun findById(id: UUID): SessionRow?
+
     @Query("SELECT * FROM segments WHERE sessionId = :id ORDER BY offsetSeconds ASC")
     fun observeSegments(id: UUID): Flow<List<SegmentRow>>
 
