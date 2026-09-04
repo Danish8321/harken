@@ -45,10 +45,11 @@ public class SilenceDetectorTests
     }
 
     [Fact]
-    public void AudibleChunkResetsTheSilenceRun()
+    public void AudibleChunkClearsTheSilenceRun()
     {
         // The whole point of a *run*: a user who pauses to think mid-sentence must not have
-        // their recording ended out from under them.
+        // their recording ended out from under them. A second of speech burns ten seconds
+        // of run, so any real utterance clears it outright.
         var detector = Detector();
 
         detector.Add(Quiet(TimeSpan.FromSeconds(4)));
@@ -56,6 +57,65 @@ public class SilenceDetectorTests
 
         Assert.Equal(TimeSpan.Zero, detector.SilenceRun);
         Assert.Equal(RecordingStopReason.None, detector.Add(Quiet(TimeSpan.FromSeconds(4))));
+    }
+
+    [Fact]
+    public void ATransientDentsTheSilenceRunRatherThanRestartingIt()
+    {
+        // Measured on a device: reading the loudest sample and zeroing the run on it held
+        // the longest quiet run to 1.4s in a real room, so the five-minute timeout could
+        // never arrive. A knock on the desk must cost a little of the run, not all of it.
+        var detector = Detector(timeout: TimeSpan.FromSeconds(30), cap: TimeSpan.FromMinutes(5));
+
+        detector.Add(Quiet(TimeSpan.FromSeconds(20)));
+        detector.Add(Loud(TimeSpan.FromSeconds(0.1)));
+
+        Assert.Equal(TimeSpan.FromSeconds(19), detector.SilenceRun);
+    }
+
+    [Fact]
+    public void ARoomWithOccasionalClicksStillTimesOut()
+    {
+        // The forgotten-recorder case ADR-0007 exists for: nobody is talking, but the room
+        // is not a vacuum. This is what the old peak-and-reset rule could not do.
+        var detector = Detector(timeout: TimeSpan.FromSeconds(60), cap: TimeSpan.FromMinutes(10));
+        var reason = RecordingStopReason.None;
+
+        // A click every 10 seconds, for two minutes.
+        for (var i = 0; i < 12 && reason == RecordingStopReason.None; i++)
+        {
+            detector.Add(Loud(TimeSpan.FromSeconds(0.1)));
+            reason = detector.Add(Quiet(TimeSpan.FromSeconds(10)));
+        }
+
+        Assert.Equal(RecordingStopReason.SilenceTimeout, reason);
+    }
+
+    [Fact]
+    public void AChunkIsJudgedByItsLevelNotItsLoudestSample()
+    {
+        // A tick inside 100ms of room tone is not someone speaking. Under the old rule the
+        // one sample decided the chunk; under RMS it is 1/1600th of it.
+        var detector = Detector();
+        var chunk = Quiet(TimeSpan.FromSeconds(0.1));
+        chunk[0] = 0x40;
+        chunk[1] = 0x1F; // one sample at 8000, among 1600 at 10
+
+        detector.Add(chunk);
+
+        Assert.Equal(detector.Duration, detector.SilenceRun);
+    }
+
+    [Fact]
+    public void SustainedSpeechIsNeverMistakenForRoomTone()
+    {
+        // The other side of the same rule: level must not average speech away.
+        var detector = Detector();
+
+        detector.Add(Quiet(TimeSpan.FromSeconds(4)));
+        detector.Add(Loud(TimeSpan.FromSeconds(0.5)));
+
+        Assert.Equal(TimeSpan.Zero, detector.SilenceRun);
     }
 
     [Fact]
