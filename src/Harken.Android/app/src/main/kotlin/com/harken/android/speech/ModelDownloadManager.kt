@@ -11,8 +11,17 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.SocketException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import kotlin.coroutines.cancellation.CancellationException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.concurrent.atomic.AtomicBoolean
+import javax.net.ssl.SSLException
 
 private const val TAG = "ModelDownloadManager"
 
@@ -23,6 +32,45 @@ private const val TAG = "ModelDownloadManager"
  */
 interface ModelProvider {
     suspend fun ensureModel(): Result<String>
+}
+
+/**
+ * Why a model download failed, in terms a person can act on.
+ *
+ * The UI used to show `Throwable.message` directly, which put *"Software caused connection
+ * abort"* on screen when the network dropped mid-download — a socket's words, not an
+ * instruction. Classified here rather than in either view model because both of them showed
+ * the same raw text, and a second copy of this logic is how they would drift apart.
+ */
+enum class ModelDownloadFailure {
+    /** The phone could not reach the network at all, or lost it mid-stream. */
+    NoConnection,
+
+    /** The network worked; the server refused or broke the transfer. */
+    ServerUnavailable,
+
+    /** The model did not fit. */
+    OutOfSpace,
+
+    Unknown,
+
+    ;
+
+    companion object {
+        fun of(error: Throwable): ModelDownloadFailure = when (error) {
+            // UnknownHostException is DNS with no network; SocketException covers the
+            // connection dying underneath a transfer already in progress, which is what
+            // switching off wifi mid-download actually produces.
+            is UnknownHostException, is SocketException, is SocketTimeoutException -> NoConnection
+            is SSLException -> NoConnection
+            is IOException -> if (error.isOutOfSpace()) OutOfSpace else ServerUnavailable
+            else -> Unknown
+        }
+
+        private fun IOException.isOutOfSpace(): Boolean =
+            message?.contains("ENOSPC", ignoreCase = true) == true ||
+                message?.contains("No space left", ignoreCase = true) == true
+    }
 }
 
 /**
@@ -50,34 +98,37 @@ class ModelDownloadManager(
     /** True if the model has already been downloaded and is ready to load. */
     fun isModelPresent(): Boolean = modelFile.exists()
 
-    /**
-     * Deletes the current model file so the next [ensureModel]/[downloadProgress] call
-     * re-downloads it. Used by the Settings "update model" action — same model URL today,
-     * but this is also the path a future model-version bump would use.
-     */
-    fun deleteModel() {
-        modelFile.delete()
-    }
 
     /**
-     * Deletes a partial download left behind by a *dead* process, and reports how many
-     * bytes that freed. A download that fails cleans up after itself; one killed mid-stream
-     * (swipe-away, low-memory kill, crash) cannot, and measured on a Nothing Phone 2 that
-     * leaves up to 148 MB of the user's storage held by a file nothing will ever read —
-     * the next attempt truncates it rather than resuming, so it is dead weight from the
-     * moment the process dies.
+     * Deletes a partial download that is too old to be worth resuming, and reports how many
+     * bytes that freed. A download killed mid-stream (swipe-away, low-memory kill, crash)
+     * leaves up to 148 MB of the user's storage held by a file the app never mentions —
+     * measured on a Nothing Phone 2 at 86 MB.
      *
-     * Called at launch, alongside the recording orphan sweep, and deliberately skipped
-     * while a download is in flight: re-entering the activity during a download (a rotation
-     * is enough) must not delete the file the download is still writing.
+     * Only *stale* partials go. A recent one is the resume point for the retry the user is
+     * about to make: [streamTo] sends a `Range` header for whatever is already on disk, so
+     * deleting it at launch would cost them the whole 148 MB again. After [StalePartialAge]
+     * the user has plainly moved on, and the server may no longer serve a matching range
+     * anyway.
+     *
+     * Called at launch, alongside the recording orphan sweep, and deliberately skipped while
+     * a download is in flight: re-entering the activity during a download (a rotation is
+     * enough) must not delete the file the download is still writing.
      */
-    fun discardPartialDownload(): Long {
+    fun discardPartialDownload(now: Long = System.currentTimeMillis()): Long {
         if (downloadInFlight.get()) return 0L
 
         val bytes = partialFile.length()
+        if (bytes == 0L) return 0L
+
+        val ageMs = now - partialFile.lastModified()
+        if (ageMs < StalePartialAgeMs) {
+            Telemetry.event("model_partial_kept", "bytes" to bytes, "ageMs" to ageMs)
+            return 0L
+        }
         if (!partialFile.delete()) return 0L
 
-        Telemetry.event("model_partial_discarded", "bytes" to bytes)
+        Telemetry.event("model_partial_discarded", "bytes" to bytes, "ageMs" to ageMs)
         return bytes
     }
 
@@ -90,45 +141,75 @@ class ModelDownloadManager(
             return@withContext Result.success(modelFile.absolutePath)
         }
 
-        runCatching {
+        runCatchingDownload {
             modelsDir.mkdirs()
             downloadTo(partialFile)
-
-            if (!partialFile.renameTo(modelFile)) {
-                throw IOException("Failed to move downloaded model into place at ${modelFile.absolutePath}")
-            }
-
+            installPartial()
             modelFile.absolutePath
         }.onFailure { e ->
             Log.e(TAG, "ensureModel download failed", e)
-            // Never leave a partial file behind to be mistaken for a real model.
-            partialFile.delete()
         }
     }
 
     /**
-     * Emits download progress as a percentage (0-100) while [ensureModel] would perform a
-     * download, then completes. If the model is already present, emits 100 immediately.
-     * Emits -1 if the server did not report a Content-Length (progress unknown).
+     * Moves the completed partial over the installed model, replacing it atomically so a
+     * failure can never leave the user with neither file.
      */
-    fun downloadProgress(): Flow<Int> = callbackFlow {
-        if (modelFile.exists()) {
+    private fun installPartial() {
+        try {
+            Files.move(
+                partialFile.toPath(),
+                modelFile.toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE,
+            )
+        } catch (e: IOException) {
+            throw IOException("Failed to move downloaded model into place at ${modelFile.absolutePath}", e)
+        }
+    }
+
+    /**
+     * [runCatching] without swallowing cancellation. Plain `runCatching` catches
+     * `CancellationException` too, which turns "the user left the screen" into "the
+     * download failed" and breaks structured concurrency at this boundary.
+     *
+     * A cancelled download keeps its partial file, exactly as a failed one does — the user
+     * who backs out of onboarding and returns is the case resume exists for.
+     */
+    private inline fun <T> runCatchingDownload(block: () -> T): Result<T> =
+        try {
+            Result.success(block())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            Result.failure(e)
+        }
+
+    /**
+     * Emits download progress as a percentage (0-100) while [ensureModel] would perform a
+     * download, then completes. If the model is already present, emits 100 immediately —
+     * unless [replaceExisting], the Settings "update" action, which re-fetches regardless.
+     *
+     * An update downloads to the `.tmp` sibling and only replaces the installed model once
+     * the transfer has completed, exactly as a first-run download does. Settings used to
+     * delete the model *before* starting, so an update interrupted by a dropped connection
+     * left the user with no model at all and transcription unavailable until a later
+     * attempt happened to succeed — verified on a Nothing Phone 2 before this changed.
+     */
+    fun downloadProgress(replaceExisting: Boolean = false): Flow<Int> = callbackFlow {
+        if (modelFile.exists() && !replaceExisting) {
             trySend(100)
             close()
             return@callbackFlow
         }
 
         withContext(Dispatchers.IO) {
-            runCatching {
+            runCatchingDownload {
                 modelsDir.mkdirs()
                 downloadTo(partialFile) { percent -> trySend(percent) }
-
-                if (!partialFile.renameTo(modelFile)) {
-                    throw IOException("Failed to move downloaded model into place at ${modelFile.absolutePath}")
-                }
+                installPartial()
             }.onFailure { e ->
                 Log.e(TAG, "downloadProgress failed", e)
-                partialFile.delete()
                 close(e)
                 return@withContext
             }
@@ -168,35 +249,71 @@ class ModelDownloadManager(
     }
 
     private fun streamTo(destination: File, onProgress: ((Int) -> Unit)?) {
-        val request = Request.Builder().url(MODEL_DOWNLOAD_URL).build()
+        // Resume where a previous attempt stopped. The model is ~148 MB, and restarting
+        // from zero on every dropped connection is how a download on a flaky mobile link
+        // never finishes — each attempt costs the user the full 148 MB of data again.
+        val alreadyHave = destination.length()
+        val request = Request.Builder()
+            .url(MODEL_DOWNLOAD_URL)
+            .apply { if (alreadyHave > 0) header("Range", "bytes=$alreadyHave-") }
+            .build()
 
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 throw IOException("Model download failed: HTTP ${response.code}")
             }
 
-            val body = response.body ?: throw IOException("Model download response had no body")
-            val contentLength = body.contentLength()
+            // 206 means the server honoured the Range and is sending the rest. Anything
+            // else — a server with no range support, or one that ignored the header — is
+            // the whole file again, so the partial has to go rather than be appended to.
+            val resuming = response.code == HttpURLConnection.HTTP_PARTIAL && alreadyHave > 0
+            val startAt = if (resuming) alreadyHave else 0L
 
-            destination.outputStream().use { output ->
+            val body = response.body ?: throw IOException("Model download response had no body")
+            val expectedTotal = if (body.contentLength() > 0) body.contentLength() + startAt else -1L
+
+            Telemetry.event(
+                "model_download_stream",
+                "resumedFromBytes" to startAt,
+                "httpCode" to response.code,
+                "expectedTotalBytes" to expectedTotal,
+            )
+
+            FileOutputStream(destination, resuming).use { output ->
                 body.byteStream().use { input ->
-                    val buffer = ByteArray(8 * 1024)
-                    var bytesRead: Long = 0
+                    val buffer = ByteArray(64 * 1024)
+                    var bytesWritten = startAt
                     var read: Int
                     while (input.read(buffer).also { read = it } != -1) {
                         output.write(buffer, 0, read)
-                        bytesRead += read
-                        if (onProgress != null && contentLength > 0) {
-                            onProgress(((bytesRead * 100) / contentLength).toInt())
+                        bytesWritten += read
+                        if (onProgress != null && expectedTotal > 0) {
+                            onProgress(((bytesWritten * 100) / expectedTotal).toInt())
                         }
                     }
                 }
+            }
+
+            // Nothing downstream can tell a short file from a whole one — whisper.cpp
+            // reports a truncated model as a failed load, long after the download claimed
+            // success. Checked here, where the expected size is still known.
+            if (expectedTotal > 0 && destination.length() != expectedTotal) {
+                throw IOException(
+                    "Model download truncated: got ${destination.length()} of $expectedTotal bytes",
+                )
             }
         }
     }
 
     companion object {
         const val ModelFileName = "ggml-base.en.bin"
+
+        /**
+         * How long a partial download stays resumable. A day covers "I lost signal on the
+         * train and finished the download that evening" while still bounding how long the
+         * user's storage can be held by a file they cannot see.
+         */
+        const val StalePartialAgeMs = 24 * 60 * 60 * 1000L
 
         /**
          * Whether this process is currently writing the partial file. Process-wide rather

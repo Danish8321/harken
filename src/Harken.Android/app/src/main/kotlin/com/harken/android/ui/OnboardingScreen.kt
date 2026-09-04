@@ -44,6 +44,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.data.AppSettings
+import com.harken.android.speech.ModelDownloadFailure
 import com.harken.android.speech.ModelDownloadManager
 import com.harken.android.ui.components.HarkenCard
 import com.harken.android.ui.components.StatusChip
@@ -65,7 +66,7 @@ data class OnboardingUiState(
     val step: Int = 1,
     val modelDownloadState: ModelDownloadState = ModelDownloadState.NotStarted,
     val modelDownloadProgress: Int = 0,
-    val modelDownloadError: String? = null,
+    val modelDownloadError: ModelDownloadFailure? = null,
 )
 
 // Every recording is transcribed entirely on-device (ADR-0011): no backend to connect to,
@@ -91,7 +92,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
                 .catch { e ->
                     _uiState.value = _uiState.value.copy(
                         modelDownloadState = ModelDownloadState.Failed,
-                        modelDownloadError = e.message ?: "Download failed",
+                        modelDownloadError = ModelDownloadFailure.of(e),
                     )
                 }
                 .onCompletion { failure ->
@@ -247,7 +248,10 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
 
                                 ModelDownloadState.Failed -> Column {
                                     Text(
-                                        state.modelDownloadError ?: stringResource(R.string.settings_model_download_failed),
+                                        stringResource(
+                                            state.modelDownloadError?.messageRes()
+                                                ?: R.string.settings_model_download_failed,
+                                        ),
                                         color = c.stateError,
                                         fontFamily = ProtoBodyFont,
                                         fontSize = 12.sp,

@@ -69,7 +69,19 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                     when (state.modelDownloadState) {
                         ModelDownloadState.Ready -> stringResource(R.string.settings_model_ready)
                         ModelDownloadState.Downloading -> stringResource(R.string.settings_model_downloading, state.modelDownloadProgress)
-                        ModelDownloadState.Failed -> state.modelDownloadError ?: stringResource(R.string.settings_model_download_failed)
+                        ModelDownloadState.Failed -> {
+                            val reason = stringResource(
+                                state.modelDownloadError?.messageRes() ?: R.string.settings_model_download_failed,
+                            )
+                            // A failed *update* is not a missing model — the installed one is
+                            // untouched and still transcribes. Saying only "failed" would read
+                            // as though the user had lost it.
+                            if (state.modelPresent) {
+                                stringResource(R.string.settings_model_update_failed, reason)
+                            } else {
+                                reason
+                            }
+                        }
                         ModelDownloadState.NotStarted -> stringResource(R.string.settings_model_not_started)
                     },
                     color = if (state.modelDownloadState == ModelDownloadState.Failed) c.stateError else c.text,
@@ -86,7 +98,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                     border = BorderStroke(1.dp, c.textSecondary),
                 ) {
                     Text(
-                        stringResource(if (state.modelDownloadState == ModelDownloadState.Ready) R.string.settings_model_update else R.string.settings_model_download),
+                        stringResource(if (state.modelPresent) R.string.settings_model_update else R.string.settings_model_download),
                         fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.5.sp,
                     )
                 }

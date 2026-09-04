@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.harken.android.data.AppSettings
+import com.harken.android.speech.ModelDownloadFailure
 import com.harken.android.speech.ModelDownloadManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +18,13 @@ data class SettingsUiState(
     val dynamicColor: Boolean = false,
     val modelDownloadState: ModelDownloadState = ModelDownloadState.NotStarted,
     val modelDownloadProgress: Int = 0,
-    val modelDownloadError: String? = null,
+    val modelDownloadError: ModelDownloadFailure? = null,
+    /**
+     * Whether a usable model is installed *right now*, which is no longer the same question
+     * as "did the last download succeed": an update that fails leaves the previous model in
+     * place, and the screen has to say so rather than offer a first-time "Download".
+     */
+    val modelPresent: Boolean = false,
 )
 
 // Every recording is transcribed entirely on-device (ADR-0011): no backend URL to configure,
@@ -29,6 +36,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _uiState = MutableStateFlow(
         SettingsUiState(
             modelDownloadState = if (modelDownloadManager.isModelPresent()) ModelDownloadState.Ready else ModelDownloadState.NotStarted,
+            modelPresent = modelDownloadManager.isModelPresent(),
         ),
     )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -54,22 +62,32 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { settings.setDynamicColor(enabled) }
     }
 
-    /** Re-downloads the model even if one is already present — the Settings "update" action. */
+    /**
+     * Re-downloads the model even if one is already present — the Settings "update" action.
+     *
+     * The installed model is left alone until the new one has finished downloading. Deleting
+     * it up front, as this used to, meant an update interrupted by a dropped connection left
+     * the user with no model and no transcription at all.
+     */
     fun updateModel() {
         if (_uiState.value.modelDownloadState == ModelDownloadState.Downloading) return
-        modelDownloadManager.deleteModel()
         _uiState.value = _uiState.value.copy(modelDownloadState = ModelDownloadState.Downloading, modelDownloadError = null)
         viewModelScope.launch {
-            modelDownloadManager.downloadProgress()
+            modelDownloadManager.downloadProgress(replaceExisting = true)
                 .catch { e ->
                     _uiState.value = _uiState.value.copy(
                         modelDownloadState = ModelDownloadState.Failed,
-                        modelDownloadError = e.message ?: "Download failed",
+                        modelDownloadError = ModelDownloadFailure.of(e),
+                        modelPresent = modelDownloadManager.isModelPresent(),
                     )
                 }
                 .onCompletion { failure ->
                     if (failure == null && _uiState.value.modelDownloadState != ModelDownloadState.Failed) {
-                        _uiState.value = _uiState.value.copy(modelDownloadState = ModelDownloadState.Ready, modelDownloadProgress = 100)
+                        _uiState.value = _uiState.value.copy(
+                            modelDownloadState = ModelDownloadState.Ready,
+                            modelDownloadProgress = 100,
+                            modelPresent = true,
+                        )
                     }
                 }
                 .collect { percent ->

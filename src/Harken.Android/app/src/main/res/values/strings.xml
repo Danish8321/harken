@@ -129,6 +129,10 @@
     <string name="settings_model_ready">Ready — used for on-device transcription</string>
     <string name="settings_model_downloading">Downloading… %1$d%%</string>
     <string name="settings_model_download_failed">Download failed</string>
+    <string name="settings_model_update_failed">Update failed; the model you have still works. %1$s</string>
+    <string name="model_download_failed_no_connection">No connection. The download will pick up where it left off when you retry.</string>
+    <string name="model_download_failed_server">The model server could not be reached. Try again in a moment.</string>
+    <string name="model_download_failed_no_space">Not enough storage for the speech model. Free up about 150 MB and try again.</string>
     <string name="settings_model_not_started">Not downloaded yet</string>
     <string name="settings_model_update">Update</string>
     <string name="settings_model_download">Download</string>
