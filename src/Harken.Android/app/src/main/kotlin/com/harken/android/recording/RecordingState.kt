@@ -12,6 +12,13 @@ data class RecordingCompleted(
     val recordingId: UUID,
     val filePath: String,
     val stopReason: RecordingStopReason,
+    /**
+     * How long the capture actually ran. Carried on the completion because this is the
+     * only moment anything knows it: the session row is written from here, and until
+     * transcription fills the column in, a recorded session's length would otherwise be
+     * unknown — every un-transcribed recording read "0m 00s" in the Library.
+     */
+    val durationSeconds: Int,
 )
 
 /** A recording failed to start or was aborted mid-capture by something the user has no lever over. */
@@ -67,7 +74,10 @@ object RecordingState {
     // result. That check is what makes `completed` fire exactly once per recording.
     fun markStopped(stopReason: RecordingStopReason = RecordingStopReason.None) {
         val finished = current.getAndSet(null) ?: return
+        val durationSeconds = ((System.currentTimeMillis() - finished.startedAtMs) / 1000).toInt().coerceAtLeast(0)
         _isRecording.value = false
-        _completed.tryEmit(RecordingCompleted(finished.recordingId, finished.filePath, stopReason))
+        _completed.tryEmit(
+            RecordingCompleted(finished.recordingId, finished.filePath, stopReason, durationSeconds),
+        )
     }
 }

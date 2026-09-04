@@ -33,6 +33,7 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
     private val repository = SessionRepository(db = HarkenDatabase.get(application))
     private var lastRecordingId: java.util.UUID? = null
     private var lastFilePath: String? = null
+    private var lastDurationSeconds: Int = 0
 
     private val _uiState = MutableStateFlow(CaptureUiState())
     val uiState: StateFlow<CaptureUiState> = _uiState.asStateFlow()
@@ -45,7 +46,7 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
         }
         viewModelScope.launch {
             RecordingState.completed.collect { completed ->
-                saveLocal(completed.recordingId, completed.filePath)
+                saveLocal(completed.recordingId, completed.filePath, completed.durationSeconds)
             }
         }
     }
@@ -61,19 +62,26 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
     fun retryUpload() {
         val recordingId = lastRecordingId ?: return
         val filePath = lastFilePath ?: return
-        viewModelScope.launch { saveLocal(recordingId, filePath) }
+        viewModelScope.launch { saveLocal(recordingId, filePath, lastDurationSeconds) }
     }
 
-    private suspend fun saveLocal(recordingId: java.util.UUID, filePath: String) {
+    private suspend fun saveLocal(recordingId: java.util.UUID, filePath: String, durationSeconds: Int) {
         lastRecordingId = recordingId
         lastFilePath = filePath
+        lastDurationSeconds = durationSeconds
         _uiState.value = _uiState.value.copy(lastError = null)
         try {
+            // This runs at stop, so "now" is the end of the capture, not its start —
+            // stamping startedAt with it dated a 40-minute recording to when it finished
+            // and could hand DerivedTitle the wrong part of day.
+            val endedAt = Instant.now()
             repository.createLocalSession(
                 id = recordingId,
-                startedAt = Instant.now().toString(),
+                startedAt = endedAt.minusSeconds(durationSeconds.toLong()).toString(),
+                endedAt = endedAt.toString(),
                 source = "Microphone",
                 filePath = filePath,
+                durationSeconds = durationSeconds,
             )
             _uiState.value = _uiState.value.copy(
                 uploadStatus = UploadStatus.Succeeded,

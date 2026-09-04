@@ -63,18 +63,27 @@ class SessionRepository(
      * saved but transcription does not start until the user explicitly asks for it (see
      * [startLocalTranscription], [completeLocal], [failLocal]).
      */
-    suspend fun createLocalSession(id: UUID, startedAt: String, source: String, filePath: String) {
+    suspend fun createLocalSession(
+        id: UUID,
+        startedAt: String,
+        endedAt: String,
+        source: String,
+        filePath: String,
+        durationSeconds: Int,
+    ) {
         dao.insertLocalOnly(
             SessionRow(
                 id = id,
                 startedAt = startedAt,
-                endedAt = null,
+                endedAt = endedAt,
                 source = source,
                 segmentCount = 0,
                 hasSummary = false,
                 transcriptionStatus = "Recorded",
                 transcriptionFailureReason = null,
-                durationSeconds = null,
+                // Known here, not only after transcription: the capture's own length. Left
+                // null, every un-transcribed session read "0m 00s" in the Library.
+                durationSeconds = durationSeconds,
                 syncedAt = System.currentTimeMillis(),
                 isLocalOnly = true,
                 pendingUploadPath = filePath,
