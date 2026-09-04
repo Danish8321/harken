@@ -18,6 +18,18 @@ set(CMAKE_C_STANDARD 11)
 set(WHISPER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/whisper)
 set(GGML_DIR ${WHISPER_DIR}/ggml)
 
+# The vendored compute kernels are always built optimized, in every build type.
+#
+# The Android Gradle plugin configures CMake with CMAKE_BUILD_TYPE=Debug for the debug
+# variant, which passes no -O flag at all, and clang then defaults to -O0. Measured on a
+# Nothing Phone 2: 71 seconds of speech took 477 seconds to decode — 6.7x slower than real
+# time, which makes the app's own three-hour recording cap twenty hours of transcription.
+#
+# Nobody single-steps through ggml, so there is nothing to trade away here. Debug info stays
+# on (the ggml_vec_dot_f16 SIGSEGV still needs symbolizable tombstones); only the missing
+# optimization is supplied.
+set(HARKEN_KERNEL_OPTIONS -O3)
+
 add_library(ggml STATIC
     ${GGML_DIR}/src/ggml.c
     ${GGML_DIR}/src/ggml.cpp
@@ -55,6 +67,8 @@ target_compile_definitions(ggml PRIVATE
     GGML_USE_CPU
 )
 
+target_compile_options(ggml PRIVATE ${HARKEN_KERNEL_OPTIONS})
+
 target_link_libraries(ggml PUBLIC dl)
 
 add_library(whisper STATIC
@@ -69,6 +83,8 @@ target_include_directories(whisper PRIVATE
     ${WHISPER_DIR}/src
     ${GGML_DIR}/include
 )
+
+target_compile_options(whisper PRIVATE ${HARKEN_KERNEL_OPTIONS})
 
 target_link_libraries(whisper PUBLIC ggml)
 

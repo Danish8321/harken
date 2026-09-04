@@ -8,6 +8,11 @@ import com.harken.android.telemetry.Telemetry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.RandomAccessFile
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+
+/** Bytes pulled from the WAV per read. 64 KiB is 2 seconds of 16 kHz mono 16-bit audio. */
+private const val ReadBlockBytes = 64 * 1024
 
 /**
  * A single decoded segment from an on-device whisper.cpp transcription. Deliberately not
@@ -126,13 +131,20 @@ class OnDeviceTranscriber : Transcriber {
                 }
             }
 
+            val decodedSeconds = (decodedSamples / WavFormat.SampleRate).toInt()
             Telemetry.event(
                 "transcribe_decoded",
                 "audioSeconds" to audioSeconds,
+                "decodedSeconds" to decodedSeconds,
                 "decodeMs" to decodeMs,
-                // Faster than real time is < 1.0. The number that decides whether a
-                // three-hour recording is usable on this phone at all.
+                // Against the whole recording: what the user waits, per second of what they
+                // recorded. Faster than real time is < 1.0, and this is the number that
+                // decides whether a three-hour capture is usable on this phone at all.
                 "realtimeFactor" to realtimeFactor(decodeMs, audioSeconds),
+                // Against only what was handed to whisper. The two diverge exactly as much
+                // as SpeechSpans skipped, so reporting one without the other makes a
+                // recording full of silence look like a fast decoder.
+                "decodedRealtimeFactor" to realtimeFactor(decodeMs, decodedSeconds),
                 "segments" to segments.size,
             )
 
@@ -166,10 +178,23 @@ class OnDeviceTranscriber : Transcriber {
             val samples = ShortArray(sampleCount)
 
             file.seek(WavFormat.HeaderLength.toLong())
-            val bytes = ByteArray(2)
-            for (i in 0 until sampleCount) {
-                file.readFully(bytes)
-                samples[i] = ((bytes[0].toInt() and 0xFF) or (bytes[1].toInt() shl 8)).toShort()
+
+            // Read a block at a time and let ByteBuffer do the little-endian conversion.
+            // This used to call readFully into a two-byte array once per sample: five
+            // minutes of audio is 4.8 million of those calls, which measured 11.4 seconds
+            // on a Nothing Phone 2 — 95% of the total time to "transcribe" a silent
+            // recording. Blocks rather than one whole-file array because the ShortArray is
+            // already two bytes per sample; reading the file into a second buffer of its
+            // full size would double the peak footprint of a long recording.
+            val block = ByteArray(ReadBlockBytes)
+            val buffer = ByteBuffer.wrap(block).order(ByteOrder.LITTLE_ENDIAN)
+            var written = 0
+            while (written < sampleCount) {
+                val wanted = minOf(block.size, (sampleCount - written) * 2)
+                file.readFully(block, 0, wanted)
+                buffer.clear()
+                buffer.asShortBuffer().get(samples, written, wanted / 2)
+                written += wanted / 2
             }
             return samples
         }
