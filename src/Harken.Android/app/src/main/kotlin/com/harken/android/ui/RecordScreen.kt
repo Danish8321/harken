@@ -161,14 +161,17 @@ fun RecordScreen(
         )
     }
 
-    var elapsed by remember { mutableIntStateOf(0) }
+    // Read off RecordingState rather than counted up locally: the recording outlives this
+    // composable (it belongs to the foreground service), so a local counter restarted from
+    // zero every time the user came back to this tab — a capture 3 minutes in read 0:02.
+    // Seeded, not zeroed, so returning to the tab shows the right time on the first frame.
+    var elapsed by remember { mutableIntStateOf((RecordingState.elapsedMs() / 1000).toInt()) }
     LaunchedEffect(state.isRecording) {
-        if (state.isRecording) {
-            elapsed = 0
-            while (true) {
-                kotlinx.coroutines.delay(1000)
-                elapsed += 1
-            }
+        while (state.isRecording) {
+            elapsed = (RecordingState.elapsedMs() / 1000).toInt()
+            // Sub-second so the displayed second is never more than a tick stale; the
+            // value itself comes from the clock, so this cadence can't drift the total.
+            kotlinx.coroutines.delay(250)
         }
     }
 
@@ -554,14 +557,29 @@ private fun RecordButton(recording: Boolean, onTap: () -> Unit) {
     // frame (SkShadowTessellator::MakeSpot -> computeConcaveShadow). The shape also spins,
     // so the path is new every frame and nothing caches — that pegged RenderThread hard
     // enough to block the main thread in syncAndDrawFrame and ANR the app on record start.
-    val elevation = if (recording) 0.dp else 10.dp
+    // Every state has to be zeroed, not just the resting one: focusedElevation and
+    // hoveredElevation default to 6dp/8dp, so the button re-grew a shadow the moment it
+    // took focus — coming back from the permission dialog or from Home — and ANR'd again
+    // on a build where only defaultElevation had been zeroed.
+    //
+    // Gated on the morph's progress, not on `recording`: the boolean flips instantly, the
+    // outline takes a spring to follow it. Keyed on the boolean, a Stop tap restored the
+    // 10dp shadow while the shape was still most of the way to the cookie, and the app
+    // ANR'd on the way *out* of recording — the concave tessellation cost is owed by the
+    // shape on screen, not by the state the button thinks it is in.
+    val recordShape = rememberRecordShape(recording)
+    val elevation = if (recordShape.isResting) {
+        FloatingActionButtonDefaults.elevation(defaultElevation = 10.dp, pressedElevation = 4.dp)
+    } else {
+        FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
+    }
     FloatingActionButton(
         onClick = onTap,
         modifier = Modifier.size(88.dp).scale(scale),
-        shape = rememberRecordShape(recording),
+        shape = recordShape.shape,
         containerColor = c.accent,
         contentColor = c.onAccent,
-        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = elevation, pressedElevation = elevation),
+        elevation = elevation,
         interactionSource = interaction,
     ) {
         Icon(

@@ -6,6 +6,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Size
@@ -70,12 +71,25 @@ class MorphShape(
 }
 
 /**
+ * The record button's shape and how far it currently is from the resting circle.
+ *
+ * [morphProgress] is not a detail of the animation — it is what the caller has to gate
+ * its shadow on. Anything but 0 means the outline is concave, and a concave spot shadow
+ * is retessellated from scratch every frame.
+ */
+@Immutable
+data class RecordShape(val shape: Shape, val morphProgress: Float) {
+    /** True while the outline is a circle and can therefore afford a shadow. */
+    val isResting: Boolean get() = morphProgress <= 0.001f
+}
+
+/**
  * The record button's shape. [recording] drives a spatial spring between circle and
  * cookie; while recording the cookie turns slowly so the state reads as ongoing rather
  * than as a static decoration.
  */
 @Composable
-fun rememberRecordShape(recording: Boolean): Shape {
+fun rememberRecordShape(recording: Boolean): RecordShape {
     val morph = remember { Morph(ShapeCircle, ShapeCookie) }
     val progress by animateFloatAsState(
         targetValue = if (recording) 1f else 0f,
@@ -93,5 +107,5 @@ fun rememberRecordShape(recording: Boolean): Shape {
     // under reduced motion the cookie holds still and the shape change alone carries
     // "recording".
     val reduced = LocalReducedMotion.current
-    return MorphShape(morph, progress, if (recording && !reduced) rotation else 0f)
+    return RecordShape(MorphShape(morph, progress, if (recording && !reduced) rotation else 0f), progress)
 }
