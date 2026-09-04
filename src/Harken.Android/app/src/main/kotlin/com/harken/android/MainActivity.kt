@@ -13,6 +13,7 @@ import com.harken.android.data.AppSettings
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.recording.RecordingRecovery
+import com.harken.android.speech.ModelDownloadManager
 import kotlinx.coroutines.launch
 import com.harken.android.ui.AppNav
 import com.harken.android.ui.ThemeMode
@@ -23,6 +24,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         recoverOrphanedRecordings()
+        // Same reconciliation, one file over: a model download killed with the process
+        // leaves a partial file no future attempt will resume from. It is skipped while a
+        // download is actually running, so re-entering this activity mid-download is safe.
+        ModelDownloadManager(this).discardPartialDownload()
         setContent {
             val settings = remember { AppSettings(this) }
             val themeMode by settings.themeMode.collectAsState(initial = ThemeMode.System)
