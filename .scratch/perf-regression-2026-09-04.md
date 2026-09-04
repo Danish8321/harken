@@ -105,6 +105,47 @@ Blocks rather than one whole-file buffer on purpose — the `ShortArray` already
 costs two bytes per sample, and a second full-size array would double peak
 footprint on a long recording.
 
+## Finding 3 — the whole recording was held in memory to transcribe it (high)
+
+Fixed in `e9f9b2b`, after the two findings above and measured the same way.
+
+`readWavPcm16` materialised the entire PCM payload as one `ShortArray`: two
+bytes per sample, for the full length of the file. At the app's own three-hour
+cap that is 10800 x 16000 x 2 = **345 MB**, on top of the model, against the
+189 MB total PSS measured here. The advertised cap was unreachable for memory
+even once `-O3` had made it reachable for time — a correctness bug wearing a
+performance costume.
+
+`OnDeviceTranscriber` now opens the WAV once and makes two streaming passes:
+one reading a second at a time to build the per-window silence verdict, one
+seeking to each span to read only the samples whisper will decode. `SpeechSpans
+.find` is replaced by `SpeechSpans.assemble`, which takes that verdict rather
+than the audio, and gained `MaxSpanSeconds = 300` so unbroken speech cannot
+become a single unbounded span. Peak audio memory is now one span — **9.6 MB,
+independent of recording length**.
+
+Verified on a fresh install with a fourth fixture, `fixture-long` (427 s of
+continuous speech, built by concatenating `fixture-speech` six times) to
+exercise the `MaxSpanSeconds` cut:
+
+| Fixture | Spans | Peak span | Scan | Read | RTF |
+|---|---|---|---|---|---|
+| long 427 s | 2 (300 + 127) | 300 s | 21 ms | 15 ms | 0.25 |
+| mixed 221 s | 6 | 15 s | 9 ms | 0 ms | 0.13 |
+| speech 71 s | 1 | 71 s | 3 ms | 2 ms | 0.24 |
+| silence 300 s | 0 | 0 s | 13 ms | 0 ms | — |
+
+The three original fixtures produced **the same span count, the same span
+boundaries (0, 42, 85, 126, 167, 207) and the same segment counts (13/13/0)**
+as the in-memory path did before the change. That identity is what makes this
+a memory fix rather than a behaviour change.
+
+One thing the change does *not* fix: `dumpsys meminfo` during the 427 s decode
+showed **native heap 451 MB, total PSS 594 MB**, while the Java heap stayed at
+36 MB. That is whisper's own model and compute buffers, not our PCM. The
+allocation this finding removed is gone, but a separate native ceiling sits
+above it and is untouched — see open item 6.
+
 ## Full measurement matrix
 
 Same fixtures, same order, fresh install each pass.
@@ -181,14 +222,8 @@ with an empty-ish filesystem.
    APK was probably never as slow as 6.72 — but it was also never measured, and
    `-O3` on the kernels is now explicit in both. Measure a release build before
    quoting 0.24 as the shipping number.
-2. **A three-hour recording will not fit in memory.** `readWavPcm16` allocates one
-   `ShortArray` for the whole recording: 10800 s x 16000 x 2 bytes = **345 MB**,
-   on top of the model. Against the 189 MB PSS measured here, a capture anywhere
-   near the advertised cap will OOM long before the 43 minutes of decoding matter.
-   The block reader is already in place; the fix is to decode span by span and
-   never hold the whole recording, which the `SpeechSpans` structure already
-   invites. **This is the next thing to fix**, and it is a correctness bug wearing
-   a performance costume.
+2. ~~**A three-hour recording will not fit in memory.**~~ **Fixed** — see
+   Finding 3.
 3. **`n_threads = 4`** is hardcoded in `harken_whisper_jni.cpp:127` on an 8-core
    phone. During the baseline the process used 33 CPU-minutes over 8 wall-minutes,
    so 4 threads were genuinely busy. Untested whether 6 or 8 helps or thrashes the
@@ -229,9 +264,7 @@ with an empty-ish filesystem.
 
 ## Open items
 
-1. **Memory ceiling for long recordings** (risk 2 above) — decode span by span.
-   Highest priority: the 3-hour cap is still unreachable, now for memory rather
-   than for time.
+1. ~~**Memory ceiling for long recordings**~~ — done in `e9f9b2b` (Finding 3).
 2. **Measure a release build** before quoting any of these numbers as shipping
    performance.
 3. **`ggml_vec_dot_f16` SIGSEGV** — still open, still no repro, still unblocked by
@@ -241,6 +274,11 @@ with an empty-ish filesystem.
    this measurable from a single real meeting.
 5. **Interrupted model download** — the last unverified item from
    [slice-09-followups.md](slice-09-followups.md).
+6. **Native heap reaches 451 MB during a decode** (594 MB total PSS, measured on
+   the 427 s fixture). Whisper's own buffers, not the app's. Whether that scales
+   with span length or is flat per model is unmeasured, and it decides whether
+   `MaxSpanSeconds` should be lower than 300. Measure before assuming the 3-hour
+   cap is now safe end to end — Finding 3 removed one ceiling, not both.
 
 ## Device state left behind
 
