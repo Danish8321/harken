@@ -41,46 +41,77 @@ object SpeechSpans {
     const val PaddingSeconds = 1
 
     /**
-     * The spans of [samples] worth transcribing, in order, never overlapping. Empty when
-     * the recording holds no sound at all — there is nothing to transcribe, and asking
-     * anyway is what invented the "you"s.
+     * The longest span handed to whisper in one call. Unbroken speech has no silence to
+     * split on, so without this a three-hour recording of a talkative meeting is one span,
+     * and its samples alone are 345 MB before the model is counted.
+     *
+     * Five minutes is 9.6 MB. Whisper decodes in 30-second windows regardless, so the only
+     * cost of the cut is the context lost at the seam, and that is paid once per five
+     * minutes rather than once per pause.
      */
-    fun find(
-        samples: ShortArray,
+    const val MaxSpanSeconds = 300
+
+    /**
+     * The spans worth transcribing, in order, never overlapping. Empty when the recording
+     * holds no sound at all — there is nothing to transcribe, and asking anyway is what
+     * invented the "you"s.
+     *
+     * Takes a per-window silence verdict rather than the audio itself, so the caller can
+     * measure a window at a time without holding the recording in memory — see
+     * OnDeviceTranscriber, which streams a file it must never materialise.
+     *
+     * [windowSilence] is one entry per [WindowSeconds] of [totalSamples], in order.
+     */
+    fun assemble(
+        windowSilence: BooleanArray,
+        totalSamples: Int,
         sampleRate: Int = WavFormat.SampleRate,
-        amplitudeThreshold: Int = SilenceDetector.DefaultAmplitudeThreshold,
     ): List<SpeechSpan> {
         require(sampleRate > 0) { "sampleRate must be positive" }
-        require(amplitudeThreshold >= 0) { "amplitudeThreshold must not be negative" }
-        if (samples.isEmpty()) return emptyList()
+        if (totalSamples <= 0) return emptyList()
 
         val windowSamples = sampleRate * WindowSeconds
         val padding = sampleRate * PaddingSeconds
         val maxSilentGap = sampleRate * MinSkippableSilenceSeconds
 
         val spans = mutableListOf<SpeechSpan>()
-        var windowStart = 0
-        while (windowStart < samples.size) {
-            val windowEnd = minOf(windowStart + windowSamples, samples.size)
-            if (!isSilent(samples, windowStart, windowEnd, amplitudeThreshold)) {
-                val last = spans.lastOrNull()
-                // A gap shorter than MinSkippableSilenceSeconds is a pause, not a hole:
-                // absorb it into the running span instead of paying for a second window.
-                if (last != null && windowStart - last.endSampleExclusive < maxSilentGap) {
-                    spans[spans.lastIndex] = last.copy(endSampleExclusive = windowEnd)
-                } else {
-                    spans += SpeechSpan(windowStart, windowEnd)
-                }
+        for (window in windowSilence.indices) {
+            if (windowSilence[window]) continue
+
+            val windowStart = window * windowSamples
+            val windowEnd = minOf(windowStart + windowSamples, totalSamples)
+            val last = spans.lastOrNull()
+            // A gap shorter than MinSkippableSilenceSeconds is a pause, not a hole:
+            // absorb it into the running span instead of paying for a second window.
+            if (last != null && windowStart - last.endSampleExclusive < maxSilentGap) {
+                spans[spans.lastIndex] = last.copy(endSampleExclusive = windowEnd)
+            } else {
+                spans += SpeechSpan(windowStart, windowEnd)
             }
-            windowStart = windowEnd
         }
 
-        return spans.map { span ->
-            SpeechSpan(
-                startSample = (span.startSample - padding).coerceAtLeast(0),
-                endSampleExclusive = (span.endSampleExclusive + padding).coerceAtMost(samples.size),
-            )
+        return spans
+            .map { span ->
+                SpeechSpan(
+                    startSample = (span.startSample - padding).coerceAtLeast(0),
+                    endSampleExclusive = (span.endSampleExclusive + padding).coerceAtMost(totalSamples),
+                )
+            }
+            .flatMap { span -> span.chunked(sampleRate * MaxSpanSeconds) }
+    }
+
+    /** [span] split into consecutive pieces no longer than [maxSamples]. */
+    private fun SpeechSpan.chunked(maxSamples: Int): List<SpeechSpan> {
+        if (sampleCount <= maxSamples) return listOf(this)
+
+        val pieces = mutableListOf<SpeechSpan>()
+        var start = startSample
+        while (start < endSampleExclusive) {
+            val end = minOf(start + maxSamples, endSampleExclusive)
+            pieces += SpeechSpan(start, end)
+            start = end
         }
+        return pieces
     }
 
     /**
@@ -88,7 +119,13 @@ object SpeechSpans {
      * makes, without the sqrt. The loudest possible window sums 32768² per sample, which
      * stays inside Long for any window this app produces.
      */
-    private fun isSilent(samples: ShortArray, from: Int, toExclusive: Int, amplitudeThreshold: Int): Boolean {
+    fun isWindowSilent(
+        samples: ShortArray,
+        from: Int,
+        toExclusive: Int,
+        amplitudeThreshold: Int = SilenceDetector.DefaultAmplitudeThreshold,
+    ): Boolean {
+        require(amplitudeThreshold >= 0) { "amplitudeThreshold must not be negative" }
         var sumOfSquares = 0L
         for (i in from until toExclusive) {
             val sample = samples[i].toLong()
