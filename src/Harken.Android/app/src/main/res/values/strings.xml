@@ -95,6 +95,7 @@
     <string name="session_delete_confirm">Delete</string>
     <string name="session_delete_keep">Keep it</string>
     <string name="session_add_tag">+ Tag</string>
+    <string name="session_remove_tag">Remove the %1$s tag</string>
     <string name="session_voice">VOICE %1$d</string>
     <string name="session_toast_renamed">Renamed</string>
     <string name="session_toast_summary_ready">Summary ready</string>

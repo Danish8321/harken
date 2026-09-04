@@ -93,12 +93,16 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    fun addTag(id: UUID, tag: String) {
+    fun addTag(id: UUID, tag: String) = setTags(id, (_uiState.value.tags + tag).distinct(), "adding")
+
+    fun removeTag(id: UUID, tag: String) = setTags(id, _uiState.value.tags - tag, "removing")
+
+    private fun setTags(id: UUID, tags: List<String>, verb: String) {
         viewModelScope.launch {
             try {
-                repository.setTags(id, (_uiState.value.tags + tag).distinct())
+                repository.setTags(id, tags)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed adding tag to session $id", e)
+                Log.e(TAG, "Failed $verb tag on session $id", e)
                 _uiState.value = _uiState.value.copy(toast = getApplication<Application>().getString(R.string.session_action_failed))
             }
         }
