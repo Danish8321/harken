@@ -47,7 +47,13 @@ interface Transcriber {
  * handle after every transcription (single-flight, so no concurrent use is possible);
  * native calls are blocking CPU work, so they're dispatched off Main.
  */
-class OnDeviceTranscriber : Transcriber {
+class OnDeviceTranscriber(
+    /**
+     * Optional so the JVM tests and the fake in TranscriptionCoordinatorTest need no file
+     * system; on the device it is always supplied.
+     */
+    private val breadcrumb: NativeDecodeBreadcrumb? = null,
+) : Transcriber {
     private val gson = Gson()
     private var modelHandle: Long? = null
 
@@ -105,7 +111,18 @@ class OnDeviceTranscriber : Transcriber {
                     readMs += Telemetry.elapsedMsSince(readStartNs)
 
                     val decodeStartNs = System.nanoTime()
-                    val json = nativeTranscribe(handle, pcm16, WavFormat.SampleRate)
+                    // A SIGSEGV in here takes the process with it, so the note has to be on
+                    // disk before the call and gone after it.
+                    breadcrumb?.enter(
+                        spanIndex = index,
+                        startSecond = span.startSample / WavFormat.SampleRate,
+                        spanSeconds = span.sampleCount / WavFormat.SampleRate,
+                    )
+                    val json = try {
+                        nativeTranscribe(handle, pcm16, WavFormat.SampleRate)
+                    } finally {
+                        breadcrumb?.leave()
+                    }
                     val spanDecodeMs = Telemetry.elapsedMsSince(decodeStartNs)
                     decodeMs += spanDecodeMs
 
