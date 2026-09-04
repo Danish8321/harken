@@ -66,6 +66,17 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun startRecording() {
+        // The card for the previous recording outlived it: starting a new capture left
+        // "Stopped after 5 minutes of silence" on screen next to a live meter, describing
+        // a recording that had already been saved. A Failed card stays, because it is the
+        // only way back to a recording whose audio is on disk with no row to open.
+        if (_uiState.value.saveStatus == SaveStatus.Succeeded) {
+            _uiState.value = _uiState.value.copy(
+                saveStatus = SaveStatus.Idle,
+                lastSessionId = null,
+                stopReason = RecordingStopReason.None,
+            )
+        }
         RecordingController.startRecording(getApplication())
     }
 
