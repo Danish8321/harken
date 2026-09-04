@@ -146,6 +146,41 @@ showed **native heap 451 MB, total PSS 594 MB**, while the Java heap stayed at
 allocation this finding removed is gone, but a separate native ceiling sits
 above it and is untouched — see open item 6.
 
+## Finding 4 — the decode ceiling is the model, not the span (no change needed)
+
+Finding 3 left a question it could not answer: native heap hit 451 MB during
+the 427 s decode, and if that scaled with span length then `MaxSpanSeconds =
+300` was a number picked without evidence.
+
+Measured directly, by transcribing single-span fixtures of five lengths (built
+by truncating and concatenating `fixture-speech`) while polling
+`dumpsys meminfo` every 3 s. Peak values:
+
+| Span | Native heap | Total PSS | Decode | RTF |
+|---|---|---|---|---|
+| 20 s | 340 MB | 451 MB | 5.4 s | 0.27 |
+| 71 s | 384 MB | 496 MB | 17.5 s | 0.25 |
+| 142 s | 446 MB | 560 MB | 34.2 s | 0.24 |
+| 284 s | 460 MB | 578 MB | 77.4 s | 0.27 |
+| 300 s | 451 MB | 594 MB | 77.1 s | 0.25 |
+
+The curve rises steeply to ~150 s and then flattens: 20 s to 142 s adds 106 MB,
+142 s to 300 s adds ~5 MB. Whisper's state is dominated by the model and its
+fixed compute buffers, not by the length of what it is handed.
+
+So `MaxSpanSeconds = 300` sits on the plateau and costs nothing. Halving it to
+150 would save ~15 MB while doubling the number of seams; cutting to 20 s would
+save ~110 MB but sever context every twenty seconds. **The constant stands.**
+
+Two things this does establish. RTF is flat at 0.24–0.27 across a 15x range of
+span lengths, so the decode cost is genuinely linear in audio and the earlier
+per-span spread really was the `-O0` build. And the ~580 MB peak PSS is
+unavoidable at any span length, which makes it a device-support question rather
+than a tuning one — open item 7.
+
+Memory is released cleanly: PSS returns to ~195 MB within three seconds of
+`transcribe_finished` on every run.
+
 ## Full measurement matrix
 
 Same fixtures, same order, fresh install each pass.
@@ -274,14 +309,29 @@ with an empty-ish filesystem.
    this measurable from a single real meeting.
 5. **Interrupted model download** — the last unverified item from
    [slice-09-followups.md](slice-09-followups.md).
-6. **Native heap reaches 451 MB during a decode** (594 MB total PSS, measured on
-   the 427 s fixture). Whisper's own buffers, not the app's. Whether that scales
-   with span length or is flat per model is unmeasured, and it decides whether
-   `MaxSpanSeconds` should be lower than 300. Measure before assuming the 3-hour
-   cap is now safe end to end — Finding 3 removed one ceiling, not both.
+6. ~~**Native heap reaches 451 MB during a decode**~~ — measured, see Finding 4.
+   `MaxSpanSeconds = 300` is not the driver and stands. The residual risk is
+   low-RAM devices, now open item 7.
+7. **Peak PSS is ~580 MB on any transcription, of any length.** Fine on this
+   phone's 12 GB; on a 4 GB device it is squarely in low-memory-killer range,
+   and the app has no smaller-model option to fall back to. Decide the minimum
+   supported device before shipping, or ship a quantized model alongside
+   `base.en`. This is the ceiling that Finding 3 did **not** remove.
+8. **The model is reloaded for every transcription** — `modelCached=false` on all
+   seven runs here, costing a 148 MB file read and 170–280 ms each time.
+   Deliberate (`TranscriptionCoordinator` releases the handle after each
+   transcription, so no concurrent native use is possible), and invisible at one
+   recording at a time. Transcribing a whole library back to back pays it per
+   item. Worth revisiting only if batch transcription is ever a feature.
 
 ## Device state left behind
 
-App installed with 3 recordings (the two speech fixtures plus the silence one; the
-50 s live recording was deleted as the delete test). Mic permission and
-notifications granted, `svc power stayon usb` set, model present.
+App freshly reinstalled and holding 7 injected fixture recordings (20 s, 71 s x2,
+142 s, 221 s, 284 s, 300 s, 427 s), all transcribed. Onboarding completed, model
+present at `files/models/ggml-base.en.bin`, `svc power stayon usb` set. Fixtures
+also left at `/data/local/tmp/fixture-*.wav` for the next run.
+
+`scratchpad/mem.sh` polls native heap and total PSS every 3 s for a given number
+of seconds — the harness behind Finding 4. Sample faster than the decode you are
+measuring, or the peak is missed: the 20 s row above is the weakest number here
+because a 5.4 s decode allows only two samples.
