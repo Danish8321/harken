@@ -4,6 +4,13 @@ package com.harken.android.audio
 // on schedule or late.
 enum class RecordingStopReason { None, SilenceTimeout, SessionCap }
 
+/** What the auto-stop was working from when a recording ended. See [SilenceDetector.summarize]. */
+data class SilenceSummary(
+    val noiseFloor: Int,
+    val speechThreshold: Int,
+    val peakSilentMs: Long,
+)
+
 class SilenceDetector(
     private val silenceTimeoutMs: Long,
     private val sessionCapMs: Long,
@@ -52,6 +59,14 @@ class SilenceDetector(
      * the stop reason alone.
      */
     val peakSilentMs: Long get() = toDuration(peakSilentBytes)
+
+    /**
+     * The three together, read under one lock. They are only meaningful as a set — a floor
+     * without the threshold it produced says nothing — and the caller reports them after
+     * dropping the detector, so they have to leave it as one value rather than as three
+     * reads it might interleave.
+     */
+    fun summarize(): SilenceSummary = SilenceSummary(noiseFloorEstimate, speechThreshold, peakSilentMs)
 
     /**
      * Whether nobody has spoken in this chunk.

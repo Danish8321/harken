@@ -17,6 +17,7 @@ import com.harken.android.telemetry.Telemetry
 import java.io.RandomAccessFile
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -56,10 +57,11 @@ class RecordingForegroundService : Service() {
     private var maxChunkWriteMs: Long = 0
     private var slowChunks: Long = 0
 
-    // The auto-stop's final state, copied out of the detector before it is dropped.
-    private var noiseFloor: Int = 0
-    private var speechAt: Int = 0
-    private var peakSilentMs: Long = 0
+    // Once a recording is stopping it cannot start stopping again. The detector reports
+    // the same reason on every chunk after the first, and chunks keep arriving at 160 ms
+    // while the coroutine below is still getting started, so without this one stop was
+    // reported several times over.
+    private val stopping = AtomicBoolean(false)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -115,9 +117,7 @@ class RecordingForegroundService : Service() {
         byteCount = 0
         maxChunkWriteMs = 0
         slowChunks = 0
-        noiseFloor = 0
-        speechAt = 0
-        peakSilentMs = 0
+        stopping.set(false)
         Telemetry.event("recording_started", "session" to sessionTag)
 
         capture = AudioRecordCapture(onChunk = ::writeChunk, onError = ::onCaptureError, scope = scope)
@@ -181,9 +181,10 @@ class RecordingForegroundService : Service() {
     }
 
     private fun stopRecording(stopReason: RecordingStopReason) {
+        if (!stopping.compareAndSet(false, true)) return
         scope.launch {
             capture?.stop()
-            synchronized(writerGate) {
+            val summary = synchronized(writerGate) {
                 try {
                     writer?.close()
                 } catch (e: Exception) {
@@ -191,12 +192,10 @@ class RecordingForegroundService : Service() {
                     RecordingState.publishError(e.message ?: "Recording may be incomplete on disk")
                 }
                 writer = null
-                // Read before the detector is dropped: these are its final state, and the
-                // event below is the only place they are ever reported.
-                noiseFloor = silenceDetector?.noiseFloorEstimate ?: 0
-                speechAt = silenceDetector?.speechThreshold ?: 0
-                peakSilentMs = silenceDetector?.peakSilentMs ?: 0L
-                silenceDetector = null
+                // Read before the detector is dropped, and carried out as one value: the
+                // event below is the only place these are ever reported, and it runs
+                // outside this lock.
+                silenceDetector?.summarize().also { silenceDetector = null }
             }
             Telemetry.event(
                 "recording_stopped",
@@ -212,9 +211,9 @@ class RecordingForegroundService : Service() {
                 // event with peakSilentMs at opposite ends, and neither is answerable
                 // from the stop reason alone — the threshold is read off the recording,
                 // so it differs per recording.
-                "noiseFloor" to noiseFloor,
-                "speechAt" to speechAt,
-                "peakSilentMs" to peakSilentMs,
+                "noiseFloor" to (summary?.noiseFloor ?: 0),
+                "speechAt" to (summary?.speechThreshold ?: 0),
+                "peakSilentMs" to (summary?.peakSilentMs ?: 0L),
             )
             RecordingState.markStopped(stopReason)
             stopForeground(STOP_FOREGROUND_REMOVE)
