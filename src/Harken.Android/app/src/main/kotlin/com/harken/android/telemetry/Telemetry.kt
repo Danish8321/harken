@@ -46,6 +46,18 @@ object Telemetry {
     }
 
     /**
+     * How a failure is named in an event.
+     *
+     * Not the class name: R8 renames it, so the release build that first ran minified
+     * reported `error=e` for a Gson failure whose message named the cause exactly. The
+     * message is what survives minification and what distinguishes two failures of the
+     * same type, and it is already shown to the user on the Library card and stored on
+     * the session, so logging it exposes nothing new. The class name is the fallback for
+     * the exceptions that carry no message, where a minified name still beats `null`.
+     */
+    fun describe(e: Throwable): String = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.name
+
+    /**
      * The short form of a session id used in every event, so capture, transcription and
      * playback lines for one recording can be joined without pasting 36 characters.
      */

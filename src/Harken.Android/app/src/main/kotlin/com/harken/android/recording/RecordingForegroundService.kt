@@ -132,7 +132,7 @@ class RecordingForegroundService : Service() {
                 "chunk_write_failed",
                 "session" to sessionTag,
                 "afterChunks" to chunkCount,
-                "error" to e.javaClass.simpleName,
+                "error" to Telemetry.describe(e),
             )
             RecordingState.publishError(e.message ?: "Recording stopped — couldn't write to disk")
             stopRecording(RecordingStopReason.None)

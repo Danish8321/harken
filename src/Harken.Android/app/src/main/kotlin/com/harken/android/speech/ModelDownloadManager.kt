@@ -238,7 +238,7 @@ class ModelDownloadManager(
             Telemetry.event(
                 "model_download_finished",
                 "outcome" to "failed",
-                "error" to e.javaClass.simpleName,
+                "error" to Telemetry.describe(e),
                 "bytes" to destination.length(),
                 "elapsedMs" to Telemetry.elapsedMsSince(startNanos),
             )

@@ -85,7 +85,7 @@ object TranscriptionCoordinator {
                     "session" to Telemetry.shortId(sessionId),
                     "outcome" to "failed",
                     "audioSeconds" to audioSeconds,
-                    "error" to (e.javaClass.simpleName),
+                    "error" to Telemetry.describe(e),
                     "elapsedMs" to Telemetry.elapsedMsSince(startNs),
                 )
                 repository.failLocal(sessionId, e.message ?: "On-device transcription failed")
