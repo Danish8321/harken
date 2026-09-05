@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.harken.android.data.AppSettings
+import com.harken.android.device.DeviceCapability
 import com.harken.android.speech.ModelDownloadFailure
 import com.harken.android.speech.ModelDownloadManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,11 @@ data class SettingsUiState(
      * place, and the screen has to say so rather than offer a first-time "Download".
      */
     val modelPresent: Boolean = false,
+    /**
+     * The device this is running on, so the model card can say why a transcription may not
+     * finish here. Read once at construction — it cannot change while the app is running.
+     */
+    val device: DeviceCapability = DeviceCapability(0),
 )
 
 // Every recording is transcribed entirely on-device (ADR-0011): no backend URL to configure,
@@ -37,6 +43,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         SettingsUiState(
             modelDownloadState = if (modelDownloadManager.isModelPresent()) ModelDownloadState.Ready else ModelDownloadState.NotStarted,
             modelPresent = modelDownloadManager.isModelPresent(),
+            device = DeviceCapability.of(application),
         ),
     )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()

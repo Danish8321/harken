@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
+import com.harken.android.device.DeviceCapability
 import com.harken.android.ui.theme.PillShape
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
@@ -110,6 +111,19 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                     modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
                     color = c.accent,
                     trackColor = c.pillTrack,
+                )
+            }
+            // Under the model, because the model is the thing that will not finish. Says so
+            // permanently rather than once: the device does not change, and a warning the
+            // user dismissed six weeks ago is not there when the transcription dies.
+            if (state.device.isBelowMinimum) {
+                Text(
+                    stringResource(R.string.settings_model_low_memory, DeviceCapability.MinimumNominalGb),
+                    color = c.stateError,
+                    fontFamily = ProtoBodyFont,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(top = 10.dp),
                 )
             }
         }

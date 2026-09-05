@@ -12,9 +12,11 @@ import androidx.lifecycle.lifecycleScope
 import com.harken.android.data.AppSettings
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.local.HarkenDatabase
+import com.harken.android.device.DeviceCapability
 import com.harken.android.recording.RecordingRecovery
 import com.harken.android.speech.ModelDownloadManager
 import com.harken.android.speech.NativeDecodeBreadcrumb
+import com.harken.android.telemetry.Telemetry
 import kotlinx.coroutines.launch
 import com.harken.android.ui.AppNav
 import com.harken.android.ui.ThemeMode
@@ -24,7 +26,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        recoverOrphanedRecordings()
+        val device = DeviceCapability.of(this)
+        // Reported every launch so "my transcriptions keep disappearing" is answerable from
+        // the log rather than by asking the user what phone they have. A magnitude, like
+        // everything else here — it says nothing about what was recorded.
+        Telemetry.event(
+            "device_capability",
+            "totalMemMb" to device.totalMemMb,
+            "belowMinimum" to device.isBelowMinimum,
+        )
+        recoverOrphanedRecordings(device)
         // Same reconciliation, one file over: a model download killed with the process
         // leaves a partial file no future attempt will resume from. It is skipped while a
         // download is actually running, so re-entering this activity mid-download is safe.
@@ -52,14 +63,25 @@ class MainActivity : ComponentActivity() {
      * with no session row. Reconciled here, on every launch, rather than left for the user
      * to notice audio they can no longer reach.
      */
-    private fun recoverOrphanedRecordings() {
+    private fun recoverOrphanedRecordings(device: DeviceCapability) {
         val repository = SessionRepository(db = HarkenDatabase.get(application))
         lifecycleScope.launch {
             RecordingRecovery(filesDir, repository, repository::sessionIds).recover()
             // A transcription cannot outlive the process, so anything still marked running
             // died with it. Left alone the session shows "Transcribing" forever and offers
             // the user no way to start it again.
-            repository.failInterruptedTranscriptions(getString(R.string.error_transcription_interrupted))
+            // On a device below ADR-0014's bar the honest message is a different one: the
+            // decode was very likely killed for memory, and "tap to try again" on its own
+            // invites the user to lose the same twenty minutes a second time.
+            repository.failInterruptedTranscriptions(
+                getString(
+                    if (device.isBelowMinimum) {
+                        R.string.error_transcription_interrupted_low_memory
+                    } else {
+                        R.string.error_transcription_interrupted
+                    },
+                ),
+            )
         }
     }
 }

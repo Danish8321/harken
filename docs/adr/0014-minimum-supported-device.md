@@ -50,11 +50,14 @@ to lower.
 ## Consequences
 - **Play Console device catalog:** exclude devices under 6 GB of RAM. This is store
   configuration, not repository state, and has to be set on the listing.
-- **A sideloaded install below the bar has no guard yet.** The app will attempt the
-  decode and be killed, and nothing tells the user why. A runtime check
-  (`ActivityManager.MemoryInfo.totalMem`) that says so plainly is the follow-up; it
-  needs a spec for where it appears and whether it warns or refuses, so it is filed
-  rather than guessed at here.
+- **A sideloaded install below the bar is warned, never refused.**
+  `device/DeviceCapability` reads `ActivityManager.MemoryInfo.totalMem` at launch and
+  says so in three places: a `device_capability` telemetry event, a permanent note
+  under SPEECH MODEL in Settings, and the message a killed transcription leaves on the
+  Library card. It does not gate anything — 610 MB is a peak, not a floor, and a 4 GB
+  phone with nothing else running may finish. The comparison is against 4.5 GB rather
+  than 6: `totalMem` excludes kernel-reserved memory, so this 8 GB device reports
+  7,444,948 kB and a 6 GB device would report ~5.3 GB. See UI-035.
 - **`MaxSpanSeconds` stays at 300** and is now a supported-device decision rather than
   an open tuning question.
 - Peak memory becomes a number worth regressing: a change that raises it materially

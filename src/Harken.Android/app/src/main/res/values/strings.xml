@@ -136,6 +136,7 @@
     <string name="settings_model_not_started">Not downloaded yet</string>
     <string name="settings_model_update">Update</string>
     <string name="settings_model_download">Download</string>
+    <string name="settings_model_low_memory">Transcription needs a phone with at least %1$d GB of RAM; this one has less, so Android may stop it part-way. Recording and playback are unaffected.</string>
     <string name="settings_appearance_header">APPEARANCE</string>
     <string name="settings_theme_system">System</string>
     <string name="settings_theme_light">Light</string>
@@ -147,6 +148,7 @@
     <string name="state_retry">Retry</string>
     <string name="state_dismiss">Dismiss</string>
     <string name="error_transcription_interrupted">Transcription stopped when the app closed. Tap to try again.</string>
+    <string name="error_transcription_interrupted_low_memory">Transcription stopped part-way. This phone has less memory than Harken needs, so it may not finish. Tap to try again.</string>
     <string name="error_recording_failed">Recording failed</string>
     <string name="error_recording_start_failed">Couldn\'t start recording. %1$s</string>
     <string name="error_recording_aborted">Recording stopped early. %1$s</string>
