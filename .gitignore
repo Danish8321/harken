@@ -15,3 +15,6 @@ src/Harken.Api/recordings/
 
 # Claude Code harness state
 .claude/scheduled_tasks.lock
+
+# Scratch model binaries (test artifacts, not source)
+.scratch/*.bin

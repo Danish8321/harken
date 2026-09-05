@@ -553,3 +553,72 @@ this exact case — *"Transcription stopped when the app closed. Tap to try
 again."* — was never seen by anyone. The reason now renders under the timestamp
 on a failed card. Verified on device: after the kill the row carried the
 sentence, and it disappeared when the retry succeeded.
+
+## Model comparison — base.en vs base.en-q5_1 vs tiny.en, 2026-09-05
+
+Open item 7 asked which model the app should ship before a minimum supported
+device can be named. Measured directly rather than argued: three models, the
+same fixtures, the same harness (`scratchpad/bench.sh` — inject the fixture as
+an orphan WAV, relaunch so `RecordingRecovery` adopts it, tap Transcribe, sample
+`dumpsys meminfo` once a second until `transcribe_decoded`). Debug build,
+fresh install, Nothing Phone 2.
+
+| Model | File on disk | Load | 20 s | 71 s | 142 s | 284 s | RTF |
+|---|---|---|---|---|---|---|---|
+| `base.en` f16 | 147,964,211 B | 211–226 ms | 4,770 ms | — | 33,727 ms | — | 0.24 |
+| `base.en-q5_1` | 59,721,011 B | 83–110 ms | 3,243 ms | 12,391 ms | 24,822 ms | 54,875 ms | 0.16–0.19 |
+| `tiny.en` f16 | 77,704,715 B | 102–114 ms | 3,975 ms | — | 15,907 ms | 46,643 ms | 0.11–0.16 |
+
+### Peak memory, which is what the open item is actually about
+
+| Span decoded | `base.en` PSS | `q5_1` PSS | `tiny.en` PSS |
+|---|---|---|---|
+| 20 s | 461,858 KB | 369,338 KB | 341,434 KB |
+| 71 s | 496 MB (2026-09-04) | 433,777 KB | — |
+| 142 s | 570,447 KB | 476,630 KB | 448,291 KB |
+| 284 s | 578 MB (2026-09-04) | 491,452 KB | 486,023 KB |
+
+Two things fall out of this, and the second is the one that matters.
+
+**Quantizing saves a flat ~90 MB, not the 90 MB of file size difference times
+anything.** `q5_1` is 88 MB smaller on disk than `base.en` and takes ~93 MB off
+peak PSS at 20 s, ~94 MB at 142 s, ~87 MB at 284 s. It is a constant, because
+what it removes is the weights.
+
+**A smaller model does not help at long spans; a shorter span does.** At 284 s
+`tiny.en` peaks within 5 MB of `q5_1` despite being a fundamentally smaller
+network, because by then whisper's compute buffers dominate and those scale with
+the span, not the model. Going from a 284 s span to a 20 s span saves 122 MB on
+`q5_1` — more than dropping from `base.en` to `tiny.en` saves anywhere.
+`MaxSpanSeconds` is the lever on the ceiling. The model is the lever on the
+floor.
+
+### Accuracy on the fixtures
+
+`q5_1` is textually indistinguishable from `base.en` here, including reproducing
+the same error ("on a nothing phone **too**"), at 23 segments against 29 —
+slightly coarser segmentation, same words. `tiny.en` gets the words right too,
+including "nothing phone 2" where both base models get it wrong, but it returns
+9 segments for 142 s of audio against base's 29: ~16 s per segment, which is a
+worse transcript to read and to seek within even when the text is correct. On
+the 20 s fixture's truncated tail all three degrade differently — base emits
+nothing, `q5_1` gives *"Pack my baby."*, `tiny.en` gives *"back my head."*
+
+This is clean synthesized speech, the easy case. Nothing here says how the
+quantized or tiny models behave on real room audio with overlapping speakers,
+which is exactly what open item 4 needs a real recording for. **The two open
+items are one experiment**: the same real multi-speaker recording answers the
+`SpeechSpans` constants and the model choice at once.
+
+### Where this leaves the decision
+
+`base.en-q5_1` is the strongest candidate: faster than `base.en` on every
+fixture (RTF 0.16–0.19 against 0.24), 88 MB smaller to download, ~90 MB lower
+peak, and the same transcript. But it does not by itself bring peak PSS under
+what a 4 GB device can be trusted with — 491 MB at a 284 s span. Pairing it with
+a lower `MaxSpanSeconds` does: `q5_1` at 71 s peaks at 434 MB, at 20 s at 369
+MB, and the RTF is flat across span lengths, so shorter spans cost nothing in
+throughput — only in context across a seam.
+
+Deferred until the real recording exists, because cutting spans shorter is
+exactly the change that a multi-speaker recording would show the cost of.
