@@ -1,7 +1,7 @@
 # UI-034 — The recorder's auto-stop still uses a fixed silence threshold
 
 - **Severity:** medium
-- **Status:** open
+- **Status:** closed
 - **Area:** `audio/SilenceDetector.kt`, `recording/` foreground service
 
 ## Problem
@@ -111,19 +111,46 @@ deleted. Recording is on-device only (ADR-0011) and the port had no callers.
   `app/src/test/resources` (CC BY 4.0). Under the old rule that excerpt
   accumulates 65.3 s of quiet; under the new one, 9.1 s.
 
-### Device verification — NOT DONE
+### Device verification
 
-Blocked, not skipped. The Nothing Phone 2 had a WhatsApp video call in
-progress (`USAGE_VOICE_COMMUNICATION`, pid 30546) when the acoustic tests were
-due to run. Recording through it would have captured a private call and
-measured microphone contention rather than the auto-stop. Fresh install and
-cold start were captured before that was noticed; the two recording tests were
-not run.
+Nothing Phone 2 (AIN065), Android 16, build B4.1-260818-1726, 7,444,948 kB RAM.
+Debug build, fresh install before each run (uninstall + install, no reused app
+state). Screen held awake, `screen_off_timeout` raised for the duration and put
+back to 120000 afterwards.
 
-| check | state |
-|---|---|
-| fresh install, onboarding, first launch | done — cold start 1615 ms (debug, first launch), 1484 ms (second) |
-| empty room must still auto-stop at ~5 min | pending |
-| meeting-level speech must not auto-stop past 5 min | pending |
-| `noiseFloor` / `speechAt` / `peakSilentMs` on `recording_stopped` | pending |
-| jank and frame timing while recording | pending |
+| session | audio | elapsed | reason | noiseFloor | speechAt | peakSilentMs |
+|---|---|---|---|---|---|---|
+| `94cd85f1` | empty room | 312 s | SilenceTimeout | 231 | 1000 | 300160 |
+| `6793b0ce` | empty room | 303 s | SilenceTimeout | 282 | 1000 | 300160 |
+| `24e58934` | meeting playing | 484 s | None (stopped by hand) | 255 | 1000 | 16160 |
+
+An empty room stops itself at the timeout and not before. A four-person meeting
+runs 484 seconds — 184 past the timeout — and its longest quiet run is 16.2
+seconds, a margin of 284 seconds rather than the 5 the old rule left.
+
+The meeting had speech in every 60-second bucket of the capture (27–57% of
+chunks above the threshold, p50 668, p90 2293). Replaying the shipped rule
+offline over that same recording gives a peak quiet run of 16.2 s, which is the
+`peakSilentMs` the device reported to the millisecond — the simulator and the
+phone agree.
+
+Jank over the 484-second recording: 89 janky frames of 57,693 (0.15%), p50 6 ms,
+p90 7 ms, p95 8 ms. Cold start on a fresh install 1615 ms, second launch 1484 ms
+(debug build).
+
+#### What the rig cost
+
+Three runs were thrown away before these. VLC reports `state:started` on a live
+`AudioTrack` at 14/16 volume and still puts nothing into the room, so three
+recordings that looked like the rule failing were the room being genuinely
+empty. The first of them was diagnosed only by pulling the WAV off the phone and
+reading its level timeline. Playing the corpus from the desktop instead is
+under direct control and worked first time.
+
+Two defects came out of that, fixed in `fd22816`: `recording_stopped` fired
+twice for one stop, and the three new fields raced to zero between the two
+events — so the run that needed explaining reported `noiseFloor=0 speechAt=0
+peakSilentMs=0`. The telemetry that existed to answer "why did it stop" was
+mute in the first case anyone asked.
+
+## Status: closed
