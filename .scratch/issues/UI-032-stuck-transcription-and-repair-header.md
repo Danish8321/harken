@@ -1,7 +1,7 @@
 # UI-032 — Stuck-transcription reconciliation + wire up WavWriter.repairHeader
 
 - **Severity:** medium
-- **Status:** open — deferred out of the error/warning-surfacing pass (see UI-033).
+- **Status:** fixed — both halves closed, see "Resolution" below.
 - **Area:** `speech/TranscriptionCoordinator.kt`, `audio/WavWriter.kt`,
   `data/SessionRepository.kt`
 
@@ -40,3 +40,34 @@ error/warning grill.
   sentinel/marker left by the foreground service, or comparing declared
   vs actual file size) and run `WavWriter.repairHeader` before the file
   is offered for transcription.
+
+## Resolution
+
+**1. Stuck-transcription reconciliation — `2a07c85`, completed by `fac11e7`.**
+No timeout threshold was needed: a transcription cannot outlive its process, so
+*any* row still `Running` at launch died with the process. `MainActivity`
+settles them next to the orphan-recording sweep via
+`SessionRepository.failInterruptedTranscriptions()`, which writes
+`error_transcription_interrupted` as the reason and emits
+`transcription_interrupted_recovered`. The Library then offers Transcribe on
+`Failed` rows (previously only on `Recorded`), and `fac11e7` renders the reason
+on the card, since the message existed but no screen read it.
+
+Verified on the release build on the Nothing Phone 2, 2026-09-05: killing the
+app inside the first decode logged
+`transcription_interrupted_recovered sessions=1` at relaunch, the row showed
+*"Transcription stopped when the app closed. Tap to try again."* with a
+Transcribe button, and the retry completed (171 s in, 16 s decoded over 2 spans,
+4 segments).
+
+**2. `WavWriter.repairHeader` is wired.** `RecordingRecovery` (`recording/`)
+calls it on every orphan WAV it adopts at launch
+(`RecordingRecovery.kt:41`), so a capture killed mid-recording gets its header
+patched before the file is offered for transcription. Also covered by
+`WavWriterTest.repairHeaderFixesAnOrphanedFile` and
+`repairHeaderIsANoOpWhenAlreadyCorrect`.
+
+A third recovery path was added alongside these and is worth listing here:
+`ModelDownloadManager.discardPartialDownload()` reclaims an abandoned model
+partial older than 24 h, so the same class of "process died mid-operation" leak
+is now handled for recordings, transcriptions and downloads alike.
