@@ -228,6 +228,22 @@ private fun SessionCard(
             Column(Modifier.weight(1f)) {
                 Text(s.title, color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(metaLine, color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+                // Why it failed, not just that it can be retried. The reason is recorded on
+                // the session by every failure path, and until it was rendered here the user
+                // saw a Transcribe button with no account of what went wrong.
+                if (failed) {
+                    s.failureReason?.let { reason ->
+                        Text(
+                            reason,
+                            // stateError, not stateErrorFg: the foreground pair is for text
+                            // sitting on the error fill, and this text sits on the card.
+                            color = c.stateError,
+                            fontFamily = ProtoBodyFont,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
             }
             // A failed transcription offers the same action as one never started. Showing
             // only the "kept on device" chip left the recording with no way forward at all,
