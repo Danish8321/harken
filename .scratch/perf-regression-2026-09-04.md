@@ -622,3 +622,95 @@ throughput — only in context across a seam.
 
 Deferred until the real recording exists, because cutting spans shorter is
 exactly the change that a multi-speaker recording would show the cost of.
+
+## What a real meeting changed, 2026-09-05
+
+Everything above this section was measured on synthesized fixtures. A real
+recording — AMI ES2002a, 21 minutes, four people, CC BY 4.0, already 16 kHz
+mono — moved three numbers that the fixtures had reported optimistically, and
+exposed a defect the fixtures could not have caught.
+
+### The fixtures were four times louder than a real meeting
+
+Per-second RMS, AMI ES2002a: median **126**, p90 317, max 2604.
+Per-second RMS, `fixture-speech`: median **3866**, p10 1936.
+
+`SilenceDetector.DefaultAmplitudeThreshold` is 500. Every fixture sat far above
+it; the meeting sat under it. On device, with the constants as shipped:
+
+```
+transcribe_prepared audioSeconds=1272 decodedSeconds=131 spans=19
+```
+
+**A tenth of the meeting reached whisper.** Eighteen of those nineteen spans
+were 3–4 seconds and each still paid ~4.7 s of decode for a full 30-second
+window. The transcript was 42 fragments, opening 41 seconds in with *"I know."*
+and *"Okay. (laughs)"*. My earlier acoustic release test said the same thing —
+171 s recorded, 16 s decoded — and I misread it as poor room pickup.
+
+Fixed in `db6f4e8`: the threshold is now read off the recording (three times its
+tenth-percentile window RMS, clamped to [60, 500]), and spans shorter than
+whisper's 30-second window are grown into the audio around them.
+
+| Same recording, same phone | Before | After |
+|---|---|---|
+| Decoded | 131 s of 1272 | **1145 s of 1272** |
+| Spans | 19 | 7 |
+| Segments | 42 | 324 |
+| Decode time | 89,754 ms | 597,934 ms |
+| First words | *"I know."* (41 s in) | *"Well, that's the kick-off meeting for our project."* |
+
+### Real-time factor on real speech is ~0.5, not ~0.24
+
+The fixtures gave RTF 0.21–0.27 and that number is in every section above. On the
+meeting it is **0.47 total, 0.52 against decoded audio** — because decode cost
+tracks the tokens whisper emits, and real conversation is far denser than the
+fixture's sentences separated by digital silence (324 segments over 1145 s
+against 29 over 142 s).
+
+The three-hour question therefore has a worse answer than this report gave
+earlier: at 0.5 a three-hour recording is ~90 minutes of decoding, not 45. Still
+under real time, still finishes, but it is half the day rather than a coffee
+break, and the fixtures cannot be used to argue otherwise.
+
+### The memory ceiling is higher than measured, for the same reason
+
+Peak PSS on the meeting was **609 MB** (native 482 MB), above the 578 MB this
+report called the ceiling. The fixtures never produced a 300-second span; a real
+meeting produces three of them, because real speech has no digital silence to
+split on. `MaxSpanSeconds` is what sets this number.
+
+### Model comparison, repeated on the real recording
+
+| | `base.en` | `base.en-q5_1` |
+|---|---|---|
+| Decode | 597,934 ms | **524,169 ms** (−12%) |
+| RTF (total / decoded) | 0.47 / 0.52 | 0.41 / 0.46 |
+| Segments | 324 | 339 |
+| Peak PSS | 609 MB | **559 MB** |
+| Transcript | opens on the meeting | opens on two sentences that are not in it |
+
+On fixtures `q5_1` was 26% faster; on real audio it is 12%. The transcripts are
+of comparable quality — names, roles and the structure of the meeting all come
+through — but `q5_1` hallucinated *"You've already produced a PowerPoint for the
+end of this. You have to."* into the first 30-second span, where `base.en`
+produced nothing of the kind. One hallucination is not a verdict, but it is the
+failure mode quantization is known for, and it is the first time the two models
+have differed on anything.
+
+### Where the decisions stand
+
+- **Silence threshold** — decided and shipped (`db6f4e8`).
+- **Span merging to 30 s** — decided and shipped in the same commit.
+- **`MinSkippableSilenceSeconds` / `PaddingSeconds`** — untouched, and now
+  demonstrably not the constants that mattered. With the threshold fixed, 10 s
+  and 1 s produce 7 spans over a real meeting with no seam falling inside a
+  sentence.
+- **Model** — `q5_1` is the better engineering trade on every measured axis
+  except the one that matters most, and one recording is not enough evidence
+  about hallucination. Needs a second real recording before it ships.
+- **`MaxSpanSeconds` and the minimum device** — still open (item 7), now with a
+  609 MB number instead of 578, and with the knowledge that this is the only
+  lever that moves it much.
+- **The recorder's own threshold** — [UI-034](issues/UI-034-recorder-silence-threshold.md),
+  opened by this work.
