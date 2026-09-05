@@ -87,7 +87,8 @@ class OnDeviceTranscriber(
                 val sampleCount = pcmSampleCount(file)
 
                 val scanStartNs = System.nanoTime()
-                val spans = SpeechSpans.assemble(scanWindowSilence(file, sampleCount), sampleCount)
+                val windowRms = scanWindowRms(file, sampleCount)
+                val spans = SpeechSpans.assemble(windowRms, sampleCount)
                 val scanMs = Telemetry.elapsedMsSince(scanStartNs)
 
                 val audioSeconds = sampleCount / WavFormat.SampleRate
@@ -101,6 +102,10 @@ class OnDeviceTranscriber(
                     "modelCached" to alreadyLoaded,
                     "wavScanMs" to scanMs,
                     "peakSpanSeconds" to (spans.maxOfOrNull { it.sampleCount } ?: 0) / WavFormat.SampleRate,
+                    // The level this recording had to clear to count as speech. Without it
+                    // a report of "it transcribed a tenth of my meeting" is unanswerable:
+                    // the threshold is read off the recording, so it differs per recording.
+                    "silenceThreshold" to SpeechSpans.amplitudeThreshold(windowRms),
                 )
 
                 var decodeMs = 0L
@@ -196,10 +201,12 @@ class OnDeviceTranscriber(
         ((file.length() - WavFormat.HeaderLength).coerceAtLeast(0) / 2).toInt()
 
     /**
-     * One silence verdict per [SpeechSpans.WindowSeconds] of the file, read a window at a
-     * time so a three-hour recording costs one window of memory rather than all of it.
+     * One RMS reading per [SpeechSpans.WindowSeconds] of the file, read a window at a time
+     * so a three-hour recording costs one window of memory rather than all of it. Levels
+     * rather than verdicts, because what counts as silence depends on the whole recording
+     * — see [SpeechSpans.amplitudeThreshold].
      */
-    private fun scanWindowSilence(file: RandomAccessFile, sampleCount: Int): BooleanArray {
+    private fun scanWindowRms(file: RandomAccessFile, sampleCount: Int): IntArray {
         val windowSamples = WavFormat.SampleRate * SpeechSpans.WindowSeconds
         val windowCount = (sampleCount + windowSamples - 1) / windowSamples
         val window = ShortArray(windowSamples)
@@ -207,12 +214,12 @@ class OnDeviceTranscriber(
         val buffer = ByteBuffer.wrap(block).order(ByteOrder.LITTLE_ENDIAN)
 
         file.seek(WavFormat.HeaderLength.toLong())
-        return BooleanArray(windowCount) { index ->
+        return IntArray(windowCount) { index ->
             val wanted = minOf(windowSamples, sampleCount - index * windowSamples)
             file.readFully(block, 0, wanted * 2)
             buffer.clear()
             buffer.asShortBuffer().get(window, 0, wanted)
-            SpeechSpans.isWindowSilent(window, 0, wanted)
+            SpeechSpans.windowRms(window, 0, wanted)
         }
     }
 

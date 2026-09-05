@@ -29,11 +29,11 @@ class SpeechSpansTest {
     private fun spansOf(samples: ShortArray): List<SpeechSpan> {
         val windowSamples = rate * SpeechSpans.WindowSeconds
         val windowCount = (samples.size + windowSamples - 1) / windowSamples
-        val silence = BooleanArray(windowCount) { window ->
+        val levels = IntArray(windowCount) { window ->
             val from = window * windowSamples
-            SpeechSpans.isWindowSilent(samples, from, minOf(from + windowSamples, samples.size))
+            SpeechSpans.windowRms(samples, from, minOf(from + windowSamples, samples.size))
         }
-        return SpeechSpans.assemble(silence, samples.size)
+        return SpeechSpans.assemble(levels, samples.size)
     }
 
     @Test
@@ -60,9 +60,11 @@ class SpeechSpansTest {
         val spans = spansOf(audio(5 to 4000, 60 to 0, 5 to 4000))
 
         assertEquals(2, spans.size)
+        // Each speaker's five seconds is grown to a whisper window it was going to pay for
+        // anyway, and the grown spans stay clear of each other.
+        assertEquals(SpeechSpans.MinSpanSeconds * rate, spans[0].sampleCount)
         assertEquals(0, spans[0].startSample)
-        assertEquals(6 * rate, spans[0].endSampleExclusive) // 5s of speech + 1s padding
-        assertEquals(64 * rate, spans[1].startSample) // 1s of padding ahead of the speech
+        assertTrue(spans[1].startSample >= spans[0].endSampleExclusive)
         assertEquals(70 * rate, spans[1].endSampleExclusive)
     }
 
@@ -80,8 +82,10 @@ class SpeechSpansTest {
         val spans = spansOf(audio(30 to 0, 5 to 4000, 30 to 0))
 
         assertEquals(1, spans.size)
-        assertEquals(29 * rate, spans[0].startSample)
-        assertEquals(36 * rate, spans[0].endSampleExclusive)
+        // Centred on the speech at 30-35 s, widened to whisper's window.
+        assertEquals(SpeechSpans.MinSpanSeconds * rate, spans[0].sampleCount)
+        assertTrue(spans[0].startSample <= 29 * rate)
+        assertTrue(spans[0].endSampleExclusive >= 36 * rate)
     }
 
     @Test
@@ -104,7 +108,7 @@ class SpeechSpansTest {
 
     @Test
     fun `spans never overlap`() {
-        val spans = spansOf(audio(5 to 4000, 12 to 0, 5 to 4000, 12 to 0, 5 to 4000))
+        val spans = spansOf(audio(5 to 4000, 60 to 0, 5 to 4000, 60 to 0, 5 to 4000))
 
         assertEquals(3, spans.size)
         spans.zipWithNext { earlier, later ->
@@ -129,5 +133,59 @@ class SpeechSpansTest {
     @Test
     fun `an empty recording has no spans`() {
         assertEquals(emptyList<SpeechSpan>(), spansOf(ShortArray(0)))
+    }
+
+    @Test
+    fun `a quiet recording is measured against its own noise floor`() {
+        // A real meeting recorded at a distance: speech at an amplitude the app's fixed
+        // threshold of 500 would have thrown away entirely.
+        val spans = spansOf(audio(20 to 20, 20 to 200, 20 to 20))
+
+        assertTrue("expected the quiet speech to be found", spans.isNotEmpty())
+        assertTrue(spans.sumOf { it.sampleCount } >= 20 * rate)
+    }
+
+    @Test
+    fun `a recording that is all speech does not silence itself`() {
+        // The failure the ceiling exists to prevent: with no clamp, the tenth percentile of
+        // an all-speech recording is speech, so three times it is above every window.
+        val spans = spansOf(audio(40 to 3000))
+
+        assertEquals(1, spans.size)
+        assertEquals(40 * rate, spans[0].sampleCount)
+    }
+
+    @Test
+    fun `the threshold sits between its bounds`() {
+        val quiet = IntArray(100) { 5 }
+        val loud = IntArray(100) { 9000 }
+        val ordinary = IntArray(100) { if (it < 20) 50 else 900 }
+
+        assertEquals(SpeechSpans.MinAmplitudeThreshold, SpeechSpans.amplitudeThreshold(quiet))
+        assertEquals(SpeechSpans.MaxAmplitudeThreshold, SpeechSpans.amplitudeThreshold(loud))
+        assertEquals(50 * SpeechSpans.NoiseFloorFactor, SpeechSpans.amplitudeThreshold(ordinary))
+    }
+
+    @Test
+    fun `no span is shorter than a whisper window unless the recording is`() {
+        // Two seconds of speech either side of a long gap: neither is worth a window of its
+        // own, and both are grown until they are — here far enough to meet and merge.
+        val spans = spansOf(audio(30 to 0, 2 to 4000, 30 to 0, 2 to 4000))
+
+        assertTrue(spans.isNotEmpty())
+        spans.forEach {
+            assertTrue(
+                "span of ${it.sampleCount} samples",
+                it.sampleCount >= SpeechSpans.MinSpanSeconds * rate,
+            )
+        }
+    }
+
+    @Test
+    fun `windowRms reads the level of a window`() {
+        val samples = ShortArray(rate) { 1000 }
+
+        assertEquals(1000, SpeechSpans.windowRms(samples, 0, samples.size))
+        assertEquals(0, SpeechSpans.windowRms(samples, 0, 0))
     }
 }
