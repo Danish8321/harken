@@ -401,8 +401,10 @@ with an empty-ish filesystem.
    low-RAM devices, now open item 7.
 7. **Peak PSS is ~610 MB on any transcription, of any length**  (~580 on
    fixtures; a real meeting reaches 609 MB, see the 2026-09-05 section).
-   **Recommended: declare 6 GB as the minimum supported device and keep
-   `base.en`.** Fine on this
+   Settled by [ADR-0014](../docs/adr/0014-minimum-supported-device.md): 6 GB is
+   the minimum supported device, and `base.en` stays. Enforcement is Play
+   Console catalog exclusion plus [UI-035](issues/UI-035-below-minimum-device-guard.md)
+   for sideloads. Fine on this
    phone's 7.4 GB (`MemTotal: 7444948 kB` — an earlier draft of this report said
    12 GB, which was wrong and made the headroom look better than it is; with
    `MemAvailable` around 3.1 GB the decode takes roughly a fifth of what is
@@ -720,7 +722,7 @@ have differed on anything.
 - **`MaxSpanSeconds`** — stands at 300. The peak-versus-span curve flattens
   after ~150 s, so halving it saves ~15 MB and doubles the seams; the saving
   only becomes real at 60 s or below, which cuts context every minute.
-- **The minimum device** — recommended at **6 GB**. The ceiling is ~610 MB of
+- **The minimum device** — decided at **6 GB**, [ADR-0014](../docs/adr/0014-minimum-supported-device.md). The ceiling is ~610 MB of
   PSS during a decode, held for the whole decode, in a foreground service. This
   phone has 7.4 GB total and ~3.1 GB available, so the decode takes a fifth of
   what is free; a 4 GB device is squarely in low-memory-killer range and would
