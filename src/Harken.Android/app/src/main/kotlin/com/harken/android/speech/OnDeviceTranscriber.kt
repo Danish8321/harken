@@ -1,12 +1,11 @@
 package com.harken.android.speech
 
-import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
 import com.harken.android.audio.SpeechSpans
 import com.harken.android.audio.WavFormat
 import com.harken.android.telemetry.Telemetry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -27,9 +26,30 @@ data class LocalTranscribedSegment(
 // Wire shape returned by nativeTranscribe's JSON, kept private — callers only see
 // LocalTranscribedSegment.
 private data class NativeSegment(
-    @SerializedName("offsetMs") val offsetMs: Long,
-    @SerializedName("text") val text: String,
+    val offsetMs: Long,
+    val text: String,
 )
+
+/**
+ * The JSON [OnDeviceTranscriber.nativeTranscribe] returns:
+ * `[{"offsetMs": 0, "text": " Hello."}, ...]`.
+ *
+ * Read field by field rather than through a reflective mapper. A mapper needs the
+ * field names and the concrete class to survive minification, and when they do not
+ * the transcription fails on release builds only — which is how it failed the first
+ * time R8 was enabled: "Abstract classes can't be instantiated ... Class name: n2.f".
+ * Two fields do not justify carrying that risk, or the dependency.
+ */
+private fun parseNativeSegments(json: String): List<NativeSegment> {
+    val array = JSONArray(json)
+    return (0 until array.length()).map { index ->
+        val segment = array.getJSONObject(index)
+        NativeSegment(
+            offsetMs = segment.getLong("offsetMs"),
+            text = segment.getString("text"),
+        )
+    }
+}
 
 /**
  * Seam so TranscriptionCoordinator can be unit-tested with a hand-written fake instead of
@@ -54,7 +74,6 @@ class OnDeviceTranscriber(
      */
     private val breadcrumb: NativeDecodeBreadcrumb? = null,
 ) : Transcriber {
-    private val gson = Gson()
     private var modelHandle: Long? = null
 
     /**
@@ -131,7 +150,7 @@ class OnDeviceTranscriber(
                     val spanDecodeMs = Telemetry.elapsedMsSince(decodeStartNs)
                     decodeMs += spanDecodeMs
 
-                    val nativeSegments = gson.fromJson(json, Array<NativeSegment>::class.java) ?: emptyArray()
+                    val nativeSegments = parseNativeSegments(json)
                     val spanOffsetMs = span.startSample * 1000L / WavFormat.SampleRate
 
                     // Per span, not just per recording: one pathological span in an

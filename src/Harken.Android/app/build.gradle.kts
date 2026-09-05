@@ -45,7 +45,15 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // 46.6 MB of dex over three files without this, most of it Compose and
+            // material-icons-extended that the app never references. 3.0 MB with it,
+            // in one dex file.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
         debug {
             // Distinct package so the debug build installs alongside a already-installed
@@ -106,8 +114,11 @@ dependencies {
     implementation("androidx.room:room-runtime:2.7.1")
     implementation("androidx.room:room-ktx:2.7.1")
     ksp("androidx.room:room-compiler:2.7.1")
-    implementation("com.squareup.retrofit2:retrofit:2.11.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    // retrofit and converter-gson were dropped when R8 was enabled: nothing had
+    // imported retrofit2 since the app went local-only (ADR-0011), and Gson came in
+    // through the converter for two fields of JSON that org.json now reads directly
+    // — see parseNativeSegments. okhttp stays; ModelDownloadManager streams the
+    // model with it.
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     testImplementation("junit:junit:4.13.2")
