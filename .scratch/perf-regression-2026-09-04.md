@@ -731,3 +731,57 @@ have differed on anything.
 - **Per-transcription model reload** — assessed, no action (item 8).
 - **The recorder's own threshold** — [UI-034](issues/UI-034-recorder-silence-threshold.md),
   opened by this work.
+
+## R8, 2026-09-05
+
+Item 4's remaining half. `isMinifyEnabled = false` shipped 46.6 MB of dex over
+three files; nothing had ever measured what turning it on cost or bought.
+
+| | before | after |
+|---|---|---|
+| APK | 15,621,052 B | **4,152,739 B** |
+| dex | 32.0 + 10.3 + 4.3 MB | **2.95 MB, one file** |
+| Cold start | 189 / 145 / 153 ms | 144 / 137 / 126 ms |
+| Warm start | — | 38 / 41 / 42 ms |
+| Idle native heap | 8,404 KB | 8,525 KB |
+| Nav + scroll jank | 5.43% | 3.54% (p99 42 ms) |
+| Nav + scroll **while recording** | — | 1.37% (p99 19 ms, 0 slow chunks) |
+| Model download | 13,571 ms | 14,682 ms |
+
+Start-up is a little faster and jank a little lower, but both differences are
+within the spread of the runs above; the honest reading is that R8 costs nothing
+at runtime and takes three quarters off the download. The win that is not in the
+table is that a 4 MB APK is one a user will install over mobile data.
+
+### It failed on the first device run, which is the point of running it
+
+The build was green — `check.sh` OK, `test-fast.sh` OK, `lintVitalRelease` OK —
+and the app started, downloaded its model and recorded. Transcription then
+failed on the release build only:
+
+```
+event=transcribe_finished session=ad218747 outcome=failed audioSeconds=63 error=e
+E TranscriptionCoordinator: a2.e: Abstract classes can't be instantiated!
+  Register an InstanceCreator or a TypeAdapter for this type. Class name: n2.f
+```
+
+Gson reflecting on `NativeSegment`, which R8's full mode had merged. Keeping the
+class would have worked. Deleting the reflection was better: the JSON whisper
+returns has two fields, `org.json` is in the framework, and Gson was only on the
+classpath through `converter-gson`, which was there for a `retrofit` no source
+file has imported since ADR-0011 made the app local-only. Both dependencies are
+gone.
+
+Two things worth keeping from the failure. The telemetry recorded
+`error=e` — `e.javaClass.simpleName` is worthless once minification is on, and
+that field needs to carry the message, not the class. And the Library card
+showed the exception text under the row, which is `fac11e7` working: the defect
+was legible on the phone without a cable.
+
+### What is still not covered
+
+R8 is verified by one acoustic recording end to end (record, transcribe, 6
+segments, transcript rendered from Room). The paths a minified build can break
+that this did not exercise: interrupted-transcription recovery at launch,
+orphan-WAV adoption, and the download resume path. All three are reflection-free
+Kotlin, so the risk is low, but "low" is not "measured".
