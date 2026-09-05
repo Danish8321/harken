@@ -2,12 +2,31 @@ package com.harken.android.audio
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
-// Mirrors tests/Harken.Core.UnitTests/Audio/SilenceDetectorTests.cs's coverage of the
-// byte-count-driven stop logic.
 class SilenceDetectorTest {
 
     private fun silentChunk(bytes: Int) = ByteArray(bytes)
+
+    /** A chunk of constant [amplitude] — room tone, a hum, a fan: sound, but not speech. */
+    private fun toneChunk(bytes: Int, amplitude: Int): ByteArray {
+        val chunk = ByteArray(bytes)
+        var i = 0
+        while (i + 1 < bytes) {
+            chunk[i] = (amplitude and 0xFF).toByte()
+            chunk[i + 1] = ((amplitude shr 8) and 0xFF).toByte()
+            i += 2
+        }
+        return chunk
+    }
+
+    /** [seconds] of audio at [amplitude], fed a second at a time. */
+    private fun feed(detector: SilenceDetector, seconds: Int, amplitude: Int): RecordingStopReason {
+        var last = RecordingStopReason.None
+        val chunk = if (amplitude == 0) silentChunk(32000) else toneChunk(32000, amplitude)
+        repeat(seconds) { last = detector.add(chunk, 0, chunk.size) }
+        return last
+    }
 
     private fun loudChunk(bytes: Int): ByteArray {
         val chunk = ByteArray(bytes)
@@ -106,5 +125,70 @@ class SilenceDetectorTest {
         detector.add(silent, 0, silent.size)
         detector.add(speech, 0, speech.size)
         assertEquals(RecordingStopReason.None, detector.add(silent, 0, silent.size))
+    }
+
+    @Test
+    fun aSteadyToneBelowTheCapIsNotSpeech() {
+        // A fan, a hum, an empty room: sound throughout, nobody in it. Under the fixed 500
+        // this recording was audible and never timed out; the timeout existed for exactly
+        // this case and did nothing.
+        val detector = SilenceDetector(silenceTimeoutMs = 5000, sessionCapMs = 300_000)
+
+        assertEquals(RecordingStopReason.SilenceTimeout, feed(detector, seconds = 6, amplitude = 300))
+    }
+
+    @Test
+    fun aChunkAtTheCapIsSpeechHoweverQuietTheRoomWasBefore() {
+        // The ceiling's job: 12x a large floor can put speech out of reach, and a recording
+        // that cannot hear speech stops in the middle of a meeting.
+        val detector = SilenceDetector(silenceTimeoutMs = 5000, sessionCapMs = 300_000)
+        feed(detector, seconds = 4, amplitude = 300)
+
+        assertEquals(
+            RecordingStopReason.None,
+            feed(detector, seconds = 1, amplitude = NoiseFloor.MaxSpeechThreshold),
+        )
+    }
+
+    @Test
+    fun theFloorTracksRecentAudioNotTheWholeRecording() {
+        // Reading the floor from the whole recording is what does not work: the near-silence
+        // between a meeting's words pins it near zero for hours afterwards, so the room
+        // never rises above it and the timeout never fires again.
+        val detector = SilenceDetector(silenceTimeoutMs = 300_000, sessionCapMs = 3_600_000)
+
+        feed(detector, seconds = NoiseFloor.WindowSeconds, amplitude = 20)
+        assertEquals(20 * NoiseFloor.SpeechFactor, detector.speechThreshold)
+
+        feed(detector, seconds = NoiseFloor.WindowSeconds, amplitude = 300)
+        assertEquals(NoiseFloor.MaxSpeechThreshold, detector.speechThreshold)
+    }
+
+    @Test
+    fun theVerdictDoesNotDependOnHowTheAudioIsChunked() {
+        // The detector is byte-driven so that a late or coalesced chunk cannot change the
+        // outcome. The floor underneath it has to be too.
+        val big = SilenceDetector(silenceTimeoutMs = 5000, sessionCapMs = 300_000)
+        val small = SilenceDetector(silenceTimeoutMs = 5000, sessionCapMs = 300_000)
+        val oneSecond = toneChunk(32000, 300)
+        val eighthOfASecond = toneChunk(4000, 300)
+
+        repeat(4) { big.add(oneSecond, 0, oneSecond.size) }
+        repeat(32) { small.add(eighthOfASecond, 0, eighthOfASecond.size) }
+
+        assertEquals(big.speechThreshold, small.speechThreshold)
+        assertEquals(big.peakSilentMs, small.peakSilentMs)
+    }
+
+    @Test
+    fun noStopIsPossibleBeforeTheFloorHasAFullWindow() {
+        // Why no warm-up rule is needed: the shipped timeout is five minutes and the window
+        // is one, so the floor has been full for four minutes before a stop can happen.
+        val detector = SilenceDetector(
+            silenceTimeoutMs = TimeUnit.MINUTES.toMillis(5),
+            sessionCapMs = TimeUnit.HOURS.toMillis(3),
+        )
+
+        assertEquals(RecordingStopReason.None, feed(detector, NoiseFloor.WindowSeconds, amplitude = 0))
     }
 }

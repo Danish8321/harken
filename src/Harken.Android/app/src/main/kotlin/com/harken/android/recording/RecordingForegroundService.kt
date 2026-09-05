@@ -56,6 +56,11 @@ class RecordingForegroundService : Service() {
     private var maxChunkWriteMs: Long = 0
     private var slowChunks: Long = 0
 
+    // The auto-stop's final state, copied out of the detector before it is dropped.
+    private var noiseFloor: Int = 0
+    private var speechAt: Int = 0
+    private var peakSilentMs: Long = 0
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onBind(intent: Intent?) = null
@@ -110,6 +115,9 @@ class RecordingForegroundService : Service() {
         byteCount = 0
         maxChunkWriteMs = 0
         slowChunks = 0
+        noiseFloor = 0
+        speechAt = 0
+        peakSilentMs = 0
         Telemetry.event("recording_started", "session" to sessionTag)
 
         capture = AudioRecordCapture(onChunk = ::writeChunk, onError = ::onCaptureError, scope = scope)
@@ -183,6 +191,11 @@ class RecordingForegroundService : Service() {
                     RecordingState.publishError(e.message ?: "Recording may be incomplete on disk")
                 }
                 writer = null
+                // Read before the detector is dropped: these are its final state, and the
+                // event below is the only place they are ever reported.
+                noiseFloor = silenceDetector?.noiseFloorEstimate ?: 0
+                speechAt = silenceDetector?.speechThreshold ?: 0
+                peakSilentMs = silenceDetector?.peakSilentMs ?: 0L
                 silenceDetector = null
             }
             Telemetry.event(
@@ -194,6 +207,14 @@ class RecordingForegroundService : Service() {
                 "bytes" to byteCount,
                 "maxChunkWriteMs" to maxChunkWriteMs,
                 "slowChunks" to slowChunks,
+                // What the auto-stop was working from. "It stopped in the middle of my
+                // meeting" and "it recorded an empty room for three hours" are the same
+                // event with peakSilentMs at opposite ends, and neither is answerable
+                // from the stop reason alone — the threshold is read off the recording,
+                // so it differs per recording.
+                "noiseFloor" to noiseFloor,
+                "speechAt" to speechAt,
+                "peakSilentMs" to peakSilentMs,
             )
             RecordingState.markStopped(stopReason)
             stopForeground(STOP_FOREGROUND_REMOVE)

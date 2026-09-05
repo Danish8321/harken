@@ -79,15 +79,23 @@ object SpeechSpans {
      * Without the floor, a recording of a quiet room decodes its own hiss.
      */
     const val MinAmplitudeThreshold = 60
-    const val MaxAmplitudeThreshold = SilenceDetector.DefaultAmplitudeThreshold
+
+    /**
+     * Lives here because this is the only thing that still compares against it. It was
+     * SilenceDetector.DefaultAmplitudeThreshold, the fixed level the recorder called
+     * silence, until that turned out to count 97% of a real meeting as silence — see
+     * [NoiseFloor]. As a ceiling on an estimate it is sound; as a threshold in its own
+     * right it was the defect.
+     */
+    const val MaxAmplitudeThreshold = 500
 
     /**
      * The level a window has to reach, in this recording, to count as speech.
      *
      * One fixed threshold cannot serve both a phone lying on a table and a headset mix.
-     * [SilenceDetector.DefaultAmplitudeThreshold] is right for the second and far too high
-     * for the first: a real four-person meeting (AMI ES2002a) has a median window RMS of
-     * 126, so nine tenths of it read as silence and a tenth of the audio reached whisper.
+     * [MaxAmplitudeThreshold] is right for the second and far too high for the first: a
+     * real four-person meeting (AMI ES2002a) has a median window RMS of 126, so nine
+     * tenths of it read as silence and a tenth of the audio reached whisper.
      * Reading the floor off the recording itself recovers 88% of that meeting while
      * leaving every louder recording exactly where it already was.
      */
