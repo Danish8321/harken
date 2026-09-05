@@ -1,4 +1,4 @@
-# UI-033 — The recorder's auto-stop still uses a fixed silence threshold
+# UI-034 — The recorder's auto-stop still uses a fixed silence threshold
 
 - **Severity:** medium
 - **Status:** open
