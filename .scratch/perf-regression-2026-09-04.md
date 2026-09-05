@@ -399,7 +399,10 @@ with an empty-ish filesystem.
 6. ~~**Native heap reaches 451 MB during a decode**~~ — measured, see Finding 4.
    `MaxSpanSeconds = 300` is not the driver and stands. The residual risk is
    low-RAM devices, now open item 7.
-7. **Peak PSS is ~580 MB on any transcription, of any length.** Fine on this
+7. **Peak PSS is ~610 MB on any transcription, of any length**  (~580 on
+   fixtures; a real meeting reaches 609 MB, see the 2026-09-05 section).
+   **Recommended: declare 6 GB as the minimum supported device and keep
+   `base.en`.** Fine on this
    phone's 7.4 GB (`MemTotal: 7444948 kB` — an earlier draft of this report said
    12 GB, which was wrong and made the headroom look better than it is; with
    `MemAvailable` around 3.1 GB the decode takes roughly a fifth of what is
@@ -407,7 +410,12 @@ with an empty-ish filesystem.
    and the app has no smaller-model option to fall back to. Decide the minimum
    supported device before shipping, or ship a quantized model alongside
    `base.en`. This is the ceiling that Finding 3 did **not** remove.
-8. **The model is reloaded for every transcription** — `modelCached=false` on all
+8. ~~**The model is reloaded for every transcription**~~ — assessed, no action.
+   The reload costs 157-280 ms against a decode measured in minutes (0.03% of
+   the AMI run), and the handle is released after each transcription precisely
+   so no two decodes can hold the native model at once. Caching it would trade
+   that guarantee for a rounding error. Revisit only if batch transcription
+   ships. Original note: — `modelCached=false` on all
    seven runs here, costing a 148 MB file read and 170–280 ms each time.
    Deliberate (`TranscriptionCoordinator` releases the handle after each
    transcription, so no concurrent native use is possible), and invisible at one
@@ -709,8 +717,17 @@ have differed on anything.
 - **Model** — `q5_1` is the better engineering trade on every measured axis
   except the one that matters most, and one recording is not enough evidence
   about hallucination. Needs a second real recording before it ships.
-- **`MaxSpanSeconds` and the minimum device** — still open (item 7), now with a
-  609 MB number instead of 578, and with the knowledge that this is the only
-  lever that moves it much.
+- **`MaxSpanSeconds`** — stands at 300. The peak-versus-span curve flattens
+  after ~150 s, so halving it saves ~15 MB and doubles the seams; the saving
+  only becomes real at 60 s or below, which cuts context every minute.
+- **The minimum device** — recommended at **6 GB**. The ceiling is ~610 MB of
+  PSS during a decode, held for the whole decode, in a foreground service. This
+  phone has 7.4 GB total and ~3.1 GB available, so the decode takes a fifth of
+  what is free; a 4 GB device is squarely in low-memory-killer range and would
+  lose the transcription every time the user switched apps. Shipping `q5_1`
+  instead buys 50 MB, which does not change that answer — 4 GB needs a smaller
+  model *and* a shorter `MaxSpanSeconds`, i.e. a second supported
+  configuration, not a constant.
+- **Per-transcription model reload** — assessed, no action (item 8).
 - **The recorder's own threshold** — [UI-034](issues/UI-034-recorder-silence-threshold.md),
   opened by this work.
