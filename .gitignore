@@ -16,5 +16,9 @@ src/Harken.Api/recordings/
 # Claude Code harness state
 .claude/scheduled_tasks.lock
 
-# Scratch model binaries (test artifacts, not source)
+# Scratch binaries (test artifacts, not source). Corpora and models are downloaded
+# on demand and can be tens of megabytes; ES2002a.Mix-Headset.wav was tracked at 39
+# MB before this rule existed. The 90-second excerpt a test actually asserts against
+# lives in app/src/test/resources instead, where its size is the reason it is short.
 .scratch/*.bin
+.scratch/*.wav
