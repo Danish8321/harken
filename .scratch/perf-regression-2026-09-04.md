@@ -778,10 +778,27 @@ that field needs to carry the message, not the class. And the Library card
 showed the exception text under the row, which is `fac11e7` working: the defect
 was legible on the phone without a cable.
 
-### What is still not covered
+### Regression on the minified build
 
-R8 is verified by one acoustic recording end to end (record, transcribe, 6
-segments, transcript rendered from Room). The paths a minified build can break
-that this did not exercise: interrupted-transcription recovery at launch,
-orphan-WAV adoption, and the download resume path. All three are reflection-free
-Kotlin, so the risk is low, but "low" is not "measured".
+Everything below was run against the signed R8 APK on the Nothing Phone 2, on a
+fresh install.
+
+| Path | Evidence |
+|---|---|
+| Cold / warm start | 144/137/126 ms, 38/41/42 ms |
+| Jank, idle and while recording | 3.54% / 1.37%, 0 slow chunks |
+| Model download | `outcome=succeeded bytes=147964211 elapsedMs=14682` |
+| Download failure | `outcome=failed error=Unable_to_resolve_host_"github.com"...` |
+| Download resume | `resumedFromBytes=47739786 httpCode=206`, then succeeded |
+| Record (acoustic, via the speaker) | 50 s, `chunks=313 slowChunks=0` |
+| Transcribe (JNI + org.json + Room) | `segments=6`, transcript rendered from the DB |
+| Native decode breadcrumb | `native_decode_crash spanIndex=0 startSecond=21 spanSeconds=30` |
+| Interrupted-transcription recovery | `transcription_interrupted_recovered sessions=1`, reason on the card |
+| Retry after recovery | `outcome=succeeded` |
+| Empty transcript | "No speech in this recording — nothing to transcribe." |
+
+One path is not covered and cannot be from here: `RecordingRecovery` adopting an
+orphan WAV, which needs a file written into the app's own `filesDir` and `run-as`
+does not work on a non-debuggable package. It is reflection-free Kotlin over
+`File.listFiles`, so R8 has nothing to break in it, but that is an argument
+rather than a measurement.
