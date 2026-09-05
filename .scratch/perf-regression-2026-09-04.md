@@ -462,3 +462,94 @@ also left at `/data/local/tmp/fixture-*.wav` for the next run.
 of seconds — the harness behind Finding 4. Sample faster than the decode you are
 measuring, or the peak is missed: the 20 s row above is the weakest number here
 because a 5.4 s decode allows only two samples.
+
+## Per-variant regression — debug vs release, 2026-09-05
+
+Both variants installed side by side on the Nothing Phone 2 (battery 100%,
+32–33 °C throughout, so no thermal throttling in any run). The same
+`scratchpad/perf.sh` pass was run against each package, so every row below is
+the same input sequence measured twice.
+
+| Measurement | `com.harken.android.debug` | `com.harken.android` (release) |
+|---|---|---|
+| Cold start (3 runs) | 635 / 588 / 595 ms | **189 / 145 / 153 ms** |
+| Warm start (3 runs) | 60 / 53 / 58 ms | 52 / 58 / 51 ms |
+| Idle native heap | 24,428 KB | **8,404 KB** |
+| Nav + scroll jank | 940 frames, 6.06% | 939 frames, **5.43%** |
+| Nav p50 / p90 / p95 / p99 | 8 / 17 / 29 / 73 ms | 7 / 13 / 19 / 48 ms |
+| Live-recording jank | 2406 frames, 0.17% (p99 12 ms) | 2418 frames, **0.04%** (1 janky), p99 11 ms |
+| Live-recording PSS | — | 89 MB |
+| Model download (147,964,211 B) | 17,136 ms | 13,571 ms |
+
+Cold start is the only large gap and it is entirely debuggability overhead
+(JIT-less first frames, no baseline profile use in the debug variant); release
+launches in under 200 ms, which is the number that matters for the ship.
+
+### Decode throughput is identical, as it must be
+
+AGP compiles the native library `Debug` for the debug variant and
+`RelWithDebInfo` for release, but our own `-O3` is appended last and wins in
+both, so the whisper.cpp code path is byte-for-byte the same work.
+
+| Fixture | Build | Audio | Decoded | Spans | Segments | RTF (total / decoded) |
+|---|---|---|---|---|---|---|
+| 20 s | debug | 20 s | 20 s | 1 | 3 | 0.23 / 0.23 |
+| 71 s | debug | 71 s | 71 s | 1 | 13 | 0.21 / 0.21 |
+| 142 s | debug | 142 s | 142 s | 2 | 29 | 0.24 / 0.24 |
+| 221 s | debug | 221 s | 81 s | 6 | 13 | 0.13 / 0.37 |
+| acoustic 94 s | release | 94 s | 5 s | 1 | 2 | — / — |
+| acoustic 171 s | release | 171 s | 16 s | 2 | 4 | 0.05 / 0.54 |
+
+RTF is not comparable across these rows because whisper pads every call to a
+30-second window, so a 5 s span costs nearly what a 15 s span costs. The
+comparable number is **per-call decode cost**: 4,861 ms on release against
+4,861–5,016 ms on debug. Same path, same speed.
+
+The release rows are acoustic — `run-as` only works on a debuggable package, so
+the release variant cannot take injected fixtures and had to record a fixture
+played through the phone speaker. That is why its `decodedSeconds` is far below
+`audioSeconds`: room pickup leaves most of the capture below the RMS threshold.
+It measures the decode honestly; it does not measure span assembly.
+
+### Memory
+
+| Peak | debug | release |
+|---|---|---|
+| Native heap during decode | 447,520 KB (142 s fixture) | 338,996 KB |
+| Total PSS during decode | 459,789 KB (221 s fixture) | 388,607 KB |
+| After decode | ~190 MB | ~190 MB |
+
+Both return to the same resting figure, so nothing leaks across a transcription
+in either build. The ~580 MB whole-process peak recorded in Finding 3 remains the
+device-support question, unchanged by variant.
+
+### Failure paths, verified on the release variant
+
+- **Interrupted model update.** Cutting the network mid-update kept the working
+  model, the screen said *"Update failed; the model you have still works."* and
+  the button stayed "Update". The retry resumed —
+  `model_download_stream resumedFromBytes=45380420 httpCode=206` — and finished
+  at exactly 147,964,211 bytes in 9,893 ms.
+- **Native crash breadcrumb.** Killing the process inside the first decode logged
+  `native_decode_crash spanIndex=0 startSecond=31 spanSeconds=6` on the next
+  launch. Numbers only, per ADR-0011.
+- **Stuck transcription.** The same launch logged
+  `transcription_interrupted_recovered sessions=1`, and the row settled to Failed
+  with a Transcribe button rather than a permanent "Transcribing" chip.
+- **Retry.** The recovered session transcribed to completion: 171 s in, 16 s
+  decoded over 2 spans, 4 segments, `realtimeFactor=0.05`.
+
+Timing the kill by blind `sleep` was unreliable and cost one wasted run —
+`transcribe_prepared` is emitted immediately before the first decode, so polling
+logcat for it and force-stopping on sight lands the kill inside the decode
+window every time.
+
+### Found during this regression — fixed in `fac11e7`
+
+A failed transcription displayed no reason. `transcriptionFailureReason` was
+written by every failure path and carried all the way to
+`SessionView.failureReason`, but no screen read it, so the string authored for
+this exact case — *"Transcription stopped when the app closed. Tap to try
+again."* — was never seen by anyone. The reason now renders under the timestamp
+on a failed card. Verified on device: after the kill the row carried the
+sentence, and it disappeared when the retry succeeded.
