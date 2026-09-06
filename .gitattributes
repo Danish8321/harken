@@ -1,0 +1,17 @@
+# core.autocrlf on this machine rewrites every text file to CRLF on checkout. That is
+# harmless for Kotlin and XML and fatal for a shell script: Linux reads `#!/usr/bin/env
+# bash\r` as a request for an interpreter named "bash\r" and reports "no such file". The
+# gates and the Gradle wrapper run on CI, so they are pinned to LF.
+* text=auto
+
+*.sh text eol=lf
+gradlew text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+*.bat text eol=crlf
+
+*.wav binary
+*.bin binary
+*.ttf binary
+*.otf binary

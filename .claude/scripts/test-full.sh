@@ -10,6 +10,9 @@
 # quietly passes when it could not run is worse than no gate, because its OK is then
 # evidence of nothing.
 set -euo pipefail
+# Sourced before the cd, while "$0" still points where the caller found it.
+# shellcheck source=_gradle.sh
+. "$(dirname "$0")/_gradle.sh"
 cd "$(dirname "$0")/../.."
 
 echo "== test-full: adb devices =="
@@ -27,7 +30,7 @@ if [ "$attached" -eq 0 ]; then
 fi
 echo "$attached device(s) attached"
 
-"$(dirname "$0")/test-fast.sh"
+"$SCRIPT_DIR/test-fast.sh"
 
 # Uninstalls first, both variants: an instrumented run against a database left over from
 # a previous install is testing that install's state, not this build's. The app is
@@ -38,6 +41,6 @@ adb uninstall com.harken.android.debug >/dev/null 2>&1 || true
 adb uninstall com.harken.android.debug.test >/dev/null 2>&1 || true
 
 echo "== test-full: gradle connectedDebugAndroidTest (Harken.Android) =="
-(cd src/Harken.Android && ./gradlew.bat connectedDebugAndroidTest)
+(cd src/Harken.Android && "$GRADLEW" connectedDebugAndroidTest)
 
 echo "== test-full: OK =="
