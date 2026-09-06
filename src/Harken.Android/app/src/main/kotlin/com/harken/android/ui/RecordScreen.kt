@@ -104,7 +104,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun RecordScreen(
     onOpenSession: (UUID) -> Unit = {},
-    viewModel: CaptureViewModel = viewModel(),
+    viewModel: CaptureViewModel = viewModel(factory = CaptureViewModel.Factory),
 ) {
     val c = LocalProtoColors.current
     // Banner fades resolved once here: enter/exit params are not a composable scope.

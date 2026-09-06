@@ -41,8 +41,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.harken.android.container
 import com.harken.android.data.AppSettings
 import com.harken.android.speech.ModelDownloadFailure
 import com.harken.android.speech.ModelDownloadManager
@@ -73,9 +78,11 @@ data class OnboardingUiState(
 // so the wizard is privacy explainer -> on-device speech explainer -> model download, with
 // progress shown explicitly (the old silent first-recording download left users confused —
 // "nothing was happening").
-class OnboardingViewModel(application: Application) : AndroidViewModel(application) {
-    private val settings = AppSettings(application)
-    private val modelDownloadManager = ModelDownloadManager(application)
+class OnboardingViewModel(
+    application: Application,
+    private val settings: AppSettings,
+    private val modelDownloadManager: ModelDownloadManager,
+) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(
         OnboardingUiState(
@@ -120,10 +127,22 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             onDone()
         }
     }
+
+    companion object {
+        val Factory: ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                OnboardingViewModel(
+                    application = checkNotNull(this[APPLICATION_KEY]),
+                    settings = container.settings,
+                    modelDownloadManager = container.modelDownloadManager,
+                )
+            }
+        }
+    }
 }
 
 @Composable
-fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = viewModel()) {
+fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = viewModel(factory = OnboardingViewModel.Factory)) {
     val c = LocalProtoColors.current
     val state by viewModel.uiState.collectAsState()
 

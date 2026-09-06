@@ -71,7 +71,7 @@ inferred.
 | [ARC-011](ARC-011-noisefloor-sorts-every-chunk.md) | The noise floor re-sorts its whole window on every chunk | medium | open |
 | [ARC-012](ARC-012-blocking-io-on-default-dispatcher.md) | Blocking reads run on the CPU dispatcher | medium | open |
 | [ARC-013](ARC-013-per-chunk-allocation.md) | A fresh byte array is allocated for every audio chunk | medium | open |
-| [ARC-014](ARC-014-no-composition-root.md) | Every ViewModel builds its own dependencies | medium | open |
+| [ARC-014](ARC-014-no-composition-root.md) | Every ViewModel builds its own dependencies | medium | closed |
 | [ARC-015](ARC-015-domain-speaks-a-removed-backends-language.md) | The data layer speaks the language of a removed backend | medium | open |
 | [ARC-016](ARC-016-persistence-triggered-from-the-ui-layer.md) | A finished recording is saved by the UI, not by the recorder | medium | closed |
 | [ARC-017](ARC-017-derived-titles-not-localizable.md) | Derived recording titles are hardcoded English | medium | open |
@@ -83,7 +83,7 @@ inferred.
 | [ARC-023](ARC-023-instrumented-tests-never-run.md) | The instrumented tests are in no gate | medium | open |
 | [ARC-024](ARC-024-dead-dotnet-tier.md) | Half the repository is a backend nothing calls | medium | open |
 | [ARC-025](ARC-025-collectasstate-without-lifecycle.md) | Flows keep collecting while the app is backgrounded | medium | open |
-| [ARC-026](ARC-026-viewmodel-holds-navigation.md) | A ViewModel holds the navigation callbacks | medium | open |
+| [ARC-026](ARC-026-viewmodel-holds-navigation.md) | A ViewModel holds the navigation callbacks | medium | closed |
 | [ARC-033](ARC-033-no-export.md) | Nothing can leave the app except a copied transcript | medium | open |
 | [ARC-034](ARC-034-no-pause-resume.md) | A recording cannot be paused | medium | open |
 | [ARC-027](ARC-027-duplicate-tracker-id.md) | Two tickets share the ID UI-032 | low | open |

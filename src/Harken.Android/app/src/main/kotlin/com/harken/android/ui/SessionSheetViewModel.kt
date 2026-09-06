@@ -6,11 +6,15 @@ import android.media.MediaPlayer
 import android.util.Log
 import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import com.harken.android.R
+import com.harken.android.container
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.SpeakerHeuristic
-import com.harken.android.data.local.HarkenDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -62,8 +66,10 @@ data class SessionSheetUiState(
         get() = segments.joinToString("\n") { "[${it.offsetSeconds}s] ${it.text}" }
 }
 
-class SessionSheetViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = SessionRepository(db = HarkenDatabase.get(application))
+class SessionSheetViewModel(
+    application: Application,
+    private val repository: SessionRepository,
+) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(SessionSheetUiState())
     val uiState: StateFlow<SessionSheetUiState> = _uiState.asStateFlow()
@@ -285,4 +291,15 @@ class SessionSheetViewModel(application: Application) : AndroidViewModel(applica
             val trimmed = line.trimStart()
             if (trimmed.startsWith("* ")) "•" + trimmed.removePrefix("*") else line
         }
+
+    companion object {
+        val Factory: ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                SessionSheetViewModel(
+                    application = checkNotNull(this[APPLICATION_KEY]),
+                    repository = container.repository,
+                )
+            }
+        }
+    }
 }

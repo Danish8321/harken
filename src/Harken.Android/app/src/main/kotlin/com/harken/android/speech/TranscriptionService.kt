@@ -12,8 +12,8 @@ import android.os.SystemClock
 import android.util.Log
 import com.harken.android.MainActivity
 import com.harken.android.R
+import com.harken.android.container
 import com.harken.android.data.SessionRepository
-import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.recording.LiveUpdateNotification
 import com.harken.android.telemetry.Telemetry
 import java.util.UUID
@@ -67,9 +67,10 @@ class TranscriptionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        repository = SessionRepository(db = HarkenDatabase.get(this))
-        modelDownloadManager = ModelDownloadManager(this)
-        onDeviceTranscriber = OnDeviceTranscriber(NativeDecodeBreadcrumb(filesDir))
+        val container = application.container
+        repository = container.repository
+        modelDownloadManager = container.modelDownloadManager
+        onDeviceTranscriber = container.transcriber
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

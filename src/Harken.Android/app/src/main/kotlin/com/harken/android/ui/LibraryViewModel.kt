@@ -3,13 +3,14 @@ package com.harken.android.ui
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import com.harken.android.R
+import com.harken.android.container
 import com.harken.android.data.SessionRepository
-import com.harken.android.data.local.HarkenDatabase
-import com.harken.android.speech.ModelDownloadManager
-import com.harken.android.speech.NativeDecodeBreadcrumb
-import com.harken.android.speech.OnDeviceTranscriber
 import com.harken.android.speech.TranscriptionCoordinator
 import com.harken.android.speech.TranscriptionService
 import java.util.UUID
@@ -32,16 +33,13 @@ data class LibraryUiState(
 )
 
 /** Reads sessions straight from Room — recordings are transcribed entirely on-device. */
-class LibraryViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = SessionRepository(db = HarkenDatabase.get(application))
-    private val modelDownloadManager = ModelDownloadManager(application)
-    private val onDeviceTranscriber = OnDeviceTranscriber(NativeDecodeBreadcrumb(application.filesDir))
+class LibraryViewModel(
+    application: Application,
+    private val repository: SessionRepository,
+) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
-
-    var onNavigateToRecord: (() -> Unit)? = null
-    var onNavigateToSettings: (() -> Unit)? = null
 
     init {
         viewModelScope.launch {
@@ -95,6 +93,14 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         return if (transcribing > 0) res.getString(R.string.library_subtitle_transcribing, count, transcribing) else count
     }
 
-    fun goToRecord() { onNavigateToRecord?.invoke() }
-    fun openSettings() { onNavigateToSettings?.invoke() }
+    companion object {
+        val Factory: ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                LibraryViewModel(
+                    application = checkNotNull(this[APPLICATION_KEY]),
+                    repository = container.repository,
+                )
+            }
+        }
+    }
 }

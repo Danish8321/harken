@@ -3,10 +3,14 @@ package com.harken.android.ui
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import com.harken.android.audio.RecordingStopReason
+import com.harken.android.container
 import com.harken.android.data.SessionRepository
-import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.recording.RecordingCompleted
 import com.harken.android.recording.RecordingController
 import com.harken.android.recording.RecordingState
@@ -39,8 +43,10 @@ data class CaptureUiState(
 // the user is on another tab is saved exactly the same way as one they watched. An
 // auto-stop and a Stop tap arrive by the same path (ADR-0007), and transcription is a
 // separate, explicit action taken later from the Library.
-class CaptureViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = SessionRepository(db = HarkenDatabase.get(application))
+class CaptureViewModel(
+    application: Application,
+    private val repository: SessionRepository,
+) : AndroidViewModel(application) {
     private var lastRecordingId: java.util.UUID? = null
     private var lastFilePath: String? = null
     private var lastDurationSeconds: Int = 0
@@ -121,6 +127,17 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
             saveStatus = if (completed.saveError == null) SaveStatus.Succeeded else SaveStatus.Failed,
             lastSessionId = completed.recordingId.takeIf { completed.saveError == null },
         )
+    }
+
+    companion object {
+        val Factory: ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                CaptureViewModel(
+                    application = checkNotNull(this[APPLICATION_KEY]),
+                    repository = container.repository,
+                )
+            }
+        }
     }
 }
 

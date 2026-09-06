@@ -58,7 +58,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.harken.android.R
-import com.harken.android.data.AppSettings
+import com.harken.android.HarkenApplication
 import com.harken.android.recording.RecordingState
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalReducedMotion
@@ -97,7 +97,7 @@ private fun tabOrder(route: String?): Int = tabs.indexOfFirst { it.route == rout
 @Composable
 fun AppNav() {
     val context = LocalContext.current
-    val settings = remember { AppSettings(context) }
+    val settings = remember(context) { (context.applicationContext as HarkenApplication).container.settings }
     val onboardingComplete by settings.onboardingComplete.collectAsState(initial = null)
 
     // Wait for the real DataStore value before picking a start destination — defaulting

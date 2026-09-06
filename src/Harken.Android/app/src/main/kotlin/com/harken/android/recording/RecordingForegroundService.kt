@@ -14,8 +14,8 @@ import com.harken.android.audio.RecordingStopReason
 import com.harken.android.audio.SilenceDetector
 import com.harken.android.audio.WavFormat
 import com.harken.android.audio.WavWriter
+import com.harken.android.container
 import com.harken.android.data.SessionRepository
-import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.telemetry.Telemetry
 import java.io.File
 import java.io.RandomAccessFile
@@ -85,7 +85,7 @@ class RecordingForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        repository = SessionRepository(db = HarkenDatabase.get(this))
+        repository = application.container.repository
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

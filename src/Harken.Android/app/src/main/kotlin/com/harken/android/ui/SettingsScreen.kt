@@ -50,7 +50,7 @@ import com.harken.android.ui.theme.LocalProtoColors
 // backing setting anywhere in the app, so they're dropped rather than left as switches
 // that silently do nothing.
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
+fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory)) {
     val c = LocalProtoColors.current
     val state by viewModel.uiState.collectAsState()
 

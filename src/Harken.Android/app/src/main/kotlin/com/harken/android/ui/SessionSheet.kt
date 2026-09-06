@@ -101,7 +101,7 @@ private const val TRANSCRIPT_STAGGER_STEP_MS = 30L
 fun SessionSheet(
     sessionId: UUID,
     onDismiss: () -> Unit,
-    viewModel: SessionSheetViewModel = viewModel(),
+    viewModel: SessionSheetViewModel = viewModel(factory = SessionSheetViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)

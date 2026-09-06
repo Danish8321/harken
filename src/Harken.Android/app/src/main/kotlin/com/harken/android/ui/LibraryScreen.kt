@@ -31,7 +31,6 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,13 +73,11 @@ private const val STAGGER_STEP_MS = 35L
 fun LibraryScreen(
     onOpenSession: (UUID) -> Unit = {},
     onGoToRecord: () -> Unit = {},
-    viewModel: LibraryViewModel = viewModel(),
+    viewModel: LibraryViewModel = viewModel(factory = LibraryViewModel.Factory),
 ) {
     val c = LocalProtoColors.current
     val state by viewModel.uiState.collectAsState()
     var filter by remember { mutableStateOf(LibraryFilter.All) }
-
-    LaunchedEffect(onGoToRecord) { viewModel.onNavigateToRecord = onGoToRecord }
 
     val visible = remember(state.sessions, filter) {
         when (filter) {
@@ -130,7 +127,7 @@ fun LibraryScreen(
                     stringResource(R.string.library_empty_filtered_body)
                 },
                 actionLabel = if (filter == LibraryFilter.All) stringResource(R.string.library_empty_action) else null,
-                onAction = if (filter == LibraryFilter.All) viewModel::goToRecord else null,
+                onAction = if (filter == LibraryFilter.All) onGoToRecord else null,
             )
 
             else -> {

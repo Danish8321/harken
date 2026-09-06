@@ -2,7 +2,12 @@ package com.harken.android.ui
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import com.harken.android.container
 import com.harken.android.data.AppSettings
 import com.harken.android.device.DeviceCapability
 import com.harken.android.speech.ModelDownloadFailure
@@ -35,9 +40,11 @@ data class SettingsUiState(
 
 // Every recording is transcribed entirely on-device (ADR-0011): no backend URL to configure,
 // so Settings is theme + model management only.
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-    private val settings = AppSettings(application)
-    private val modelDownloadManager = ModelDownloadManager(application)
+class SettingsViewModel(
+    application: Application,
+    private val settings: AppSettings,
+    private val modelDownloadManager: ModelDownloadManager,
+) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(
         SettingsUiState(
@@ -100,6 +107,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 .collect { percent ->
                     _uiState.value = _uiState.value.copy(modelDownloadProgress = percent)
                 }
+        }
+    }
+
+    companion object {
+        val Factory: ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                SettingsViewModel(
+                    application = checkNotNull(this[APPLICATION_KEY]),
+                    settings = container.settings,
+                    modelDownloadManager = container.modelDownloadManager,
+                )
+            }
         }
     }
 }
