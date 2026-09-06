@@ -1,6 +1,9 @@
 package com.harken.android.ui
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -10,6 +13,9 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import com.harken.android.container
 import com.harken.android.data.AppSettings
 import com.harken.android.device.DeviceCapability
+import com.harken.android.export.ExportService
+import com.harken.android.export.ExportState
+import com.harken.android.export.ExportStatus
 import com.harken.android.speech.ModelDownloadFailure
 import com.harken.android.speech.ModelDownloadManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +43,8 @@ data class SettingsUiState(
      */
     val device: DeviceCapability = DeviceCapability(0),
 )
+
+private const val TAG = "SettingsViewModel"
 
 // Every recording is transcribed entirely on-device (ADR-0011): no backend URL to configure,
 // so Settings is theme + model management only.
@@ -67,6 +75,40 @@ class SettingsViewModel(
             }
         }
     }
+
+    /**
+     * How the export is going.
+     *
+     * Read straight off the process-wide holder rather than mirrored into [uiState]: the
+     * export outlives this ViewModel by design, so a copy here would be a snapshot of
+     * something that has since moved on.
+     */
+    val exportState: StateFlow<ExportState> = ExportStatus.state
+
+    /**
+     * Starts an export into the folder the user just picked.
+     *
+     * The picker grants this activity access to that one directory; the grant is made
+     * persistable here because the work runs in a service that outlives the activity. The
+     * service releases it when the copy ends.
+     */
+    fun startExport(treeUri: Uri) {
+        val app = getApplication<Application>()
+        val taken = runCatching {
+            app.contentResolver.takePersistableUriPermission(
+                treeUri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+        }.onFailure { Log.w(TAG, "Could not persist the export folder grant", it) }
+        // Not fatal on its own: the grant this process already holds may well outlast the
+        // copy. Starting is worth more than refusing on a permission that is probably fine.
+        if (taken.isFailure) Log.w(TAG, "Exporting on the transient grant")
+        ExportService.start(app, treeUri)
+    }
+
+    fun cancelExport() = ExportService.cancel(getApplication())
+
+    fun acknowledgeExport() = ExportStatus.acknowledge()
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(mode) }

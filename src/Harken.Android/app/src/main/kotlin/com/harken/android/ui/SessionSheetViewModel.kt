@@ -17,6 +17,7 @@ import com.harken.android.R
 import com.harken.android.container
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.SpeakerHeuristic
+import com.harken.android.data.TranscriptText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -65,8 +66,9 @@ data class SessionSheetUiState(
      */
     val playbackDurationMs: Int = 0,
 ) {
+    /** The transcript as text, formatted the same way an exported .txt is. */
     val plainText: String
-        get() = segments.joinToString("\n") { "[${it.offsetSeconds}s] ${it.text}" }
+        get() = TranscriptText.body(segments.map { TranscriptText.Line(it.offsetSeconds, it.text) })
 }
 
 class SessionSheetViewModel(

@@ -1,5 +1,7 @@
 package com.harken.android.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -31,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,6 +41,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
 import com.harken.android.device.DeviceCapability
+import com.harken.android.export.ExportState
+import com.harken.android.export.LibraryExporter
 import com.harken.android.ui.theme.PillShape
 import com.harken.android.ui.theme.DynamicColorAvailable
 import com.harken.android.ui.theme.ProtoBodyFont
@@ -146,6 +151,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
                 )
         }
 
+        BackupCard(c, viewModel)
+
         SettingsCard(c) {
             Eyebrow(c, stringResource(R.string.settings_appearance_header))
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -183,6 +190,124 @@ enum class ThemeMode(@StringRes val label: Int) {
     System(R.string.settings_theme_system),
     Light(R.string.settings_theme_light),
     Dark(R.string.settings_theme_dark),
+}
+
+/**
+ * The backup card.
+ *
+ * Sits under Capture because that is where the user is already thinking about what is on
+ * the phone. Leads with why it exists rather than with the button: an export is not a
+ * convenience here, it is the only copy of a recording that will survive the phone
+ * (ARC-033).
+ */
+@Composable
+private fun BackupCard(c: ProtoColors, viewModel: SettingsViewModel) {
+    val state by viewModel.exportState.collectAsState()
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        // Null when the user backed out of the picker. Nothing to say about that: they
+        // know they cancelled.
+        uri?.let(viewModel::startExport)
+    }
+    val busy = state is ExportState.Preparing || state is ExportState.Running
+
+    SettingsCard(c) {
+        Eyebrow(c, stringResource(R.string.settings_backup_header))
+        Text(
+            stringResource(R.string.settings_backup_body),
+            color = c.textSecondary,
+            fontFamily = ProtoBodyFont,
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            val status = when (val current = state) {
+                ExportState.Idle -> ""
+                ExportState.Preparing -> stringResource(R.string.settings_backup_preparing)
+                is ExportState.Running -> stringResource(R.string.settings_backup_progress, current.done, current.total)
+                is ExportState.Finished -> exportSummary(current.report)
+                ExportState.Cancelled -> stringResource(R.string.settings_backup_cancelled)
+                is ExportState.Failed -> current.reason
+                    ?.let { stringResource(R.string.settings_backup_failed, it) }
+                    ?: stringResource(R.string.settings_backup_failed_unknown)
+            }
+            if (status.isNotEmpty()) {
+                Text(
+                    status,
+                    color = if (state is ExportState.Failed) c.stateError else c.text,
+                    fontFamily = ProtoBodyFont,
+                    fontSize = 13.5.sp,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.weight(1f).padding(end = 12.dp),
+                )
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
+            OutlinedButton(
+                onClick = {
+                    when {
+                        busy -> viewModel.cancelExport()
+                        state is ExportState.Idle -> pickFolder.launch(null)
+                        else -> viewModel.acknowledgeExport()
+                    }
+                },
+                shape = PillShape,
+                modifier = Modifier.heightIn(min = 40.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = c.text),
+                border = BorderStroke(1.dp, c.textSecondary),
+            ) {
+                Text(
+                    stringResource(
+                        when {
+                            busy -> R.string.settings_backup_cancel
+                            state is ExportState.Idle -> R.string.settings_backup_export
+                            else -> R.string.settings_backup_dismiss
+                        },
+                    ),
+                    fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.5.sp,
+                )
+            }
+        }
+        val running = state
+        if (running is ExportState.Running && running.total > 0) {
+            Spacer(Modifier.height(10.dp))
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { running.done.toFloat() / running.total },
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                color = c.accent,
+                trackColor = c.pillTrack,
+            )
+        }
+    }
+}
+
+/**
+ * What the export actually wrote.
+ *
+ * Reports the parts that are not simply "it worked" — recordings whose audio was already
+ * gone, files the destination refused — because a backup the user believes is complete
+ * and is not is the failure this whole feature exists to prevent.
+ */
+@Composable
+private fun exportSummary(report: LibraryExporter.Report): String {
+    if (report.recordings == 0) return stringResource(R.string.settings_backup_empty)
+    val done = pluralStringResource(
+        R.plurals.settings_backup_done,
+        report.recordings,
+        report.recordings,
+        LibraryExporter.formatBytes(report.bytes),
+    )
+    val missing = if (report.missingAudio > 0) {
+        " " + stringResource(R.string.settings_backup_done_missing_audio, report.missingAudio)
+    } else {
+        ""
+    }
+    val failed = if (report.failed > 0) {
+        " " + pluralStringResource(R.plurals.settings_backup_done_failed, report.failed, report.failed)
+    } else {
+        ""
+    }
+    return done + missing + failed
 }
 
 @Composable

@@ -73,6 +73,22 @@ class SessionRepository(
     /** Every session the database holds, for reconciling it against the WAVs on disk. */
     suspend fun sessionIds(): List<UUID> = dao.allIds()
 
+    /**
+     * The whole library, oldest first, with every transcript, for an export.
+     *
+     * Read in one pass and held in memory: transcripts are text, so a few hundred
+     * recordings is a couple of megabytes, and the audio — the part that is gigabytes — is
+     * streamed from its path rather than loaded here.
+     */
+    suspend fun exportItems(): List<ExportItem> = dao.allSessions().map { row ->
+        ExportItem(
+            title = row.localTitle ?: DerivedTitle.of(row.startedAt),
+            startedAt = row.startedAt,
+            audioPath = row.pendingUploadPath,
+            lines = dao.segmentsOnce(row.id).map { TranscriptText.Line(it.offsetSeconds, it.text) },
+        )
+    }
+
     fun observeSummary(id: UUID) = dao.observeSummary(id)
 
     /** Flips a "Recorded" (recorded, not yet transcribed) session to "Running". */

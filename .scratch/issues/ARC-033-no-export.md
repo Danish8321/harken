@@ -1,8 +1,8 @@
 # ARC-033 — Nothing can leave the app except a copied transcript
 
 - **Severity:** medium
-- **Status:** open
-- **Area:** `ui/SessionSheet.kt`
+- **Status:** fixed
+- **Area:** `ui/SessionSheet.kt`, `export/`, `ui/SettingsScreen.kt`
 
 ## Problem
 
@@ -43,8 +43,68 @@ complained about the name.
 
 Evidence: `.claude/scripts/check.sh` OK.
 
-## Remaining — export everything
+## Resolution — export everything
 
-The Storage Access Framework half is not built: a user-chosen directory receiving every
-recording's audio plus a transcript file. That is the actual backup story; sharing covers
-one recording at a time.
+Settings grew a Backup card: one button, `ACTION_OPEN_DOCUMENT_TREE`, and every recording
+plus its transcript written into the folder the user picked. No storage permission is ever
+requested — the app holds one directory grant, for as long as the copy takes, and
+`ExportService` releases it in its `finally`.
+
+The work is split so the interesting parts are testable off-device:
+
+- `data/TranscriptText.kt` — the transcript as text, for every copy of it that leaves the
+  app. The session sheet used to build its own string with raw second counts (`[742s]`),
+  a number no reader can place in a recording, and it would have disagreed with whatever
+  the export wrote. One formatter now; `plainText` delegates to it.
+- `data/ExportNaming.kt` — `<date> <time> <title>`, so a year of recordings sorts
+  chronologically by name alone. Strips the characters no common filesystem takes (the
+  union of the Windows set and POSIX's separator, because the point of these files is
+  that they get copied elsewhere), the trailing dots and spaces Windows removes silently,
+  and numbers a collision rather than overwriting it.
+- `export/LibraryExporter.kt` — the copy itself, through `DocumentsContract`. Streams the
+  WAV in 64 KB chunks with a cancellation check per chunk, so stopping a multi-gigabyte
+  export does not mean waiting for the current three-hour recording to finish. A file the
+  destination refuses is counted and skipped: one bad recording must not cost the user
+  the other ninety-nine.
+- `export/ExportService.kt` — a `dataSync` foreground service, for the same reason
+  `TranscriptionService` is one. Run from a ViewModel the copy would die on the first
+  navigation and leave a folder of half-written files that *looks* like a backup, which
+  is worse than no backup because the user would not know.
+- `export/ExportStatus.kt` — process-wide progress, read by Settings. A ViewModel that
+  outlived the export would be the bug, not the fix.
+
+The result line reports what is not simply "it worked": recordings whose audio was already
+gone (transcript written anyway), and files the destination refused. A backup the user
+believes is complete and is not is the exact failure this feature exists to prevent.
+
+### Deviation
+
+No new dependency. `androidx.documentfile` is the usual way to write into a tree Uri;
+`DocumentsContract.createDocument` against the tree's own document Uri is the same three
+calls without it.
+
+`ExportItem` holds every transcript in memory for the length of the export — text, so a
+few hundred recordings is a couple of megabytes. The audio, which is the part measured in
+gigabytes, is streamed from its path and never loaded.
+
+## Evidence
+
+- `.claude/scripts/check.sh` — `== check: OK ==` (debug, release and lint)
+- `.claude/scripts/test-fast.sh` — `== test-fast: OK ==`, 139 unit tests, 0 failures.
+  Nineteen are new: timestamp formatting and the transcript file header, the naming rules
+  (zone, forbidden characters, length, collisions), and the size formatter.
+
+`LibraryExporter.export` itself is not unit-tested: it is `ContentResolver` and
+`DocumentsContract`, which is what an instrumented test is for. Its two decisions that are
+not I/O — what a file is called, and what goes in the transcript — are the two objects
+that *are* tested.
+
+## Device verification — not done
+
+No device was attached (`adb devices` is empty). Outstanding, on a fresh install:
+
+- Export into a Downloads subfolder and open the result on a desktop: every recording
+  present, playable, and paired with a readable `.txt`.
+- Cancel mid-export from the notification and confirm the app stops promptly and says so.
+- Export twice into the same folder and confirm the second run does not overwrite the
+  first (the SAF provider's own de-duplication, since the in-run `taken` set is fresh).

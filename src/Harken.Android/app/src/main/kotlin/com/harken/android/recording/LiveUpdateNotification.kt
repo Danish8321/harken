@@ -118,6 +118,36 @@ object LiveUpdateNotification {
             }
             .build()
 
+    /**
+     * An export in flight. Determinate from the first file: unlike a decode, the job knows
+     * exactly how many recordings it has to write before it writes any of them.
+     */
+    fun exporting(
+        context: Context,
+        channelId: String,
+        done: Int,
+        total: Int,
+        cancelIntent: PendingIntent,
+        contentIntent: PendingIntent,
+    ): Notification =
+        NotificationCompat.Builder(context, channelId)
+            .setContentTitle(context.getString(R.string.notification_exporting_title))
+            .setContentText(context.getString(R.string.notification_exporting_body, done, total))
+            .setSmallIcon(R.drawable.ic_notification_mic)
+            .setOngoing(true)
+            .setColorized(true)
+            .setColor(DONE_ACCENT)
+            .setProgress(total.coerceAtLeast(1), done, total <= 0)
+            .setCategory(Notification.CATEGORY_PROGRESS)
+            .setContentIntent(contentIntent)
+            .addAction(0, context.getString(R.string.notification_exporting_cancel), cancelIntent)
+            .also { builder ->
+                if (android.os.Build.VERSION.SDK_INT >= 36) {
+                    builder.extras.putBoolean("android.requestPromotedOngoing", true)
+                }
+            }
+            .build()
+
     // ProtoDarkColors.accent and .success as ARGB ints — the notification API predates
     // Compose Color, so these are the one place a literal is unavoidable. Keep in step
     // with ui/theme/ProtoColors.kt; they named the deleted Organic palette until UI-028

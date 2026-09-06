@@ -154,6 +154,34 @@
     <string name="settings_silence_timeout_value">5 minutes</string>
     <string name="settings_format">Format</string>
     <string name="settings_format_value">16 kHz · 16-bit · mono</string>
+    <!-- Export: the app's only backup, since nothing is uploaded and Auto Backup is off. -->
+    <string name="settings_backup_header">BACKUP</string>
+    <string name="settings_backup_body">Nothing here is uploaded anywhere, so your own copy is the only one there is. Export writes every recording and its transcript to a folder you choose.</string>
+    <string name="settings_backup_export">Export everything</string>
+    <string name="settings_backup_preparing">Reading the library…</string>
+    <string name="settings_backup_progress">Exported %1$d of %2$d</string>
+    <string name="settings_backup_cancel">Cancel</string>
+    <string name="settings_backup_dismiss">Done</string>
+    <string name="settings_backup_cancelled">Export stopped. The recordings already written are in the folder.</string>
+    <string name="settings_backup_failed">Export failed. %1$s</string>
+    <string name="settings_backup_failed_unknown">Export failed.</string>
+    <string name="settings_backup_empty">There is nothing to export yet.</string>
+    <plurals name="settings_backup_done">
+        <item quantity="one">Exported %1$d recording (%2$s).</item>
+        <item quantity="other">Exported %1$d recordings (%2$s).</item>
+    </plurals>
+    <string name="settings_backup_done_missing_audio">%1$d had no audio left on the phone, so only the transcript was written.</string>
+    <plurals name="settings_backup_done_failed">
+        <item quantity="one">%1$d file could not be written.</item>
+        <item quantity="other">%1$d files could not be written.</item>
+    </plurals>
+
+    <!-- Export notification -->
+    <string name="notification_exporting_channel">Exporting</string>
+    <string name="notification_exporting_title">Exporting your recordings</string>
+    <string name="notification_exporting_body">%1$d of %2$d</string>
+    <string name="notification_exporting_cancel">Cancel</string>
+
     <string name="settings_capture_note">Both limits end the recording and save it, so a forgotten session becomes a finished one instead of running all day.</string>
     <string name="settings_model_header">SPEECH MODEL</string>
     <string name="settings_model_ready">Ready — used for on-device transcription</string>

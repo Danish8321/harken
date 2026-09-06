@@ -57,6 +57,15 @@
             android:exported="false" />
 
 
+        <!-- dataSync for the same reason as the transcription service: finite work the
+             user asked for that has to finish. An export of a whole library is minutes of
+             copying, and a ViewModel-scoped one would die on the first navigation and
+             leave a folder of half-written files that looks like a backup (ARC-033). -->
+        <service
+            android:name=".export.ExportService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
         <!-- Sharing a recording is the only way a user can keep their own copy: with
              allowBackup off (ARC-002) there is no Auto Backup, so a lost phone is
              otherwise every recording gone (ARC-033). exported=false with

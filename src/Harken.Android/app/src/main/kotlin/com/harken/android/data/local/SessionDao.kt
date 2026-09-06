@@ -22,6 +22,10 @@ interface SessionDao {
     @Query("SELECT id FROM sessions")
     suspend fun allIds(): List<UUID>
 
+    /** Every session, oldest first, for an export that walks the whole library once. */
+    @Query("SELECT * FROM sessions ORDER BY startedAt ASC")
+    suspend fun allSessions(): List<SessionRow>
+
     @Query("SELECT * FROM sessions WHERE id = :id")
     fun observeSession(id: UUID): Flow<SessionRow?>
 
@@ -30,6 +34,10 @@ interface SessionDao {
 
     @Query("SELECT * FROM segments WHERE sessionId = :id ORDER BY offsetSeconds ASC")
     fun observeSegments(id: UUID): Flow<List<SegmentRow>>
+
+    /** The same rows, read once. The export is a snapshot, not something that redraws. */
+    @Query("SELECT * FROM segments WHERE sessionId = :id ORDER BY offsetSeconds ASC")
+    suspend fun segmentsOnce(id: UUID): List<SegmentRow>
 
     @Query("SELECT * FROM summaries WHERE sessionId = :id")
     fun observeSummary(id: UUID): Flow<SummaryRow?>

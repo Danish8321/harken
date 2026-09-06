@@ -85,7 +85,7 @@ inferred.
 | [ARC-024](ARC-024-dead-dotnet-tier.md) | Half the repository is a backend nothing calls | medium | open |
 | [ARC-025](ARC-025-collectasstate-without-lifecycle.md) | Flows keep collecting while the app is backgrounded | medium | open |
 | [ARC-026](ARC-026-viewmodel-holds-navigation.md) | A ViewModel holds the navigation callbacks | medium | closed |
-| [ARC-033](ARC-033-no-export.md) | Nothing can leave the app except a copied transcript | medium | open |
+| [ARC-033](ARC-033-no-export.md) | Nothing can leave the app except a copied transcript | medium | fixed |
 | [ARC-034](ARC-034-no-pause-resume.md) | A recording cannot be paused | medium | fixed |
 | [ARC-027](ARC-027-duplicate-tracker-id.md) | Two tickets share the ID UI-032 | low | open |
 | [ARC-028](ARC-028-stale-doc-references.md) | Comments point at files that no longer exist | low | open |
