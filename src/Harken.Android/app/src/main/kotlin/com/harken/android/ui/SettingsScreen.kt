@@ -39,6 +39,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
 import com.harken.android.device.DeviceCapability
 import com.harken.android.ui.theme.PillShape
+import com.harken.android.ui.theme.DynamicColorAvailable
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
 import com.harken.android.ui.theme.ProtoHeadingFont
@@ -160,12 +161,17 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         )
                     }
                 }
-                Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_wallpaper_title), color = c.text, fontFamily = ProtoBodyFont, fontSize = 14.sp)
-                        Text(stringResource(R.string.settings_wallpaper_body), color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+                // Hidden, not disabled, below API 31: wallpaper extraction does not exist
+                // there, so the switch had nothing to turn on. A control that moves and
+                // changes nothing is worse than one that is not offered.
+                if (DynamicColorAvailable) {
+                    Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.settings_wallpaper_title), color = c.text, fontFamily = ProtoBodyFont, fontSize = 14.sp)
+                            Text(stringResource(R.string.settings_wallpaper_body), color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+                        }
+                        Switch(checked = state.dynamicColor, onCheckedChange = viewModel::setDynamicColor, colors = protoSwitchColors(c))
                     }
-                    Switch(checked = state.dynamicColor, onCheckedChange = viewModel::setDynamicColor, colors = protoSwitchColors(c))
                 }
         }
 

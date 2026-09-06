@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  allowBackup is false, deliberately and not by omission.
+
+  ADR-0011 put transcription on the device and the product says, in onboarding and on the
+  recording notification, that nothing recorded leaves the phone. Auto Backup with no
+  extraction rules copies the whole of filesDir and databases/ to Google Drive and hands
+  the same set to device-to-device transfer — that is every WAV and every transcript.
+  Rules excluding those two directories would also work, but they are two files (v31+ and
+  v26-30 are separate) and they fail open: a new data directory added later is backed up
+  until someone remembers to exclude it. Off is the claim the app actually makes, and the
+  user's own copy is ARC-033's explicit export rather than a silent upload.
+
+  usesCleartextTraffic is likewise absent rather than false. It was true for the Retrofit
+  backend ADR-0011 removed; the only destination left is an https:// GitHub release URL,
+  and at this targetSdk the platform default already refuses cleartext.
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -9,9 +25,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
-        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Harken">
 
         <activity

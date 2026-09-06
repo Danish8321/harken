@@ -1,3 +1,8 @@
+# local.properties is machine-local and gitignored, and it is also better left
+# absent: Gradle finds the SDK from ANDROID_HOME/ANDROID_SDK_ROOT, and the file
+# Android Studio writes uses unescaped Windows separators, which Android Lint
+# reports as a PropertyEscape error and fails check.sh on (ARC-020). If your IDE
+# recreates it, deleting it again is the fix.
 local.properties
 .gradle/
 build/

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The mark: a five-bar level meter whose centre bar is the microphone.
+
+  The splash (ui/SplashScreen.kt) shows those two things one after the other — an accent
+  circle holding a mic, then a strip of waveform bars — because they are the two halves of
+  what the app does. At 108dp there is room for one mark, so this is both at once: read it
+  quickly and it is a level meter; read it again and the middle bar has a stem and a base.
+
+  Three weights, not one. The first cut drew all five bars at the same width with 1.5dp
+  between them and the capsule, and on a real home screen it resolved into a single blob
+  the size of a hairbrush. Air and hierarchy are what make a mark legible at 48px: ticks,
+  then bars, then the capsule at twice their width, with 6-8dp of ground between each.
+
+  Geometry sits inside the 72dp adaptive-icon safe zone (18..90 on both axes): the art
+  spans x 20..88 and y 26..82, which keeps every shape inside the circle
+  mask as well as the square one — the first draw put the outer ticks at x 19 and 89,
+  where the round mask clipped their outer edge.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer ticks — the quiet end of the meter. -->
+    <path
+        android:fillColor="#BFA789"
+        android:pathData="M20,48 a3,3 0 0 1 6,0 v12 a3,3 0 0 1 -6,0 z" />
+    <path
+        android:fillColor="#BFA789"
+        android:pathData="M82,48 a3,3 0 0 1 6,0 v12 a3,3 0 0 1 -6,0 z" />
+
+    <!-- Inner bars. -->
+    <path
+        android:fillColor="#BFA789"
+        android:pathData="M32,40 a3,3 0 0 1 6,0 v28 a3,3 0 0 1 -6,0 z" />
+    <path
+        android:fillColor="#BFA789"
+        android:pathData="M70,40 a3,3 0 0 1 6,0 v28 a3,3 0 0 1 -6,0 z" />
+
+    <!-- The centre bar is the microphone: capsule, stem, base. -->
+    <path
+        android:fillColor="#BFA789"
+        android:pathData="M45,35 a9,9 0 0 1 18,0 v16 a9,9 0 0 1 -18,0 z" />
+    <path
+        android:fillColor="#BFA789"
+        android:pathData="M51,63 a3,3 0 0 1 6,0 v10 a3,3 0 0 1 -6,0 z" />
+    <path
+        android:fillColor="#BFA789"
+        android:pathData="M48,76 h12 a3,3 0 0 1 0,6 h-12 a3,3 0 0 1 0,-6 z" />
+</vector>

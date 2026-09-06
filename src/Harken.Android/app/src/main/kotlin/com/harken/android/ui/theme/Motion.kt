@@ -1,7 +1,5 @@
 package com.harken.android.ui.theme
 
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FiniteAnimationSpec
@@ -12,7 +10,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.unit.IntOffset
@@ -78,24 +75,42 @@ object HarkenMotion {
 }
 
 /**
- * Shared-axis slide+fade transitionSpec for an Int-keyed AnimatedContent (tab index, wizard
- * step): forward advances from the right, back slides from the left, collapsing to a plain
- * swap under reduced motion. [offsetDivisor] controls how far the slide travels relative to
- * the content width — smaller divisor, bigger travel.
+ * Shared-axis slide+fade: forward advances from the right, back slides from the left,
+ * collapsing to a plain swap under reduced motion. [offsetDivisor] controls how far the
+ * slide travels relative to the content width — smaller divisor, bigger travel.
+ *
+ * Enter and exit are separate functions rather than one `ContentTransform` because the
+ * only caller is a NavHost, which takes the two halves individually. It used to be a
+ * single transitionSpec for an AnimatedContent inside each tab's own pane, which could
+ * not work: that AnimatedContent's lambda ignored its target state, so both halves of
+ * the transition rendered the same screen and every tab change animated a pane against
+ * itself. Lint says so directly — UnusedContentLambdaTargetStateParameter, ARC-020 —
+ * and the fix is to let the navigation graph own the transition, since it is the only
+ * thing that knows both the screen being left and the screen being entered.
  */
-fun sharedAxisTransition(
+fun sharedAxisEnter(
     reduced: Boolean,
+    forward: Boolean,
     fade: FiniteAnimationSpec<Float>,
     slide: FiniteAnimationSpec<IntOffset>,
     offsetDivisor: Int,
-): AnimatedContentTransitionScope<Int>.() -> ContentTransform = {
+): EnterTransition =
     if (reduced) {
-        EnterTransition.None togetherWith ExitTransition.None
+        EnterTransition.None
     } else {
-        val forward = targetState > initialState
-        val enterOffset = if (forward) { w: Int -> w / offsetDivisor } else { w: Int -> -w / offsetDivisor }
-        val exitOffset = if (forward) { w: Int -> -w / offsetDivisor } else { w: Int -> w / offsetDivisor }
-        (slideInHorizontally(slide, enterOffset) + fadeIn(fade)) togetherWith
-            (slideOutHorizontally(slide, exitOffset) + fadeOut(fade))
+        slideInHorizontally(slide) { w -> if (forward) w / offsetDivisor else -w / offsetDivisor } + fadeIn(fade)
     }
-}
+
+/** The exit half of [sharedAxisEnter]; [forward] means the same thing in both. */
+fun sharedAxisExit(
+    reduced: Boolean,
+    forward: Boolean,
+    fade: FiniteAnimationSpec<Float>,
+    slide: FiniteAnimationSpec<IntOffset>,
+    offsetDivisor: Int,
+): ExitTransition =
+    if (reduced) {
+        ExitTransition.None
+    } else {
+        slideOutHorizontally(slide) { w -> if (forward) -w / offsetDivisor else w / offsetDivisor } + fadeOut(fade)
+    }

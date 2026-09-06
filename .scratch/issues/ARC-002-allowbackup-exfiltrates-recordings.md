@@ -1,7 +1,7 @@
 # ARC-002 — `allowBackup=true` copies every recording and transcript off the phone
 
 - **Severity:** critical
-- **Status:** open
+- **Status:** closed
 - **Area:** `app/src/main/AndroidManifest.xml`
 
 ## Problem
@@ -27,3 +27,26 @@ Either `android:allowBackup="false"`, or backup rules that exclude `files/` and
 `databases/` explicitly (`dataExtractionRules` for API 31+ *and*
 `fullBackupContent` for 26–30 — they are separate files and both are needed at
 this minSdk).
+
+## Resolution
+
+`android:allowBackup="false"`.
+
+Extraction rules that exclude `files/` and `databases/` were the alternative and
+were rejected: they are two files (v31+ and v26-30 are separate at this minSdk)
+and they fail open — a data directory added later is backed up until somebody
+remembers to exclude it. Off is the claim the product actually makes, and the
+user's own copy is ARC-033's explicit export rather than a silent upload. The
+manifest now carries that reasoning at the top of the file.
+
+## Evidence
+
+`check.sh` (dotnet build, assembleDebug, assembleRelease, and the new lintDebug
+step) and `test-fast.sh` (14 + 32 .NET, 92 Android JVM) both pass.
+
+## Device verification
+
+Not device-observable: Auto Backup runs on Google's schedule. The manifest
+attribute is the whole mechanism, and `assembleRelease` merges it as written.
+
+## Status: closed

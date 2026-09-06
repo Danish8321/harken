@@ -1,5 +1,6 @@
 package com.harken.android.ui.theme
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
@@ -99,10 +100,23 @@ data class InkColors(val ink: Color, val onInk: Color, val onInkDim: Color)
 val LocalInk = compositionLocalOf { InkColors(Organic.InkLight, Organic.OnInk, Organic.OnInk.copy(alpha = 0.6f)) }
 
 /**
+ * Whether this device can extract a palette from the wallpaper at all — Material You
+ * landed in API 31 and minSdk here is 26.
+ */
+val DynamicColorAvailable: Boolean
+    get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+/**
  * @param dynamicColor when true, wallpaper extraction supplies the NEUTRALS only —
  * background, surface and outline. Primary and secondary stay on the Proto accents,
  * because in this app they are semantic: terracotta means "live" and sage means "done".
  * If the wallpaper could recolour them, those two words would stop meaning anything.
+ *
+ * Wallpaper extraction is an API 31 feature and this app supports 26. Asking for it below
+ * that reaches for `android.R.color.system_*` resources the platform does not have, which
+ * is a crash, not a fallback — so below 31 the flag is ignored and the Proto neutrals
+ * stand. [DynamicColorAvailable] is the same predicate Settings uses to decide whether to
+ * offer the switch at all, so the two cannot drift.
  */
 @Composable
 fun HarkenTheme(
@@ -112,7 +126,7 @@ fun HarkenTheme(
 ) {
     val c = protoColors(light = !darkTheme)
     val base = protoColorScheme(c, darkTheme)
-    val scheme = if (!dynamicColor) {
+    val scheme = if (!dynamicColor || !DynamicColorAvailable) {
         base
     } else {
         val context = LocalContext.current

@@ -13,4 +13,12 @@ echo "== check: gradle assembleDebug (Harken.Android) =="
 echo "== check: gradle assembleRelease (Harken.Android) =="
 (cd src/Harken.Android && ./gradlew.bat assembleRelease)
 
+# assembleRelease runs lintVital, which is the fatal-only subset. The full Lint pass is a
+# separate task and had never been run: it is what would have reported the missing
+# launcher icon, the unqualified allowBackup and the unneeded usesCleartextTraffic on the
+# day each was written (ARC-001, ARC-002, ARC-004, ARC-020). abortOnError is on in the
+# build file, so a new finding fails this gate rather than printing into the scroll.
+echo "== check: gradle lint (Harken.Android) =="
+(cd src/Harken.Android && ./gradlew.bat lintDebug)
+
 echo "== check: OK =="

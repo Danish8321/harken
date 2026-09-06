@@ -6,4 +6,10 @@
          re-palette has to touch this file by hand. It was missed twice (UI-009, UI-024)
          and both times the flash came back. -->
     <color name="window_background">#F3F6F7</color>
+
+    <!-- The launcher icon's ground. Fixed in both themes, unlike window_background: a
+         home screen is not the app's canvas, and an icon that changed with the system
+         theme would be a different icon to find. The app's own dark slate, which is what
+         the accent was chosen against. -->
+    <color name="launcher_background">#2C313A</color>
 </resources>

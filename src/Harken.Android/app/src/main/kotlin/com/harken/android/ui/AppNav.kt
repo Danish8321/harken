@@ -1,7 +1,7 @@
 package com.harken.android.ui
 
 import androidx.annotation.StringRes
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.harken.android.ui.theme.ProtoBodyFont
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -61,6 +62,8 @@ import com.harken.android.data.AppSettings
 import com.harken.android.recording.RecordingState
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalReducedMotion
+import com.harken.android.ui.theme.sharedAxisEnter
+import com.harken.android.ui.theme.sharedAxisExit
 import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.LocalProtoColors
 import java.util.UUID
@@ -82,6 +85,14 @@ private val tabs = listOf(
     Tab(Routes.Library, R.string.nav_library, Icons.Filled.LibraryMusic),
     Tab(Routes.Settings, R.string.nav_settings, Icons.Filled.Tune),
 )
+
+/**
+ * Where a destination sits left-to-right, which is what decides the slide direction.
+ *
+ * Onboarding is not a tab and returns -1 deliberately: it sits before all three, so
+ * finishing it slides forward into Record like any other rightward move.
+ */
+private fun tabOrder(route: String?): Int = tabs.indexOfFirst { it.route == route }
 
 @Composable
 fun AppNav() {
@@ -116,9 +127,24 @@ fun AppNav() {
         if (splash) {
             SplashScreen(destinationIsRecord = onboardingComplete == true, onFinished = { showSplash = false })
         } else {
+            // The tab transition lives here, on the graph, because the graph is the only
+            // thing that knows both the destination being left and the one being entered.
+            // It used to live in an AnimatedContent inside each tab's own pane, where it
+            // could not: that lambda ignored its target state, so both halves rendered the
+            // same screen and a tab change slid a pane against itself (ARC-020).
+            val reduced = LocalReducedMotion.current
+            val fade = HarkenMotion.effectsDefault<Float>()
+            val slide = HarkenMotion.spatialDefault<androidx.compose.ui.unit.IntOffset>()
+            fun AnimatedContentTransitionScope<NavBackStackEntry>.movingRight(): Boolean =
+                tabOrder(targetState.destination.route) > tabOrder(initialState.destination.route)
+
             NavHost(
                 navController = navController,
                 startDestination = if (onboardingComplete == true) Routes.Record else Routes.Onboarding,
+                enterTransition = { sharedAxisEnter(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
+                exitTransition = { sharedAxisExit(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
+                popEnterTransition = { sharedAxisEnter(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
+                popExitTransition = { sharedAxisExit(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
             ) {
                 composable(Routes.Onboarding) {
                     OnboardingScreen(onFinished = {
@@ -178,24 +204,9 @@ private fun MainHost(
             )
         },
     ) { padding ->
-        // Shared-axis slide+fade, keyed on tab index rather than route — reading the
-        // index lets the transition pick a consistent left/right direction that matches
-        // the tapped tab's position in the bar, the same way it would for a ViewPager.
-        // Not a plain Crossfade: the old build crossfaded on currentRoute, which meant the
-        // pane faded on EVERY back-stack change, including opening the sheet — this only
-        // fires when currentRoute actually changes, since that's what's keyed.
-        val reduced = LocalReducedMotion.current
-        val fade = HarkenMotion.effectsDefault<Float>()
-        val slide = HarkenMotion.spatialDefault<androidx.compose.ui.unit.IntOffset>()
-        val tabIndex = tabs.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
-        AnimatedContent(
-            targetState = tabIndex,
-            label = "tab-switch",
-            modifier = Modifier.padding(padding),
-            transitionSpec = com.harken.android.ui.theme.sharedAxisTransition(reduced, fade, slide, offsetDivisor = 4),
-        ) {
-            Box { content { id -> openSessionId = id } }
-        }
+        // No transition here: the shared-axis slide is the NavHost's, since only the
+        // graph knows which screen is being left for which.
+        Box(Modifier.padding(padding)) { content { id -> openSessionId = id } }
     }
 
     openSessionId?.let { id ->
