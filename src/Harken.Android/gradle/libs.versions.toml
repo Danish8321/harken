@@ -8,6 +8,13 @@
 #   * room and ksp move together, and ksp moves with kotlin. Bumping one alone breaks the
 #     annotation processor rather than the build file.
 #
+# There is also a ceiling. compileSdk is 36 and AGP 8.12 recommends no higher, so every
+# androidx release cut in 2026 is out of reach: their AAR metadata demands API 37, and
+# `checkDebugAarMetadata` refuses the build with the version it wanted. That is why the
+# versions below are the newest that still build, not the newest that exist — Lint will
+# keep naming the 2026 ones. Raising the ceiling is one job: AGP 9, then compileSdk 37,
+# then the androidx train follows.
+#
 # Group names say what moves together. A version with no group of its own is a library
 # nothing else is tied to.
 
@@ -35,14 +42,14 @@ compose-google-fonts = "1.7.6"
 # room-runtime, room-ktx, room-compiler and room-testing are one release. The compiler
 # runs through KSP, so it is also what ties `room` to `ksp` above.
 room = "2.7.1"
-lifecycle = "2.8.7"
-activity-compose = "1.9.3"
-navigation-compose = "2.8.5"
-core-ktx = "1.15.0"
-datastore = "1.1.1"
+lifecycle = "2.9.4"
+activity-compose = "1.11.0"
+navigation-compose = "2.9.5"
+core-ktx = "1.17.0"
+datastore = "1.1.7"
 # RoundedPolygon / Morph — the record button's Circle -> Cookie morph and the
 # shape-sequence loading indicator are both built on this.
-graphics-shapes = "1.0.1"
+graphics-shapes = "1.1.0"
 # retrofit and converter-gson were dropped when R8 was enabled: nothing had imported
 # retrofit2 since the app went local-only (ADR-0011), and Gson came in through the
 # converter for two fields of JSON that org.json now reads directly — see
@@ -51,9 +58,9 @@ okhttp = "4.12.0"
 
 junit = "4.13.2"
 coroutines-test = "1.9.0"
-androidx-test-runner = "1.6.2"
-androidx-test-core = "1.6.1"
-androidx-test-junit = "1.2.1"
+androidx-test-runner = "1.7.0"
+androidx-test-core = "1.7.0"
+androidx-test-junit = "1.3.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
