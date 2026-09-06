@@ -68,13 +68,39 @@ app's own code or resources is gone. Three commits:
   A warning that names a decision the project made on purpose is left standing
   rather than suppressed — suppressing it would hide the next, real one.
 
+## Progress — CI and the version pins
+
+- `4efd7d7` — the gates ran on Windows and nowhere else: they invoked
+  `./gradlew.bat` directly, which is why there was no CI. `_gradle.sh` picks the
+  wrapper for the platform, and `.github/workflows/gates.yml` runs `check.sh`
+  and `test-fast.sh` themselves rather than a workflow-shaped copy of them.
+  `.gitattributes` is new and load-bearing: `core.autocrlf` was checking the
+  scripts out as CRLF, and `#!/usr/bin/env bash` fails on Linux naming an
+  interpreter that does not exist.
+- `6bb1b6b` — nine libraries and the Gradle wrapper moved to the newest release
+  that still builds. 59 warnings -> 54.
+
+### The version notices are a ceiling, not a backlog
+
+Most of what Lint names is a 2026 androidx release whose AAR metadata requires
+compiling against API 37. `checkDebugAarMetadata` refuses those by name, and
+compileSdk is 36 because AGP 8.12 recommends no higher. So the remaining 17
+notices are one job — AGP 9, then compileSdk 37, then the androidx train — and
+that job is worth its own ticket rather than being ground down one library at a
+time. The ceiling is now written in `libs.versions.toml`.
+
+Three pins are held back for their own reasons, also recorded there: Room ties
+to KSP ties to Kotlin and its migration test needs a device; okhttp 4 -> 5 is a
+major on the one network path; Kotlin and AGP are the toolchain.
+
 ## Still open
 
-- **23 Gradle version notices** (`GradleDependency` 17, `NewerVersionAvailable`
-  4, `AndroidGradlePluginVersion` 2). The version catalog exists now, so this is
-  unblocked, but each pin needs a reason read before it is moved.
 - **No formatter.** ktlint or detekt is a new Gradle plugin and needs sign-off.
-- **No CI.** Nothing here needs sign-off; it is next.
+  This is the only thing left in this ticket that is not blocked on something
+  else, and it cannot be done without asking.
+- **35 typos**, all inside `res/values/font_certs.xml` and all resolved by
+  [ARC-038](ARC-038-typeface-depends-on-play-services.md) if it is accepted.
+- **17 version notices**, held by the compileSdk 36 ceiling above.
 
 ## Evidence
 
