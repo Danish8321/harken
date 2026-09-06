@@ -29,6 +29,11 @@ class MainActivity : ComponentActivity() {
             "device_capability",
             "totalMemMb" to device.totalMemMb,
             "belowMinimum" to device.isBelowMinimum,
+            // Which build this is. Every install used to report "1.0", so a log excerpt
+            // could not be tied to the code that produced it (ARC-022).
+            "versionName" to BuildConfig.VERSION_NAME,
+            "versionCode" to BuildConfig.VERSION_CODE,
+            "gitSha" to BuildConfig.GIT_SHA,
         )
         recoverOrphanedRecordings(device)
         // Same reconciliation, one file over: a model download killed with the process

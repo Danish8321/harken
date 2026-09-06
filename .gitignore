@@ -22,3 +22,7 @@ src/Harken.Api/recordings/
 # lives in app/src/test/resources instead, where its size is the reason it is short.
 .scratch/*.bin
 .scratch/*.wav
+
+# Signing key config. keystore.properties.example is committed; the real one names a
+# keystore path and carries its passwords, and never is.
+keystore.properties

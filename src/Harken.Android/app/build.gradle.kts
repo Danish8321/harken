@@ -1,9 +1,52 @@
+import java.util.Properties
+
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
-    id("com.google.devtools.ksp")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
+
+/**
+ * Everything the build needs to know about which build this is (ARC-022).
+ */
+fun properties(name: String): Properties = Properties().apply {
+    val file = rootProject.file(name)
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
+val versionProperties = properties("version.properties")
+
+/**
+ * The short commit this APK was built from, or "unknown" outside a git checkout.
+ *
+ * Emitted in the launch telemetry, which is the point: "1.0" on every build a user has
+ * ever installed means a bug report cannot be tied to the code that produced it.
+ */
+val gitSha: String = runCatching {
+    ProcessBuilder("git", "rev-parse", "--short", "HEAD")
+        .directory(rootProject.projectDir)
+        .redirectErrorStream(true)
+        .start()
+        .inputStream.bufferedReader().readText().trim()
+}.getOrNull()?.takeIf { it.isNotEmpty() && !it.contains(" ") } ?: "unknown"
+
+/**
+ * The commit count, so versionCode rises on its own.
+ *
+ * A hand-edited number is a number nobody edits, and Play refuses an upload whose
+ * versionCode has not gone up. Falls back to version.properties for a build from a source
+ * archive, which has no history to count.
+ */
+val gitCommitCount: Int = runCatching {
+    ProcessBuilder("git", "rev-list", "--count", "HEAD")
+        .directory(rootProject.projectDir)
+        .redirectErrorStream(true)
+        .start()
+        .inputStream.bufferedReader().readText().trim().toInt()
+}.getOrNull() ?: versionProperties.getProperty("versionCodeFallback", "1").toInt()
+
+val keystoreProperties = properties("keystore.properties")
 
 android {
     namespace = "com.harken.android"
@@ -15,10 +58,11 @@ android {
         // a type); AudioRecord/notification-action Stop button work fine from there too.
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = gitCommitCount
+        versionName = versionProperties.getProperty("versionName", "0.0.0")
         resValue("string", "app_name", "Harken")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
 
         // Single ABI for now — matches minSdk 26+modern-device assumption, avoids
         // multi-ABI native build time while on-device transcription is unproven
@@ -43,8 +87,24 @@ android {
         }
     }
 
+    // Present only when keystore.properties is: assembleRelease on a machine with no
+    // signing key still runs, still exercises R8 and resource shrinking, and produces an
+    // unsigned APK. Refusing to build there would put the release gate out of reach of
+    // every machine but one.
+    signingConfigs {
+        if (keystoreProperties.getProperty("storeFile") != null) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             // 46.6 MB of dex over three files without this, most of it Compose and
             // material-icons-extended that the app never references. 3.0 MB with it,
             // in one dex file.
@@ -75,6 +135,9 @@ android {
 
     buildFeatures {
         compose = true
+        // For GIT_SHA. Off by default since AGP 8, and the launch telemetry needs it to
+        // say which build a report came from.
+        buildConfig = true
     }
 
     sourceSets {
@@ -91,44 +154,27 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.15.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
-    implementation("androidx.activity:activity-compose:1.9.3")
-    implementation("androidx.navigation:navigation-compose:2.8.5")
-    implementation(platform("androidx.compose:compose-bom:2025.09.00"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    // Material 3 Expressive (MaterialExpressiveTheme, MotionScheme, ButtonGroup,
-    // SplitButton, LoadingIndicator) needs material3 1.4 — the 2025.09 BOM still pins
-    // 1.3.2, so this version is pinned above the BOM's constraint until a BOM train
-    // carries 1.4 as its default.
-    implementation("androidx.compose.material3:material3:1.4.0")
-    // RoundedPolygon / Morph — the record button's Circle -> Cookie morph and the
-    // shape-sequence loading indicator are both built on this.
-    implementation("androidx.graphics:graphics-shapes:1.0.1")
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.compose.ui:ui-text-google-fonts:1.7.6")
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
-    // Full local mirror of sessions/segments/summaries plus local title+tag overrides.
-    implementation("androidx.room:room-runtime:2.7.1")
-    implementation("androidx.room:room-ktx:2.7.1")
-    ksp("androidx.room:room-compiler:2.7.1")
-    // retrofit and converter-gson were dropped when R8 was enabled: nothing had
-    // imported retrofit2 since the app went local-only (ADR-0011), and Gson came in
-    // through the converter for two fields of JSON that org.json now reads directly
-    // — see parseNativeSegments. okhttp stays; ModelDownloadManager streams the
-    // model with it.
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.navigation.compose)
 
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    implementation(platform(libs.compose.bom))
+    implementation(libs.bundles.compose)
+    implementation(libs.androidx.graphics.shapes)
 
-    // Room migration test (MigrationTestHelper) — no androidTest infra existed for Room
-    // before this, so this is a new instrumented-test-only dependency (does not ship in
-    // the app APK).
-    androidTestImplementation("androidx.room:room-testing:2.7.1")
-    androidTestImplementation("androidx.test:runner:1.6.2")
-    androidTestImplementation("androidx.test:core:1.6.1")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
+    implementation(libs.okhttp)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    androidTestImplementation(libs.room.testing)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }

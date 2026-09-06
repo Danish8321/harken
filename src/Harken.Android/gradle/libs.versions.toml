@@ -1,0 +1,106 @@
+# The one place a dependency version is written.
+#
+# Two of these are load-bearing and non-obvious, and they were previously facts buried in
+# comments in the middle of a dependency block (ARC-021):
+#
+#   * material3 is pinned ABOVE the Compose BOM on purpose. Read the note on it below
+#     before "fixing" it by deleting the version.
+#   * room and ksp move together, and ksp moves with kotlin. Bumping one alone breaks the
+#     annotation processor rather than the build file.
+#
+# Group names say what moves together. A version with no group of its own is a library
+# nothing else is tied to.
+
+[versions]
+# 8.12+ rather than 8.7.3: lifecycle resolves to 2.9.0 through the Compose BOM, and that
+# release's lint checks are compiled against the Kotlin 2.1 analysis API. AGP 8.7's
+# bundled lint carries the older one, so lintVitalRelease crashed with
+# "Found class …KaCallableMemberCall, but interface was expected" and no release build
+# could be produced at all.
+agp = "8.12.0"
+kotlin = "2.2.0"
+# Tracks kotlin: the KSP version is <kotlin version>-<ksp release>, and a mismatch is a
+# hard failure at configuration time.
+ksp = "2.2.0-2.0.2"
+
+compose-bom = "2025.09.00"
+# Material 3 Expressive (MaterialExpressiveTheme, MotionScheme, ButtonGroup, SplitButton,
+# LoadingIndicator) needs material3 1.4 — the 2025.09 BOM still pins 1.3.2, so this is
+# pinned above the BOM's constraint until a BOM train carries 1.4 as its default. It is
+# the one Compose artifact with a version here; every other one takes the BOM's.
+material3 = "1.4.0"
+# Not in the BOM's train, so it carries its own version.
+compose-google-fonts = "1.7.6"
+
+# room-runtime, room-ktx, room-compiler and room-testing are one release. The compiler
+# runs through KSP, so it is also what ties `room` to `ksp` above.
+room = "2.7.1"
+lifecycle = "2.8.7"
+activity-compose = "1.9.3"
+navigation-compose = "2.8.5"
+core-ktx = "1.15.0"
+datastore = "1.1.1"
+# RoundedPolygon / Morph — the record button's Circle -> Cookie morph and the
+# shape-sequence loading indicator are both built on this.
+graphics-shapes = "1.0.1"
+# retrofit and converter-gson were dropped when R8 was enabled: nothing had imported
+# retrofit2 since the app went local-only (ADR-0011), and Gson came in through the
+# converter for two fields of JSON that org.json now reads directly — see
+# parseNativeSegments. okhttp stays; ModelDownloadManager streams the model with it.
+okhttp = "4.12.0"
+
+junit = "4.13.2"
+coroutines-test = "1.9.0"
+androidx-test-runner = "1.6.2"
+androidx-test-core = "1.6.1"
+androidx-test-junit = "1.2.1"
+
+[libraries]
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation-compose" }
+
+# Versionless by design: the BOM below decides what these resolve to.
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
+compose-ui-text-google-fonts = { module = "androidx.compose.ui:ui-text-google-fonts", version.ref = "compose-google-fonts" }
+
+androidx-graphics-shapes = { module = "androidx.graphics:graphics-shapes", version.ref = "graphics-shapes" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+
+# Full local mirror of sessions/segments/summaries plus local title+tag overrides.
+room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+# MigrationTestHelper. Instrumented tests only — does not ship in the app APK.
+room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
+
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+
+junit = { module = "junit:junit", version.ref = "junit" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines-test" }
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-test-runner" }
+androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-test-core" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-junit" }
+
+[bundles]
+# What every Compose screen needs. Kept as a bundle so a new module cannot pick up half
+# of it and discover the other half at the first red squiggle.
+compose = [
+    "compose-ui",
+    "compose-ui-graphics",
+    "compose-material3",
+    "compose-material-icons-extended",
+    "compose-ui-text-google-fonts",
+]
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

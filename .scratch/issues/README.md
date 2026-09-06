@@ -79,9 +79,9 @@ inferred.
 | [ARC-018](ARC-018-notification-title-is-a-hex-fragment.md) | The recording notification is titled with eight hex characters | medium | open |
 | [ARC-019](ARC-019-download-guard-does-not-guard.md) | The concurrent-download guard does not guard the download | medium | closed |
 | [ARC-020](ARC-020-no-static-analysis-no-ci.md) | Nothing checks style, lint or correctness except a compiler | medium | fixed |
-| [ARC-021](ARC-021-no-version-catalog.md) | Dependency versions are string literals in the build file | medium | open |
-| [ARC-022](ARC-022-no-release-signing-no-versioning.md) | The release build cannot be released | medium | open |
-| [ARC-023](ARC-023-instrumented-tests-never-run.md) | The instrumented tests are in no gate | medium | open |
+| [ARC-021](ARC-021-no-version-catalog.md) | Dependency versions are string literals in the build file | medium | fixed |
+| [ARC-022](ARC-022-no-release-signing-no-versioning.md) | The release build cannot be released | medium | fixed |
+| [ARC-023](ARC-023-instrumented-tests-never-run.md) | The instrumented tests are in no gate | medium | fixed |
 | [ARC-024](ARC-024-dead-dotnet-tier.md) | Half the repository is a backend nothing calls | medium | open |
 | [ARC-025](ARC-025-collectasstate-without-lifecycle.md) | Flows keep collecting while the app is backgrounded | medium | open |
 | [ARC-026](ARC-026-viewmodel-holds-navigation.md) | A ViewModel holds the navigation callbacks | medium | closed |

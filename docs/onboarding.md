@@ -20,7 +20,7 @@ bash .claude/scripts/check.sh
 bash .claude/scripts/test-fast.sh
 ```
 Both green before touching a device — a failure here is the SDK or the code, not
-anything below.
+anything below. `test-full.sh` adds the on-device tests and is covered in §5.
 
 ## 3. Run the backend
 ```
@@ -45,10 +45,13 @@ Do this **before** the phone — it isolates pipeline problems from mobile probl
       not auto-launch). Or open `src/Harken.Android` in Android Studio and hit Run for
       the same result plus a debugger and Logcat. First launch runs the 3-step
       onboarding described in §6.
-  - Unit tests only (no device needed): `./gradlew testDebugUnitTest`. Instrumented
-    tests (foreground service, notification Stop button, permission flow — written
-    but excluded from `test-fast.sh`) need a connected device or emulator:
-    `./gradlew connectedDebugAndroidTest`.
+  - Unit tests only (no device needed): `bash .claude/scripts/test-fast.sh`.
+  - With the phone attached: `bash .claude/scripts/test-full.sh` — the same tests plus
+    the instrumented ones (Room migrations, foreground service, notification Stop
+    button, permission flow). It uninstalls the debug build first, so the run is
+    against this build's state and not the last one's. **A schema change must pass this
+    gate**: `SessionDatabaseMigrationTest` is what asserts a migration preserves the
+    rows already on the device.
 
 ## 5b. No LAN reachability between PC and phone?
 
