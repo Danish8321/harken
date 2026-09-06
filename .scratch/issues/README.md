@@ -98,3 +98,5 @@ inferred.
 | [ARC-037](ARC-037-lint-warnings-formatter-and-ci.md) | Lint's 76 warnings, a formatter, and CI | medium | in-progress |
 | [ARC-038](ARC-038-typeface-depends-on-play-services.md) | The app's whole typeface system is a Play Services download | high | open |
 | [ARC-039](ARC-039-migration-test-asserts-a-guess.md) | The migration test asserts against a v1 schema typed out by hand | medium | fixed |
+| [ARC-040](ARC-040-dead-sync-era-surface.md) | The sync tier is gone; its DAO surface and one of its chips are not | medium | fixed |
+| [ARC-041](ARC-041-integration-tests-are-not-deterministic.md) | The .NET gate failed once and passed on a re-run | medium | fixed |
