@@ -76,6 +76,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -440,7 +441,9 @@ private fun SaveStatusCard(
     Row(
         Modifier
             .fillMaxWidth()
-            .offset(x = shake.value.dp)
+            // Lambda overload: the shake is read in the layout pass rather than in
+            // composition, so a frame of shake does not recompose the whole card.
+            .offset { IntOffset(shake.value.dp.roundToPx(), 0) }
             .background(bg, RoundedCornerShape(24.dp))
             .clickable(role = Role.Button, enabled = status == SaveStatus.Succeeded || status == SaveStatus.Failed) {
                 when (status) {

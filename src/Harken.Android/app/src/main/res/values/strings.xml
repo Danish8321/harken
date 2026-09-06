@@ -92,7 +92,10 @@
         <item quantity="one">%1$d recording</item>
         <item quantity="other">%1$d recordings</item>
     </plurals>
-    <string name="library_subtitle_transcribing">%1$s · %2$d transcribing</string>
+    <plurals name="library_subtitle_transcribing">
+        <item quantity="one">%1$s · %2$d transcribing</item>
+        <item quantity="other">%1$s · %2$d transcribing</item>
+    </plurals>
     <string name="library_search_hint">Search transcripts</string>
     <string name="library_search_clear">Clear search</string>
     <string name="library_search_empty_title">No matches</string>
@@ -134,7 +137,10 @@
         <item quantity="one">%1$d segment</item>
         <item quantity="other">%1$d segments</item>
     </plurals>
-    <string name="session_transcript_meta_voices">%1$s · %2$d voices</string>
+    <plurals name="session_transcript_meta_voices">
+        <item quantity="one">%1$s · %2$d voice</item>
+        <item quantity="other">%1$s · %2$d voices</item>
+    </plurals>
     <string name="session_transcript_silent">No speech in this recording — nothing to transcribe.</string>
     <string name="session_play">Play</string>
     <string name="session_pause">Pause</string>
@@ -167,7 +173,10 @@
         <item quantity="one">Exported %1$d recording (%2$s).</item>
         <item quantity="other">Exported %1$d recordings (%2$s).</item>
     </plurals>
-    <string name="settings_backup_done_missing_audio">%1$d had no audio left on the phone, so only the transcript was written.</string>
+    <plurals name="settings_backup_done_missing_audio">
+        <item quantity="one">%1$d had no audio left on the phone, so only the transcript was written.</item>
+        <item quantity="other">%1$d had no audio left on the phone, so only the transcripts were written.</item>
+    </plurals>
     <plurals name="settings_backup_done_failed">
         <item quantity="one">%1$d file could not be written.</item>
         <item quantity="other">%1$d files could not be written.</item>

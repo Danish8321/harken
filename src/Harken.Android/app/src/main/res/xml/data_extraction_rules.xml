@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Nothing this app holds leaves the phone (ADR-0011): the recordings, the transcripts and
+  the settings are all local, and a cloud backup or a device-to-device transfer would copy
+  audio of the user's meetings somewhere they did not choose. Both paths are excluded
+  outright, which is the Android 12+ way of saying what android:allowBackup="false" said.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+    </device-transfer>
+</data-extraction-rules>

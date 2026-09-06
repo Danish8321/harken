@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Android 11-and-below half of data_extraction_rules.xml: same rule, older schema.
+  android:allowBackup is already false, so nothing here should ever be consulted — it is
+  written down so a later change to allowBackup cannot quietly start uploading recordings.
+-->
+<full-backup-content>
+    <exclude domain="root" path="." />
+</full-backup-content>

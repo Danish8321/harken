@@ -50,9 +50,9 @@ fun EmptyState(
     icon: ImageVector,
     title: String,
     body: String,
+    modifier: Modifier = Modifier,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
 ) {
     HarkenCard(modifier = modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(22.dp)) {
         Box(
@@ -77,10 +77,10 @@ fun EmptyState(
 fun ErrorState(
     title: String,
     body: String,
+    modifier: Modifier = Modifier,
     onRetry: (() -> Unit)? = null,
     secondaryLabel: String? = null,
     onSecondary: (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
 ) {
     HarkenCard(
         modifier = modifier.fillMaxWidth(),

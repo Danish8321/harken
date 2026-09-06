@@ -343,7 +343,11 @@ class SessionSheetViewModel(
     private fun transcriptMeta(segmentCount: Int, voices: Int): String {
         val res = getApplication<Application>().resources
         val segments = res.getQuantityString(R.plurals.session_segment_count, segmentCount, segmentCount)
-        return if (voices > 1) res.getString(R.string.session_transcript_meta_voices, segments, voices) else segments
+        return if (voices > 1) {
+            res.getQuantityString(R.plurals.session_transcript_meta_voices, voices, segments, voices)
+        } else {
+            segments
+        }
     }
 
     private fun buildMeta(session: SessionRepository.SessionView?, duration: Int, transcribed: Boolean): String {

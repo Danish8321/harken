@@ -298,7 +298,11 @@ private fun exportSummary(report: LibraryExporter.Report): String {
         LibraryExporter.formatBytes(report.bytes),
     )
     val missing = if (report.missingAudio > 0) {
-        " " + stringResource(R.string.settings_backup_done_missing_audio, report.missingAudio)
+        " " + pluralStringResource(
+            R.plurals.settings_backup_done_missing_audio,
+            report.missingAudio,
+            report.missingAudio,
+        )
     } else {
         ""
     }

@@ -57,9 +57,11 @@ object TranscriptText {
     }
 
     private fun readableTimestamp(startedAtIso: String, zone: ZoneId): String =
-        runCatching { Instant.parse(startedAtIso).atZone(zone).format(Readable) }
+        runCatching { Instant.parse(startedAtIso).atZone(zone).format(readable()) }
             .getOrElse { startedAtIso }
 
-    private val Readable: DateTimeFormatter =
+    // Built per export, not held in a field: a field captures the locale at class load, so
+    // an export taken after the user changed language kept the old month names.
+    private fun readable(): DateTimeFormatter =
         DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", Locale.getDefault())
 }

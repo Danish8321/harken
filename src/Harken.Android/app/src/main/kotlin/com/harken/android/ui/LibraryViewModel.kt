@@ -140,7 +140,11 @@ class LibraryViewModel(
         val transcribing = visible.count { it.status == "Pending" || it.status == "Running" }
         val res = getApplication<Application>().resources
         val count = res.getQuantityString(R.plurals.library_recording_count, visible.size, visible.size)
-        return if (transcribing > 0) res.getString(R.string.library_subtitle_transcribing, count, transcribing) else count
+        return if (transcribing > 0) {
+            res.getQuantityString(R.plurals.library_subtitle_transcribing, transcribing, count, transcribing)
+        } else {
+            count
+        }
     }
 
     companion object {

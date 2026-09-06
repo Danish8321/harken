@@ -71,8 +71,8 @@ fun StatusChip(
     label: String,
     container: androidx.compose.ui.graphics.Color,
     content: androidx.compose.ui.graphics.Color,
-    leading: (@Composable RowScope.() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    leading: (@Composable RowScope.() -> Unit)? = null,
 ) {
     Surface(modifier = modifier, shape = com.harken.android.ui.theme.PillShape, color = container) {
         Row(

@@ -6,7 +6,6 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.util.Log
 import com.harken.android.audio.AudioRecordCapture
 import com.harken.android.R
@@ -360,7 +359,6 @@ class RecordingForegroundService : Service() {
     )
 
     private fun createNotificationChannelIfNeeded() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(ChannelId) != null) return
         manager.createNotificationChannel(
