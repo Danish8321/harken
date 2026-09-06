@@ -247,8 +247,14 @@ class OnDeviceTranscriber(
 
     /** Releases the native model handle. Safe to call even if a model was never loaded. */
     override fun release() {
-        modelHandle?.let { nativeFreeModel(it) }
+        // Cleared before the free, not after. If nativeFreeModel throws, the field would
+        // otherwise still point at memory that may or may not have been released, and the
+        // next transcribe would reuse it — a double free or a use-after-free in the 480 MB
+        // allocation this app is sized around (ARC-031). A handle that leaks is a bounded
+        // loss; a handle that is freed twice is a tombstone.
+        val handle = modelHandle ?: return
         modelHandle = null
+        nativeFreeModel(handle)
     }
 
     /**

@@ -7,6 +7,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -17,6 +19,7 @@ import java.net.HttpURLConnection
 import java.net.SocketException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 import kotlin.coroutines.cancellation.CancellationException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -33,6 +36,13 @@ private const val TAG = "ModelDownloadManager"
 interface ModelProvider {
     suspend fun ensureModel(): Result<String>
 }
+
+/**
+ * The transferred file is not the model. Its own type because it is the one download
+ * failure that is neither a network fault nor worth resuming from: the bytes already on
+ * disk are wrong, so the retry has to start over.
+ */
+class ModelIntegrityException(message: String) : IOException(message)
 
 /**
  * Why a model download failed, in terms a person can act on.
@@ -52,6 +62,9 @@ enum class ModelDownloadFailure {
     /** The model did not fit. */
     OutOfSpace,
 
+    /** The transfer completed and delivered something that is not the model. */
+    Corrupt,
+
     Unknown,
 
     ;
@@ -63,6 +76,8 @@ enum class ModelDownloadFailure {
             // switching off wifi mid-download actually produces.
             is UnknownHostException, is SocketException, is SocketTimeoutException -> NoConnection
             is SSLException -> NoConnection
+            // Ahead of the general IOException branch, which this is a subclass of.
+            is ModelIntegrityException -> Corrupt
             is IOException -> if (error.isOutOfSpace()) OutOfSpace else ServerUnavailable
             else -> Unknown
         }
@@ -83,6 +98,8 @@ enum class ModelDownloadFailure {
 class ModelDownloadManager(
     private val filesDir: File,
     private val client: OkHttpClient = OkHttpClient(),
+    /** Overridden only by tests, which cannot produce 148 MB that hashes to the real model. */
+    private val expectedSha256: String = ModelSha256,
 ) : ModelProvider {
     constructor(context: Context) : this(context.filesDir)
 
@@ -142,9 +159,21 @@ class ModelDownloadManager(
         }
 
         runCatchingDownload {
-            modelsDir.mkdirs()
-            downloadTo(partialFile)
-            installPartial()
+            // The lock, rather than the AtomicBoolean that only ever guarded the cleanup
+            // (ARC-019). Without it two callers open FileOutputStream(.tmp, append = true)
+            // on the same file and interleave their writes into it — and since both append
+            // toward the same Content-Length, the result is often exactly the right length.
+            // Held for the whole transfer, so waiting here can mean minutes: a suspended
+            // coroutine on the IO dispatcher, not a blocked thread.
+            downloadLock.withLock {
+                // Re-checked inside the lock. A caller that waited was waiting for this
+                // very file, and fetching it again is the work the lock exists to avoid.
+                if (!modelFile.exists()) {
+                    modelsDir.mkdirs()
+                    downloadTo(partialFile)
+                    installPartial()
+                }
+            }
             modelFile.absolutePath
         }.onFailure { e ->
             Log.e(TAG, "ensureModel download failed", e)
@@ -152,10 +181,15 @@ class ModelDownloadManager(
     }
 
     /**
-     * Moves the completed partial over the installed model, replacing it atomically so a
-     * failure can never leave the user with neither file.
+     * Verifies the completed partial, then moves it over the installed model, replacing it
+     * atomically so a failure can never leave the user with neither file.
+     *
+     * Verified before the move rather than after, so the installed path is never briefly
+     * the wrong file: an update that fetches a bad object leaves the working model exactly
+     * where it was.
      */
     private fun installPartial() {
+        verifyPartial()
         try {
             Files.move(
                 partialFile.toPath(),
@@ -166,6 +200,52 @@ class ModelDownloadManager(
         } catch (e: IOException) {
             throw IOException("Failed to move downloaded model into place at ${modelFile.absolutePath}", e)
         }
+    }
+
+    /**
+     * Fails the download unless the bytes on disk are the model.
+     *
+     * The length check in [streamTo] is a truncation check, not an integrity one. A `.tmp`
+     * written against one release asset and resumed against another — a re-pointed tag, a
+     * stale CDN object, a proxy in between — is exactly the right length and the wrong
+     * file, and what loads it is `nativeLoadModel`, in C++, in this process. So the bytes
+     * are hashed before anything else is allowed to see them (ARC-005). One streamed read
+     * of 148 MB: no extra memory, 126 ms on the reference device against a 21-second
+     * download, once per download.
+     *
+     * A file that fails is deleted rather than kept as a resume point — resuming would
+     * append to bytes already known to be wrong.
+     */
+    private fun verifyPartial() {
+        val startNanos = System.nanoTime()
+        val actual = sha256(partialFile)
+        val elapsedMs = Telemetry.elapsedMsSince(startNanos)
+        if (actual == expectedSha256) {
+            Telemetry.event("model_verified", "bytes" to partialFile.length(), "elapsedMs" to elapsedMs)
+            return
+        }
+
+        val bytes = partialFile.length()
+        partialFile.delete()
+        Telemetry.event(
+            "model_integrity_failed",
+            "bytes" to bytes,
+            "sha256" to actual,
+            "elapsedMs" to elapsedMs,
+        )
+        throw ModelIntegrityException("Downloaded model did not match the expected checksum")
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            var read: Int
+            while (input.read(buffer).also { read = it } != -1) {
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     /**
@@ -205,9 +285,14 @@ class ModelDownloadManager(
 
         withContext(Dispatchers.IO) {
             runCatchingDownload {
-                modelsDir.mkdirs()
-                downloadTo(partialFile) { percent -> trySend(percent) }
-                installPartial()
+                downloadLock.withLock {
+                    // An update that starts while a first-run download is still running
+                    // waits for it, and then finds the model already installed.
+                    if (modelFile.exists() && !replaceExisting) return@withLock
+                    modelsDir.mkdirs()
+                    downloadTo(partialFile) { percent -> trySend(percent) }
+                    installPartial()
+                }
             }.onFailure { e ->
                 Log.e(TAG, "downloadProgress failed", e)
                 close(e)
@@ -322,6 +407,21 @@ class ModelDownloadManager(
          * A dead process leaves it false, which is exactly the case worth cleaning.
          */
         private val downloadInFlight = AtomicBoolean(false)
+
+        /**
+         * Serialises the transfer itself. Process-wide for the same reason
+         * [downloadInFlight] is: Onboarding and Settings each build their own manager
+         * (ARC-014), so a per-instance lock would guard nothing.
+         */
+        private val downloadLock = Mutex()
+
+        /**
+         * SHA-256 of the release asset at [MODEL_DOWNLOAD_URL] — upstream
+         * `ggml-base.en.bin`, 147,964,211 bytes, unchanged. Bump this in the same commit
+         * that re-points the URL: a mismatch reaches the user as a corrupt download, so a
+         * stale constant here looks to them like a broken server.
+         */
+        const val ModelSha256 = "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002"
 
         const val MODEL_DOWNLOAD_URL =
             "https://github.com/Danish8321/harken/releases/download/models-v1/ggml-base.en.bin"

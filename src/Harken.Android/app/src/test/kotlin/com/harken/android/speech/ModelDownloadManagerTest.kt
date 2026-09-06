@@ -1,5 +1,13 @@
 package com.harken.android.speech
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -10,6 +18,8 @@ import java.io.File
 import java.io.IOException
 import java.net.SocketException
 import java.net.UnknownHostException
+import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicInteger
 
 class ModelDownloadManagerTest {
 
@@ -106,6 +116,91 @@ class ModelDownloadManagerTest {
     @Test
     fun `anything unrecognised falls back rather than leaking its message`() {
         assertEquals(ModelDownloadFailure.Unknown, ModelDownloadFailure.of(IllegalStateException("boom")))
+    }
+
+    // --- integrity (ARC-005) and the concurrency guard (ARC-019) ---
+
+    /**
+     * Serves [bytes] to every request, counting the requests. An interceptor rather than a
+     * web server because the point is what the manager does with the response, and a real
+     * socket adds nothing to that.
+     */
+    private fun clientServing(bytes: ByteArray, requests: AtomicInteger = AtomicInteger(0), delayMs: Long = 0) =
+        OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                requests.incrementAndGet()
+                if (delayMs > 0) Thread.sleep(delayMs)
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(bytes.toResponseBody("application/octet-stream".toMediaType()))
+                    .build()
+            }
+            .build()
+
+    private fun sha256Of(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+
+    @Test
+    fun `a download of the right length but the wrong bytes is rejected`() = runBlocking {
+        val served = ByteArray(4096) { it.toByte() }
+        val result = ModelDownloadManager(temp.root, clientServing(served)).ensureModel()
+
+        assertTrue("a file that is not the model must not install", result.isFailure)
+        assertTrue(
+            "expected an integrity failure, got ${result.exceptionOrNull()}",
+            result.exceptionOrNull() is ModelIntegrityException,
+        )
+        assertFalse(
+            "the model path must not hold unverified bytes",
+            File(File(temp.root, "models"), ModelDownloadManager.ModelFileName).exists(),
+        )
+        assertFalse(
+            "bytes known to be wrong must not be left as a resume point",
+            File(File(temp.root, "models"), "${ModelDownloadManager.ModelFileName}.tmp").exists(),
+        )
+    }
+
+    @Test
+    fun `a download whose hash matches is installed`() = runBlocking {
+        val served = ByteArray(4096) { it.toByte() }
+        val manager = ModelDownloadManager(temp.root, clientServing(served), sha256Of(served))
+
+        val result = manager.ensureModel()
+
+        assertTrue(result.isSuccess)
+        assertTrue(manager.isModelPresent())
+        assertEquals(4096, File(result.getOrThrow()).length().toInt())
+    }
+
+    @Test
+    fun `a corrupt model is reported as corrupt, not as a broken server`() {
+        assertEquals(
+            ModelDownloadFailure.Corrupt,
+            ModelDownloadFailure.of(ModelIntegrityException("Downloaded model did not match the expected checksum")),
+        )
+    }
+
+    @Test
+    fun `two callers share one download instead of interleaving into one file`() = runBlocking {
+        val served = ByteArray(4096) { it.toByte() }
+        val requests = AtomicInteger(0)
+        // Two managers, as Onboarding and Settings really are (ARC-014); the delay makes the
+        // second caller arrive while the first is still streaming.
+        val client = clientServing(served, requests, delayMs = 200)
+        val first = ModelDownloadManager(temp.root, client, sha256Of(served))
+        val second = ModelDownloadManager(temp.root, client, sha256Of(served))
+
+        val results = listOf(
+            async(Dispatchers.Default) { first.ensureModel() },
+            async(Dispatchers.Default) { second.ensureModel() },
+        ).map { it.await() }
+
+        assertTrue("both callers must get the model", results.all { it.isSuccess })
+        assertEquals("the second caller started its own download", 1, requests.get())
+        assertEquals(4096, File(results.first().getOrThrow()).length().toInt())
     }
 }
 

@@ -5,6 +5,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
+import com.harken.android.telemetry.Telemetry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -87,14 +88,44 @@ class AudioRecordCapture(
     }
 
     suspend fun stop() {
+        val record = audioRecord ?: return
+        audioRecord = null
+        val job = captureJob
+        captureJob = null
+
         isRunning = false
-        withTimeoutOrNull(1000) { captureJob?.join() }
+        // stop() before the join, not after. read() blocks until its buffer fills — four
+        // times the device minimum, so a phone under load can sit in there longer than any
+        // timeout worth waiting for — and stopping the record is what unblocks it. Joining
+        // first meant the timeout expired with the loop still inside read(), holding a
+        // pointer to the object the next line freed (ARC-006).
         try {
-            audioRecord?.stop()
+            record.stop()
         } catch (e: IllegalStateException) {
             Log.w(TAG, "AudioRecord.stop on an already-stopped record", e)
         }
-        audioRecord?.release()
-        audioRecord = null
+
+        val joined = job == null || withTimeoutOrNull(JoinTimeoutMs) { job.join() } != null
+        if (joined) {
+            record.release()
+            return
+        }
+
+        // The loop is still in native code with this object's pointer. Freeing it here is
+        // a use-after-free in the audio HAL — a SIGSEGV that looks nothing like its cause.
+        // The buffer is a few hundred kilobytes and the process is about to be a candidate
+        // for death anyway; leaking it is the cheaper wrong outcome, and it gets reported
+        // rather than hidden.
+        Log.e(TAG, "Capture loop still running after ${JoinTimeoutMs}ms; leaking AudioRecord rather than freeing it under a live reader")
+        Telemetry.event("capture_stop_join_timeout", "timeoutMs" to JoinTimeoutMs)
+    }
+
+    private companion object {
+        /**
+         * How long stop() waits for the capture loop. Generous now that the record is
+         * stopped first: a read that has already been unblocked returns in milliseconds, so
+         * reaching this bound means something is wrong rather than merely slow.
+         */
+        const val JoinTimeoutMs = 2000L
     }
 }

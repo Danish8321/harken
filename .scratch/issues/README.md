@@ -61,8 +61,8 @@ inferred.
 | [ARC-002](ARC-002-allowbackup-exfiltrates-recordings.md) | `allowBackup=true` copies recordings and transcripts off the phone | critical | fixed |
 | [ARC-003](ARC-003-transcription-has-no-foreground-service.md) | A transcription is killed whenever the user leaves the app | critical | closed |
 | [ARC-004](ARC-004-cleartext-traffic.md) | `usesCleartextTraffic=true` for an app that only talks HTTPS | high | fixed |
-| [ARC-005](ARC-005-model-download-has-no-integrity-check.md) | The downloaded model is never verified, only counted | high | open |
-| [ARC-006](ARC-006-audiorecord-use-after-release.md) | `AudioRecordCapture.stop()` can release a native object mid-read | high | open |
+| [ARC-005](ARC-005-model-download-has-no-integrity-check.md) | The downloaded model is never verified, only counted | high | closed |
+| [ARC-006](ARC-006-audiorecord-use-after-release.md) | `AudioRecordCapture.stop()` can release a native object mid-read | high | closed |
 | [ARC-007](ARC-007-deleted-recording-comes-back.md) | A deleted recording reappears at the next launch | high | closed |
 | [ARC-008](ARC-008-sticky-restart-shows-phantom-error.md) | A sticky restart reports a recording the user never started | high | closed |
 | [ARC-009](ARC-009-wall-clock-durations.md) | Recording duration is measured with the wall clock | high | closed |
@@ -76,7 +76,7 @@ inferred.
 | [ARC-016](ARC-016-persistence-triggered-from-the-ui-layer.md) | A finished recording is saved by the UI, not by the recorder | medium | closed |
 | [ARC-017](ARC-017-derived-titles-not-localizable.md) | Derived recording titles are hardcoded English | medium | open |
 | [ARC-018](ARC-018-notification-title-is-a-hex-fragment.md) | The recording notification is titled with eight hex characters | medium | open |
-| [ARC-019](ARC-019-download-guard-does-not-guard.md) | The concurrent-download guard does not guard the download | medium | open |
+| [ARC-019](ARC-019-download-guard-does-not-guard.md) | The concurrent-download guard does not guard the download | medium | closed |
 | [ARC-020](ARC-020-no-static-analysis-no-ci.md) | Nothing checks style, lint or correctness except a compiler | medium | fixed |
 | [ARC-021](ARC-021-no-version-catalog.md) | Dependency versions are string literals in the build file | medium | open |
 | [ARC-022](ARC-022-no-release-signing-no-versioning.md) | The release build cannot be released | medium | open |
@@ -90,7 +90,7 @@ inferred.
 | [ARC-028](ARC-028-stale-doc-references.md) | Comments point at files that no longer exist | low | open |
 | [ARC-029](ARC-029-locale-independent-formatting.md) | `String.format` without a Locale | low | open |
 | [ARC-030](ARC-030-wavwriter-seeks-every-chunk.md) | The WAV writer seeks before every write | low | open |
-| [ARC-031](ARC-031-model-handle-leak-on-throw.md) | A failed `nativeFreeModel` leaks the handle permanently | low | open |
+| [ARC-031](ARC-031-model-handle-leak-on-throw.md) | A failed `nativeFreeModel` leaks the handle permanently | low | closed |
 | [ARC-035](ARC-035-tab-transition-animated-a-pane-against-itself.md) | The tab transition animated each screen against itself | medium | fixed |
 | [ARC-036](ARC-036-dynamic-color-crashes-below-api-31.md) | The wallpaper-colours switch crashes on Android 8 through 11 | high | fixed |
 | [ARC-037](ARC-037-lint-warnings-formatter-and-ci.md) | Lint's 76 warnings, a formatter, and CI | medium | open |
