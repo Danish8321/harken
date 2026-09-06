@@ -523,7 +523,17 @@ private fun TranscriptRow(
                     Text(
                         stringResource(R.string.session_voice, segment.voiceIndex + 1),
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (segment.voiceIndex == 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+                        // The ink each voice reads in *on the card*, not the ink it reads
+                        // in on its own chip. onPrimaryContainer is ProtoColors.onAccent —
+                        // near-white in the light theme — so voice 1's label was white on
+                        // white and showed as a ghost behind the segment text (UI-036).
+                        // The chip above keeps its container/content pair: that one really
+                        // is text on the accent.
+                        color = if (segment.voiceIndex == 0) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        },
                     )
                 }
                 Text(segment.text, style = MaterialTheme.typography.bodyLarge)
