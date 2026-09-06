@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -311,7 +312,15 @@ fun SessionSheet(
                         clipboard.setText(AnnotatedString(state.plainText))
                         viewModel.confirm(R.string.session_toast_copied)
                     }) { Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.session_copy_transcript)) }
-                    IconButton(onClick = viewModel::share) { Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.session_share_transcript)) }
+                    IconButton(onClick = viewModel::shareTranscript) {
+                        Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.session_share_transcript))
+                    }
+                    // The recording itself, not just what was said in it. Disabled rather
+                    // than hidden when the WAV is gone, so the action does not appear and
+                    // disappear between two recordings that otherwise look the same.
+                    IconButton(onClick = viewModel::shareAudio, enabled = state.audioPath != null) {
+                        Icon(Icons.Filled.AudioFile, contentDescription = stringResource(R.string.session_share_audio))
+                    }
                     Spacer(Modifier.weight(1f))
                 }
             }

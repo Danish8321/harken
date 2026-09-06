@@ -102,6 +102,11 @@
     <string name="session_transcript_header">TRANSCRIPT</string>
     <string name="session_copy_transcript">Copy transcript</string>
     <string name="session_share_transcript">Share transcript</string>
+    <string name="session_share_audio">Share recording</string>
+    <string name="session_share_audio_missing">The audio for this recording is no longer on the phone.</string>
+    <string name="session_share_audio_failed">Couldn\'t prepare the recording to share.</string>
+    <string name="session_share_nothing_yet">There is no transcript to share yet.</string>
+    <string name="session_share_no_target">No app on this phone can take that.</string>
     <string name="session_summarizing">Summarizing…</string>
     <string name="session_resummarizing">Re-summarizing…</string>
     <string name="session_summarize">Summarize</string>

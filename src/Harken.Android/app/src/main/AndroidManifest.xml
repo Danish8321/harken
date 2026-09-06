@@ -56,5 +56,21 @@
             android:foregroundServiceType="dataSync"
             android:exported="false" />
 
+
+        <!-- Sharing a recording is the only way a user can keep their own copy: with
+             allowBackup off (ARC-002) there is no Auto Backup, so a lost phone is
+             otherwise every recording gone (ARC-033). exported=false with
+             grantUriPermissions means nothing can read a recording unless this app hands
+             it a URI, which happens only on an explicit Share. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 </manifest>

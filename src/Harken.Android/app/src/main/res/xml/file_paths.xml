@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Recordings are written to the root of filesDir as "<session id>.wav"
+  (RecordingController), so that is what has to be declared here. It grants nothing on its
+  own: a FileProvider hands out one read permission for one URI at a time, and the only
+  code that asks for one is the user tapping Share on a recording they are looking at.
+-->
+<paths>
+    <files-path name="recordings" path="." />
+</paths>

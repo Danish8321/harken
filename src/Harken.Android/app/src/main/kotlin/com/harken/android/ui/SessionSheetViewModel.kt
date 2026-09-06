@@ -1,10 +1,12 @@
 package com.harken.android.ui
 
 import android.app.Application
+import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.util.Log
 import androidx.annotation.StringRes
+import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
+import java.io.File
 import java.util.UUID
 
 private const val TAG = "SessionSheetViewModel"
@@ -262,7 +265,76 @@ class SessionSheetViewModel(
         _uiState.value = _uiState.value.copy(summaryOptionsOpen = open)
     }
 
-    fun share() { /* wired by the host Activity via ACTION_SEND, unchanged from the previous build */ }
+    /**
+     * Shares the transcript as text.
+     *
+     * This used to be an empty method behind a live Share button, so the button did
+     * nothing at all (ARC-033).
+     */
+    fun shareTranscript() {
+        val text = _uiState.value.plainText
+        if (text.isBlank()) {
+            confirm(R.string.session_share_nothing_yet)
+            return
+        }
+        send(
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, _uiState.value.title)
+                putExtra(Intent.EXTRA_TEXT, text)
+            },
+            R.string.session_share_transcript,
+        )
+    }
+
+    /**
+     * Shares the recording itself.
+     *
+     * The user's own copy is the only backup this app can offer: nothing is uploaded and,
+     * since ARC-002, nothing is in Auto Backup either. The URI is granted read-only, for
+     * this one file, to whichever app the user picks — the recording is not made readable
+     * to anything by existing.
+     */
+    fun shareAudio() {
+        val path = _uiState.value.audioPath
+        val file = path?.let(::File)
+        if (file == null || !file.exists()) {
+            confirm(R.string.session_share_audio_missing)
+            return
+        }
+        val app = getApplication<Application>()
+        val uri = runCatching { FileProvider.getUriForFile(app, "${app.packageName}.files", file) }
+            .getOrElse { e ->
+                Log.e(TAG, "Could not build a share URI for $path", e)
+                confirm(R.string.session_share_audio_failed)
+                return
+            }
+        send(
+            Intent(Intent.ACTION_SEND).apply {
+                type = "audio/x-wav"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, _uiState.value.title)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            },
+            R.string.session_share_audio,
+        )
+    }
+
+    /**
+     * NEW_TASK because this starts from the application context: a ViewModel outlives the
+     * composable that called it and holds no Activity to start from.
+     */
+    private fun send(intent: Intent, @StringRes chooserTitle: Int) {
+        val app = getApplication<Application>()
+        val chooser = Intent.createChooser(intent, app.getString(chooserTitle))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { app.startActivity(chooser) }
+            .onFailure { e ->
+                Log.e(TAG, "No app accepted the share intent", e)
+                confirm(R.string.session_share_no_target)
+            }
+    }
+
 
     fun confirm(@StringRes message: Int) {
         _uiState.value = _uiState.value.copy(toast = getApplication<Application>().getString(message))
