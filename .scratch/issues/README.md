@@ -97,3 +97,4 @@ inferred.
 | [ARC-036](ARC-036-dynamic-color-crashes-below-api-31.md) | The wallpaper-colours switch crashes on Android 8 through 11 | high | fixed |
 | [ARC-037](ARC-037-lint-warnings-formatter-and-ci.md) | Lint's 76 warnings, a formatter, and CI | medium | in-progress |
 | [ARC-038](ARC-038-typeface-depends-on-play-services.md) | The app's whole typeface system is a Play Services download | high | open |
+| [ARC-039](ARC-039-migration-test-asserts-a-guess.md) | The migration test asserts against a v1 schema typed out by hand | medium | fixed |

@@ -11,6 +11,13 @@ dotnet build Harken.slnx --nologo -warnaserror
 echo "== check: gradle assembleDebug (Harken.Android) =="
 (cd src/Harken.Android && "$GRADLEW" assembleDebug)
 
+# The instrumented tests need a device to *run*, so no gate here runs them. Nothing
+# compiled them either, which meant a refactor could break them and the break stayed
+# invisible until someone plugged in a phone weeks later. Assembling the test APK needs no
+# device and catches that, plus a broken test manifest and any asset the tests read.
+echo "== check: gradle assembleDebugAndroidTest (Harken.Android) =="
+(cd src/Harken.Android && "$GRADLEW" assembleDebugAndroidTest)
+
 # The release variant is the only one that runs lintVital, and it went unbuilt long enough
 # for a lint/AGP version mismatch to break it unnoticed. Gated here so it cannot rot again.
 echo "== check: gradle assembleRelease (Harken.Android) =="

@@ -149,8 +149,20 @@ android {
         }
         getByName("androidTest") {
             kotlin.srcDirs("src/androidTest/kotlin")
+            // MigrationTestHelper opens the exported schema JSON as a test asset. Without
+            // this it cannot see them and every migration test fails at "Cannot find the
+            // schema file", which reads like a missing migration and is not one.
+            assets.srcDirs(files("$projectDir/schemas"))
         }
     }
+}
+
+// Room writes the database's shape to JSON on every build (ARC-039). Two things depend on
+// it: MigrationTestHelper builds a real old-version database from it rather than from a
+// CREATE TABLE typed out by hand, and the committed files are the only record of what
+// each shipped version actually looked like.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {

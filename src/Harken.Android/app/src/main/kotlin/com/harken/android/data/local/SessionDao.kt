@@ -232,7 +232,7 @@ val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
     }
 }
 
-@Database(entities = [SessionRow::class, SegmentRow::class, SummaryRow::class], version = 2, exportSchema = false)
+@Database(entities = [SessionRow::class, SegmentRow::class, SummaryRow::class], version = 2, exportSchema = true)
 @TypeConverters(UuidConverters::class)
 abstract class HarkenDatabase : RoomDatabase() {
     abstract fun sessions(): SessionDao

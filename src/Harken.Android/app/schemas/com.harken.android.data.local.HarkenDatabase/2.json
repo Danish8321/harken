@@ -1,0 +1,175 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "dad8585e5a68a9f431300d580a9aebcc",
+    "entities": [
+      {
+        "tableName": "sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `startedAt` TEXT NOT NULL, `endedAt` TEXT, `source` TEXT NOT NULL, `segmentCount` INTEGER NOT NULL, `hasSummary` INTEGER NOT NULL, `transcriptionStatus` TEXT, `transcriptionFailureReason` TEXT, `durationSeconds` INTEGER, `localTitle` TEXT, `localTags` TEXT NOT NULL, `pendingUploadPath` TEXT, `syncedAt` INTEGER NOT NULL, `isLocalOnly` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAt",
+            "columnName": "startedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endedAt",
+            "columnName": "endedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "segmentCount",
+            "columnName": "segmentCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hasSummary",
+            "columnName": "hasSummary",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transcriptionStatus",
+            "columnName": "transcriptionStatus",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "transcriptionFailureReason",
+            "columnName": "transcriptionFailureReason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "durationSeconds",
+            "columnName": "durationSeconds",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "localTitle",
+            "columnName": "localTitle",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "localTags",
+            "columnName": "localTags",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingUploadPath",
+            "columnName": "pendingUploadPath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "syncedAt",
+            "columnName": "syncedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isLocalOnly",
+            "columnName": "isLocalOnly",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "segments",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `offsetSeconds` INTEGER NOT NULL, `text` TEXT NOT NULL, `voiceIndex` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "offsetSeconds",
+            "columnName": "offsetSeconds",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "voiceIndex",
+            "columnName": "voiceIndex",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "summaries",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `summary` TEXT NOT NULL, `generatedAt` TEXT NOT NULL, PRIMARY KEY(`sessionId`))",
+        "fields": [
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "summary",
+            "columnName": "summary",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generatedAt",
+            "columnName": "generatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sessionId"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'dad8585e5a68a9f431300d580a9aebcc')"
+    ]
+  }
+}
