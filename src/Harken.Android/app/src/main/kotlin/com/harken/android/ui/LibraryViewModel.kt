@@ -10,14 +10,19 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import com.harken.android.R
 import com.harken.android.container
+import com.harken.android.data.SearchQuery
 import com.harken.android.data.SessionRepository
 import com.harken.android.speech.TranscriptionCoordinator
 import com.harken.android.speech.TranscriptionService
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 private const val TAG = "LibraryViewModel"
@@ -32,6 +37,22 @@ data class LibraryUiState(
     val transcribingSessionId: UUID? = null,
 )
 
+/**
+ * What the search field is showing.
+ *
+ * Separate from [LibraryUiState] because it changes on every keystroke and the session
+ * list does not: folding the two together would recompose every card in the Library while
+ * someone types.
+ */
+data class LibrarySearchState(
+    val query: String = "",
+    val results: List<SessionRepository.SearchHit> = emptyList(),
+    val isSearching: Boolean = false,
+) {
+    /** True once the term is long enough to have been run — an empty list then means "no matches". */
+    val isActive: Boolean get() = query.trim().length >= SearchQuery.MinLength
+}
+
 /** Reads sessions straight from Room — recordings are transcribed entirely on-device. */
 class LibraryViewModel(
     application: Application,
@@ -40,6 +61,9 @@ class LibraryViewModel(
 
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
+
+    private val _search = MutableStateFlow(LibrarySearchState())
+    val searchState: StateFlow<LibrarySearchState> = _search.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -57,6 +81,31 @@ class LibraryViewModel(
                 _uiState.value = _uiState.value.copy(transcribingSessionId = id)
             }
         }
+        // collectLatest, so a keystroke cancels both the debounce and any query already
+        // running for the term before it — the last thing typed is the only thing queried.
+        viewModelScope.launch {
+            _search.map { it.query }.distinctUntilChanged().collectLatest { query ->
+                if (query.trim().length < SearchQuery.MinLength) {
+                    _search.value = _search.value.copy(results = emptyList(), isSearching = false)
+                    return@collectLatest
+                }
+                delay(SearchDebounceMs)
+                _search.value = _search.value.copy(isSearching = true)
+                val hits = runCatching { repository.search(query) }
+                    .onFailure { Log.e(TAG, "Search failed", it) }
+                    .getOrDefault(emptyList())
+                _search.value = _search.value.copy(results = hits, isSearching = false)
+            }
+        }
+    }
+
+    /** Typing. The query is run [SearchDebounceMs] after the last keystroke, not on each one. */
+    fun onSearchQueryChange(query: String) {
+        _search.value = _search.value.copy(query = query)
+    }
+
+    fun clearSearch() {
+        _search.value = LibrarySearchState()
     }
 
     /**
@@ -94,6 +143,9 @@ class LibraryViewModel(
     }
 
     companion object {
+        /** Long enough that a typed word runs one query, short enough to feel immediate. */
+        private const val SearchDebounceMs = 180L
+
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 LibraryViewModel(

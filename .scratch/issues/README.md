@@ -67,7 +67,7 @@ inferred.
 | [ARC-007](ARC-007-deleted-recording-comes-back.md) | A deleted recording reappears at the next launch | high | closed |
 | [ARC-008](ARC-008-sticky-restart-shows-phantom-error.md) | A sticky restart reports a recording the user never started | high | closed |
 | [ARC-009](ARC-009-wall-clock-durations.md) | Recording duration is measured with the wall clock | high | closed |
-| [ARC-032](ARC-032-no-search.md) | There is no way to find anything | high | open |
+| [ARC-032](ARC-032-no-search.md) | There is no way to find anything | high | fixed |
 | [ARC-010](ARC-010-chunk-rms-computed-three-times.md) | Every audio chunk's RMS is computed three times | medium | open |
 | [ARC-011](ARC-011-noisefloor-sorts-every-chunk.md) | The noise floor re-sorts its whole window on every chunk | medium | open |
 | [ARC-012](ARC-012-blocking-io-on-default-dispatcher.md) | Blocking reads run on the CPU dispatcher | medium | open |

@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -101,6 +103,8 @@ private const val TRANSCRIPT_STAGGER_STEP_MS = 30L
 fun SessionSheet(
     sessionId: UUID,
     onDismiss: () -> Unit,
+    /** A transcript line to open at, from a search result. Null opens at the top. */
+    focusSegmentId: UUID? = null,
     viewModel: SessionSheetViewModel = viewModel(factory = SessionSheetViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -121,6 +125,16 @@ fun SessionSheet(
     var summaryMenuOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(sessionId) { viewModel.load(sessionId) }
+
+    // The transcript loads after the sheet opens, so the scroll cannot be done when the
+    // sheet is built — it waits for the segment to actually exist in the list. The +1 is
+    // the header item above the segments.
+    val transcriptState = rememberLazyListState()
+    LaunchedEffect(focusSegmentId, state.segments) {
+        val target = focusSegmentId ?: return@LaunchedEffect
+        val index = state.segments.indexOfFirst { it.id == target }
+        if (index >= 0) transcriptState.animateScrollToItem(index + 1)
+    }
 
     // Audio must not outlive the sheet it was started from. The ViewModel is remembered
     // across sheet openings, so releasing here rather than only in onCleared is what
@@ -159,6 +173,7 @@ fun SessionSheet(
             @Suppress("DEPRECATION")
             CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
             LazyColumn(
+                state = transcriptState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, bottom = 118.dp),
             ) {
@@ -277,6 +292,7 @@ fun SessionSheet(
                         TranscriptRow(
                             segment = segment,
                             showVoice = state.voiceCount > 1,
+                            isFocused = segment.id == focusSegmentId,
                             isPlaying = state.isPlaying && activeSegment == index,
                             onPlayFromHere = {
                                 viewModel.seekToSegment(segment.offsetSeconds)
@@ -492,12 +508,16 @@ private fun TranscriptRow(
     showVoice: Boolean,
     isPlaying: Boolean,
     onPlayFromHere: () -> Unit,
+    /** The line a search result opened this transcript at. Outlined, not filled: the fill
+     *  is what "playing" means here, and the two states can be true at once. */
+    isFocused: Boolean = false,
 ) {
     // Tapping a line plays from it: the transcript is how you navigate a recording, and
     // the offset each line already carries is exactly the seek target.
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = if (isPlaying) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.background,
+        border = if (isFocused) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
         modifier = Modifier.clickable(role = Role.Button, onClick = onPlayFromHere),
     ) {
         Row(Modifier.padding(horizontal = 15.dp, vertical = 13.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {

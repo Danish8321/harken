@@ -151,7 +151,7 @@ fun AppNav() {
                         navController.navigate(Routes.Record) { popUpTo(Routes.Onboarding) { inclusive = true } }
                     })
                 }
-                composable(Routes.Record) { MainHost(navController) { open -> RecordScreen(onOpenSession = open) } }
+                composable(Routes.Record) { MainHost(navController) { open -> RecordScreen(onOpenSession = { open(it, null) }) } }
                 composable(Routes.Library) {
                     MainHost(navController) { open ->
                         LibraryScreen(onOpenSession = open, onGoToRecord = { navController.navigate(Routes.Record) })
@@ -178,11 +178,13 @@ private fun SplashPlaceholder() {
 @Composable
 private fun MainHost(
     navController: NavHostController,
-    content: @Composable (onOpenSession: (UUID) -> Unit) -> Unit,
+    content: @Composable (onOpenSession: (sessionId: UUID, focusSegmentId: UUID?) -> Unit) -> Unit,
 ) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    var openSessionId by remember { mutableStateOf<UUID?>(null) }
+    // The segment travels with the session id: a search result opens the transcript at the
+    // line that matched, and everything else opens it at the top.
+    var openSession by remember { mutableStateOf<OpenSession?>(null) }
 
     val c = LocalProtoColors.current
     val isRecording by RecordingState.isRecording.collectAsState()
@@ -206,13 +208,20 @@ private fun MainHost(
     ) { padding ->
         // No transition here: the shared-axis slide is the NavHost's, since only the
         // graph knows which screen is being left for which.
-        Box(Modifier.padding(padding)) { content { id -> openSessionId = id } }
+        Box(Modifier.padding(padding)) { content { id, segmentId -> openSession = OpenSession(id, segmentId) } }
     }
 
-    openSessionId?.let { id ->
-        SessionSheet(sessionId = id, onDismiss = { openSessionId = null })
+    openSession?.let { target ->
+        SessionSheet(
+            sessionId = target.sessionId,
+            focusSegmentId = target.focusSegmentId,
+            onDismiss = { openSession = null },
+        )
     }
 }
+
+/** Which recording the sheet is showing, and which line of it to open at. */
+private data class OpenSession(val sessionId: UUID, val focusSegmentId: UUID?)
 
 // A floating pill instead of Material's edge-to-edge NavigationBar (UI-021) — inset from
 // the screen edges and elevated on the surface color, adapted from the floating-nav

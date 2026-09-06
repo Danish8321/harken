@@ -28,6 +28,11 @@ class SessionRepository(
 ) : TranscriptionSink {
     private val dao = db.sessions()
 
+    private companion object {
+        /** More title matches than this is a term so common the list stops being useful. */
+        const val TitleMatchLimit = 50
+    }
+
     data class SessionView(
         val id: UUID,
         val title: String,
@@ -41,6 +46,22 @@ class SessionRepository(
         val tags: List<String>,
         val pendingUploadPath: String?,
         val isLocalOnly: Boolean,
+    )
+
+    /**
+     * One session that matched a search, and the first transcript line that matched in it.
+     *
+     * [matchCount] is over the segments this search read, not over the whole recording —
+     * see [SearchQuery.SegmentMatchLimit].
+     */
+    data class SearchHit(
+        val session: SessionView,
+        val matchCount: Int,
+        /** The matching transcript line, or null when only the title matched. */
+        val snippet: String?,
+        val offsetSeconds: Int?,
+        /** The segment to open the transcript at, or null when only the title matched. */
+        val segmentId: UUID?,
     )
 
     fun observeSessions(): Flow<List<SessionView>> = dao.observeSessions().map { rows -> rows.map(::toView) }
@@ -130,6 +151,56 @@ class SessionRepository(
             Telemetry.event("transcription_interrupted_recovered", "sessions" to stuck)
         }
         return stuck
+    }
+
+    /**
+     * Searches transcripts and user-typed titles.
+     *
+     * Sessions come back newest first, each with its earliest matching line, so the result
+     * list reads in the same order as the Library behind it. A term shorter than
+     * [SearchQuery.MinLength] returns nothing rather than most of the database.
+     */
+    suspend fun search(query: String): List<SearchHit> {
+        val term = query.trim()
+        if (term.length < SearchQuery.MinLength) return emptyList()
+
+        val startNanos = System.nanoTime()
+        val pattern = SearchQuery.likePattern(term)
+        val matches = dao.searchSegments(pattern, SearchQuery.SegmentMatchLimit)
+        val titleRows = dao.searchTitles(pattern, TitleMatchLimit)
+
+        // Already ordered by startedAt DESC, offsetSeconds ASC, and groupBy keeps that
+        // order — so the first entry of each group is the earliest match in the recording.
+        val bySession = matches.groupBy { it.sessionId }
+        // Guarded because Room renders an empty list as `IN ()`, which SQLite rejects.
+        val matchedRows = if (bySession.isEmpty()) emptyList() else dao.sessionsByIds(bySession.keys.toList())
+
+        val hits = (matchedRows + titleRows)
+            .distinctBy { it.id }
+            .sortedByDescending { it.startedAt }
+            .map { row ->
+                val inSession = bySession[row.id].orEmpty()
+                val first = inSession.firstOrNull()
+                SearchHit(
+                    session = toView(row),
+                    matchCount = inSession.size,
+                    snippet = first?.text,
+                    offsetSeconds = first?.offsetSeconds,
+                    segmentId = first?.segmentId,
+                )
+            }
+
+        // Shapes only: the length of what was typed, never the term itself. A search term
+        // is as private as the transcript it searches (ADR-0011), and logcat is readable
+        // by adb.
+        Telemetry.event(
+            "search",
+            "chars" to term.length,
+            "segmentMatches" to matches.size,
+            "sessions" to hits.size,
+            "elapsedMs" to Telemetry.elapsedMsSince(startNanos),
+        )
+        return hits
     }
 
     /**

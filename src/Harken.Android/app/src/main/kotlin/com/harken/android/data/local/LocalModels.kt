@@ -55,3 +55,16 @@ data class SummaryRow(
     val summary: String,
     val generatedAt: String,
 )
+
+/**
+ * A transcript line that matched a search, with the session it came from.
+ *
+ * A projection, not a table: Room maps the columns of the search JOIN onto it, so the
+ * result rows carry only what a result card renders.
+ */
+data class SegmentMatch(
+    val sessionId: UUID,
+    val segmentId: UUID,
+    val offsetSeconds: Int,
+    val text: String,
+)

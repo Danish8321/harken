@@ -6,6 +6,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,16 +21,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,15 +48,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
+import com.harken.android.data.SearchQuery
 import com.harken.android.data.SessionRepository
 import com.harken.android.ui.components.EmptyState
 import com.harken.android.ui.components.ErrorState
@@ -71,12 +87,13 @@ private const val STAGGER_STEP_MS = 35L
 
 @Composable
 fun LibraryScreen(
-    onOpenSession: (UUID) -> Unit = {},
+    onOpenSession: (sessionId: UUID, focusSegmentId: UUID?) -> Unit = { _, _ -> },
     onGoToRecord: () -> Unit = {},
     viewModel: LibraryViewModel = viewModel(factory = LibraryViewModel.Factory),
 ) {
     val c = LocalProtoColors.current
     val state by viewModel.uiState.collectAsState()
+    val search by viewModel.searchState.collectAsState()
     var filter by remember { mutableStateOf(LibraryFilter.All) }
 
     val visible = remember(state.sessions, filter) {
@@ -90,7 +107,11 @@ fun LibraryScreen(
     Column(Modifier.fillMaxSize().background(c.screenBg).padding(horizontal = 20.dp, vertical = 6.dp)) {
         Text(stringResource(R.string.library_title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 26.sp)
         Text(
-            viewModel.subtitle(state, visible),
+            if (search.isActive) {
+                pluralStringResource(R.plurals.library_search_result_count, search.results.size, search.results.size)
+            } else {
+                viewModel.subtitle(state, visible)
+            },
             color = c.textSecondary,
             fontFamily = ProtoBodyFont,
             fontSize = 13.5.sp,
@@ -98,13 +119,35 @@ fun LibraryScreen(
             modifier = Modifier.padding(top = 2.dp, bottom = 14.dp),
         )
 
-        Row(Modifier.fillMaxWidth().padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LibraryFilter.entries.forEach { option ->
-                FilterChipProto(c, selected = filter == option, label = option.label) { filter = option }
+        SearchField(
+            c = c,
+            query = search.query,
+            onQueryChange = viewModel::onSearchQueryChange,
+            onClear = viewModel::clearSearch,
+        )
+
+        // The tag filters narrow the list behind the search, not the results in front of
+        // it — showing both would offer two ways to reduce one list and answer neither
+        // question well.
+        if (!search.isActive) {
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LibraryFilter.entries.forEach { option ->
+                    FilterChipProto(c, selected = filter == option, label = option.label) { filter = option }
+                }
             }
         }
+        Spacer(Modifier.height(14.dp))
 
         when {
+            search.isActive -> SearchResults(
+                c = c,
+                term = search.query.trim(),
+                results = search.results,
+                isSearching = search.isSearching,
+                onOpen = onOpenSession,
+            )
+
             state.loadError != null -> ErrorState(
                 title = stringResource(R.string.library_load_failed_title),
                 body = stringResource(R.string.library_load_failed_body, state.loadError.orEmpty()),
@@ -153,7 +196,7 @@ fun LibraryScreen(
                                 longestSeconds = longest,
                                 sessionCount = visible.size,
                                 isTranscribing = session.id == state.transcribingSessionId,
-                                onOpen = { onOpenSession(session.id) },
+                                onOpen = { onOpenSession(session.id, null) },
                                 onTranscribe = { viewModel.transcribe(session) },
                                 transcribeEnabled = state.transcribingSessionId == null,
                             )
@@ -163,6 +206,193 @@ fun LibraryScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * The search field.
+ *
+ * A [BasicTextField] rather than an OutlinedTextField: the Library is a pill-and-card
+ * surface and a Material outlined box reads as a form control dropped into it. The pill
+ * keeps the same 48dp minimum target the filter chips have.
+ */
+@Composable
+private fun SearchField(
+    c: ProtoColors,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClear: () -> Unit,
+) {
+    val focusManager = LocalFocusManager.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .background(c.pillTrack, RoundedCornerShape(999.dp))
+            .padding(start = 16.dp, end = if (query.isEmpty()) 16.dp else 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Filled.Search,
+            contentDescription = null,
+            tint = c.textSecondary,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(10.dp))
+        BasicTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.weight(1f),
+            singleLine = true,
+            textStyle = TextStyle(color = c.text, fontFamily = ProtoBodyFont, fontSize = 14.sp),
+            cursorBrush = SolidColor(c.accent),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+            decorationBox = { field ->
+                if (query.isEmpty()) {
+                    Text(
+                        stringResource(R.string.library_search_hint),
+                        color = c.textSecondary,
+                        fontFamily = ProtoBodyFont,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                    )
+                }
+                field()
+            },
+        )
+        if (query.isNotEmpty()) {
+            IconButton(
+                onClick = {
+                    onClear()
+                    focusManager.clearFocus()
+                },
+                modifier = Modifier.size(48.dp),
+            ) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.library_search_clear),
+                    tint = c.textSecondary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResults(
+    c: ProtoColors,
+    term: String,
+    results: List<SessionRepository.SearchHit>,
+    isSearching: Boolean,
+    onOpen: (UUID, UUID?) -> Unit,
+) {
+    when {
+        // Only while there is nothing to show. Re-running the query on the next keystroke
+        // must not blank a list the user is already reading.
+        isSearching && results.isEmpty() -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            repeat(3) { SkeletonRow() }
+        }
+
+        results.isEmpty() -> EmptyState(
+            icon = Icons.Filled.Search,
+            title = stringResource(R.string.library_search_empty_title),
+            body = stringResource(R.string.library_search_empty_body),
+        )
+
+        else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(results, key = { it.session.id }) { hit ->
+                SearchResultCard(c = c, hit = hit, term = term) { onOpen(hit.session.id, hit.segmentId) }
+            }
+            item { Spacer(Modifier.height(8.dp)) }
+        }
+    }
+}
+
+/**
+ * One result: the recording, the line that matched, and where in the recording it is.
+ *
+ * Deliberately not a [SessionCard]: a result answers "is this the one I am looking for?",
+ * which the matched line answers and a duration bar does not.
+ */
+@Composable
+private fun SearchResultCard(
+    c: ProtoColors,
+    hit: SessionRepository.SearchHit,
+    term: String,
+    onOpen: () -> Unit,
+) {
+    val snippet = remember(hit.snippet, term) { hit.snippet?.let { SearchQuery.snippet(it, term) } }
+    val highlighted = remember(snippet, c.accent) {
+        val window = snippet ?: return@remember null
+        buildAnnotatedString {
+            append(window.text)
+            if (window.hasMatch) {
+                addStyle(
+                    SpanStyle(color = c.accent, fontWeight = FontWeight.Bold),
+                    window.matchStart,
+                    window.matchEnd.coerceAtMost(window.text.length),
+                )
+            }
+        }
+    }
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(c.card, RoundedCornerShape(24.dp))
+            .clickable(role = Role.Button, onClick = onOpen)
+            .padding(16.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                hit.session.title,
+                color = c.text,
+                fontFamily = ProtoBodyFont,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            hit.offsetSeconds?.let { at ->
+                Text(
+                    "${at / 60}:${(at % 60).toString().padStart(2, '0')}",
+                    color = c.textSecondary,
+                    fontFamily = ProtoBodyFont,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
+
+        if (highlighted != null) {
+            Text(
+                highlighted,
+                color = c.textSecondary,
+                fontFamily = ProtoBodyFont,
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+
+        Text(
+            if (hit.matchCount > 0) {
+                pluralStringResource(R.plurals.library_search_match_count, hit.matchCount, hit.matchCount)
+            } else {
+                stringResource(R.string.library_search_title_match)
+            },
+            color = c.textSecondary,
+            fontFamily = ProtoBodyFont,
+            fontWeight = FontWeight.Bold,
+            fontSize = 10.sp,
+            modifier = Modifier.padding(top = 8.dp),
+        )
     }
 }
 

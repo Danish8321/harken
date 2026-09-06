@@ -79,6 +79,19 @@
         <item quantity="other">%1$d recordings</item>
     </plurals>
     <string name="library_subtitle_transcribing">%1$s · %2$d transcribing</string>
+    <string name="library_search_hint">Search transcripts</string>
+    <string name="library_search_clear">Clear search</string>
+    <string name="library_search_empty_title">No matches</string>
+    <string name="library_search_empty_body">Nothing in your transcripts or titles matches that. Search covers what was said and names you have typed.</string>
+    <string name="library_search_title_match">Title match</string>
+    <plurals name="library_search_match_count">
+        <item quantity="one">%1$d match</item>
+        <item quantity="other">%1$d matches</item>
+    </plurals>
+    <plurals name="library_search_result_count">
+        <item quantity="one">%1$d recording matches</item>
+        <item quantity="other">%1$d recordings match</item>
+    </plurals>
 
     <!-- Session sheet -->
     <string name="session_delete">Delete recording</string>

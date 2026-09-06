@@ -176,6 +176,43 @@ interface SessionDao {
     @Query("DELETE FROM sessions WHERE id = :id")
     suspend fun deleteSession(id: UUID)
 
+    // Transcript search is a LIKE scan, not FTS4. The segments are the only text there
+    // is, they are already indexed by session, and a scan of every segment on a device
+    // holding a hundred recordings is a few milliseconds — measured, and reported as
+    // `search elapsedMs` telemetry so the decision stays evidence-backed. FTS4 with a
+    // content table would mean a virtual table plus five hand-written triggers in a
+    // migration over real user data, and it would match whole tokens only: "record" would
+    // not find "recording" without the user typing a wildcard. If the telemetry ever says
+    // the scan is slow, that is the moment to pay for the index.
+    //
+    // LIKE is case-insensitive for ASCII in SQLite by default, which is the behaviour a
+    // search field is expected to have. :pattern must come from SearchQuery.likePattern.
+    @Query(
+        """
+        SELECT sg.sessionId AS sessionId, sg.id AS segmentId, sg.offsetSeconds AS offsetSeconds, sg.text AS text
+        FROM segments sg
+        JOIN sessions s ON s.id = sg.sessionId
+        WHERE sg.text LIKE '%' || :pattern || '%' ESCAPE '\'
+        ORDER BY s.startedAt DESC, sg.offsetSeconds ASC
+        LIMIT :limit
+        """,
+    )
+    suspend fun searchSegments(pattern: String, limit: Int): List<SegmentMatch>
+
+    /** Only titles the user typed: a derived name is not stored, so it cannot be matched here. */
+    @Query(
+        """
+        SELECT * FROM sessions
+        WHERE localTitle LIKE '%' || :pattern || '%' ESCAPE '\'
+        ORDER BY startedAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun searchTitles(pattern: String, limit: Int): List<SessionRow>
+
+    @Query("SELECT * FROM sessions WHERE id IN (:ids)")
+    suspend fun sessionsByIds(ids: List<UUID>): List<SessionRow>
+
     @Query("SELECT DISTINCT localTags FROM sessions WHERE localTags != ''")
     fun observeTagStrings(): Flow<List<String>>
 }
