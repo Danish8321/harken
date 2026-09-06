@@ -41,8 +41,7 @@ private const val TAG = "RecordingForegroundService"
  */
 private const val SlowChunkMs = 50L
 
-// Ports src/Harken.Mobile/Platforms/Android/RecordingForegroundService.cs — direct
-// android.app.Service + NotificationCompat, no MAUI wrapper layer.
+// A plain android.app.Service and NotificationCompat, with no wrapper layer.
 class RecordingForegroundService : Service() {
 
     private val writerGate = Any()

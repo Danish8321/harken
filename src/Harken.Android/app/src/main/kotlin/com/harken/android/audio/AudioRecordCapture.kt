@@ -15,8 +15,8 @@ import kotlin.coroutines.CoroutineContext
 
 private const val TAG = "AudioRecordCapture"
 
-// Ports src/Harken.Mobile/Platforms/Android/AndroidAudioCapture.cs directly against
-// AudioRecord — no MAUI binding layer in between.
+// Capture straight against AudioRecord, with no binding layer between this class and
+// the microphone.
 class AudioRecordCapture(
     /**
      * Called with the capture buffer itself and the number of bytes in it, which is valid

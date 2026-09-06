@@ -4,10 +4,10 @@ import android.content.Context
 import java.io.File
 import java.util.UUID
 
-// Ports src/Harken.Mobile/Platforms/Android/AndroidRecordingService.cs — starts the
-// foreground service with the recording id/path as intent extras (a separate component,
-// so it can't be handed an object reference), and marks RecordingState started here so
-// the UI sees "recording" the instant it asks rather than after the service is scheduled.
+// Starts the foreground service with the recording id and path as intent extras (a
+// separate component, so it cannot be handed an object reference), and marks
+// RecordingState started here so the UI sees "recording" the instant it asks rather than
+// after the service is scheduled.
 object RecordingController {
     fun startRecording(context: Context): UUID {
         val recordingId = UUID.randomUUID()

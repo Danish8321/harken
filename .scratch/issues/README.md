@@ -33,6 +33,7 @@ relative-luminance formula.
 | [UI-031](UI-031-review-findings-solid-dry.md) | Standards/Spec review findings: SOLID/DRY/KISS/YAGNI pass | high | fixed |
 | [UI-032](UI-032-on-device-pivot-leftovers.md) | On-device pivot leftovers: hardcoded model claim, stale backend copy, dead upload states, undocumented ink system, illegible duration bar | high | resolved |
 | [UI-036](UI-036-voice-one-label-invisible.md) | The "Voice 1" label is painted in the on-accent colour | medium | fixed |
+| [UI-037](UI-037-stuck-transcription-and-repair-header.md) | Stuck-transcription reconciliation + wire up `WavWriter.repairHeader` | medium | fixed |
 
 UI-019..UI-027 were driven by direct interactive requests and have no
 ticket files of their own — [UI-030](UI-030-interactive-pass-backfill.md)
@@ -87,8 +88,8 @@ inferred.
 | [ARC-026](ARC-026-viewmodel-holds-navigation.md) | A ViewModel holds the navigation callbacks | medium | closed |
 | [ARC-033](ARC-033-no-export.md) | Nothing can leave the app except a copied transcript | medium | fixed |
 | [ARC-034](ARC-034-no-pause-resume.md) | A recording cannot be paused | medium | fixed |
-| [ARC-027](ARC-027-duplicate-tracker-id.md) | Two tickets share the ID UI-032 | low | open |
-| [ARC-028](ARC-028-stale-doc-references.md) | Comments point at files that no longer exist | low | open |
+| [ARC-027](ARC-027-duplicate-tracker-id.md) | Two tickets share the ID UI-032 | low | fixed |
+| [ARC-028](ARC-028-stale-doc-references.md) | Comments point at files that no longer exist | low | fixed |
 | [ARC-029](ARC-029-locale-independent-formatting.md) | `String.format` without a Locale | low | fixed |
 | [ARC-030](ARC-030-wavwriter-seeks-every-chunk.md) | The WAV writer seeks before every write | low | fixed |
 | [ARC-031](ARC-031-model-handle-leak-on-throw.md) | A failed `nativeFreeModel` leaks the handle permanently | low | closed |

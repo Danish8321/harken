@@ -38,9 +38,9 @@ private data class InProgress(
     val pausedAtElapsedMs: Long? = null,
 )
 
-// Ports src/Harken.Mobile/Services/RecordingState.cs — a process-wide singleton (the
-// foreground service and the Compose UI run in the same process, so a bound-service
-// connection would be ceremony around a field read). Guarded with an AtomicReference
+// A process-wide singleton: the foreground service and the Compose UI run in the same
+// process, so a bound-service connection would be ceremony around a field read.
+// Guarded with an AtomicReference
 // instead of a lock: the writer is the capture thread, the reader is the UI thread.
 object RecordingState {
     private val current = AtomicReference<InProgress?>(null)

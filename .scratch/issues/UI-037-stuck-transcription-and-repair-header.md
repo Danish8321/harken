@@ -1,4 +1,10 @@
-# UI-032 — Stuck-transcription reconciliation + wire up WavWriter.repairHeader
+# UI-037 — Stuck-transcription reconciliation + wire up WavWriter.repairHeader
+
+> Renumbered from UI-032 by [ARC-027](ARC-027-duplicate-tracker-id.md): this
+> ticket and `UI-032-on-device-pivot-leftovers.md` were both filed as UI-032.
+> The other one keeps the number — it is the one the index and the code
+> comments already point at. Commits dated on or before 2026-09-05 that say
+> "UI-032" may mean either; after that date it means the pivot-leftovers ticket.
 
 - **Severity:** medium
 - **Status:** fixed — both halves closed, see "Resolution" below.
