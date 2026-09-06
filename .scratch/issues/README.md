@@ -95,4 +95,5 @@ inferred.
 | [ARC-031](ARC-031-model-handle-leak-on-throw.md) | A failed `nativeFreeModel` leaks the handle permanently | low | closed |
 | [ARC-035](ARC-035-tab-transition-animated-a-pane-against-itself.md) | The tab transition animated each screen against itself | medium | fixed |
 | [ARC-036](ARC-036-dynamic-color-crashes-below-api-31.md) | The wallpaper-colours switch crashes on Android 8 through 11 | high | fixed |
-| [ARC-037](ARC-037-lint-warnings-formatter-and-ci.md) | Lint's 76 warnings, a formatter, and CI | medium | open |
+| [ARC-037](ARC-037-lint-warnings-formatter-and-ci.md) | Lint's 76 warnings, a formatter, and CI | medium | in-progress |
+| [ARC-038](ARC-038-typeface-depends-on-play-services.md) | The app's whole typeface system is a Play Services download | high | open |
