@@ -47,3 +47,47 @@ UI-001 (ships broken now) → UI-003 → UI-004 / UI-005 → UI-002 (largest) �
 UI/UX modernization pass (2026-08-28), sequential: UI-009 → UI-010 → UI-011 →
 UI-012 → UI-013 → UI-014 → UI-015 → UI-016 → UI-017 → UI-018 (audit last,
 on purpose — it sweeps whatever the earlier tickets leave inconsistent).
+
+## ARC — architecture review, 2026-09-06
+
+Line-by-line architect review of the whole repository (8,456 Kotlin LOC,
+5,214 C# LOC) against SOLID, DRY, KISS and YAGNI, plus a daily-driver read of
+the product surface. Every finding below was verified by reading the code, not
+inferred.
+
+| ID | Title | Severity | Status |
+|----|-------|----------|--------|
+| [ARC-001](ARC-001-no-launcher-icon.md) | The app ships with no launcher icon | critical | open |
+| [ARC-002](ARC-002-allowbackup-exfiltrates-recordings.md) | `allowBackup=true` copies recordings and transcripts off the phone | critical | open |
+| [ARC-003](ARC-003-transcription-has-no-foreground-service.md) | A transcription is killed whenever the user leaves the app | critical | open |
+| [ARC-004](ARC-004-cleartext-traffic.md) | `usesCleartextTraffic=true` for an app that only talks HTTPS | high | open |
+| [ARC-005](ARC-005-model-download-has-no-integrity-check.md) | The downloaded model is never verified, only counted | high | open |
+| [ARC-006](ARC-006-audiorecord-use-after-release.md) | `AudioRecordCapture.stop()` can release a native object mid-read | high | open |
+| [ARC-007](ARC-007-deleted-recording-comes-back.md) | A deleted recording reappears at the next launch | high | open |
+| [ARC-008](ARC-008-sticky-restart-shows-phantom-error.md) | A sticky restart reports a recording the user never started | high | open |
+| [ARC-009](ARC-009-wall-clock-durations.md) | Recording duration is measured with the wall clock | high | open |
+| [ARC-032](ARC-032-no-search.md) | There is no way to find anything | high | open |
+| [ARC-010](ARC-010-chunk-rms-computed-three-times.md) | Every audio chunk's RMS is computed three times | medium | open |
+| [ARC-011](ARC-011-noisefloor-sorts-every-chunk.md) | The noise floor re-sorts its whole window on every chunk | medium | open |
+| [ARC-012](ARC-012-blocking-io-on-default-dispatcher.md) | Blocking reads run on the CPU dispatcher | medium | open |
+| [ARC-013](ARC-013-per-chunk-allocation.md) | A fresh byte array is allocated for every audio chunk | medium | open |
+| [ARC-014](ARC-014-no-composition-root.md) | Every ViewModel builds its own dependencies | medium | open |
+| [ARC-015](ARC-015-domain-speaks-a-removed-backends-language.md) | The data layer speaks the language of a removed backend | medium | open |
+| [ARC-016](ARC-016-persistence-triggered-from-the-ui-layer.md) | A finished recording is saved by the UI, not by the recorder | medium | open |
+| [ARC-017](ARC-017-derived-titles-not-localizable.md) | Derived recording titles are hardcoded English | medium | open |
+| [ARC-018](ARC-018-notification-title-is-a-hex-fragment.md) | The recording notification is titled with eight hex characters | medium | open |
+| [ARC-019](ARC-019-download-guard-does-not-guard.md) | The concurrent-download guard does not guard the download | medium | open |
+| [ARC-020](ARC-020-no-static-analysis-no-ci.md) | Nothing checks style, lint or correctness except a compiler | medium | open |
+| [ARC-021](ARC-021-no-version-catalog.md) | Dependency versions are string literals in the build file | medium | open |
+| [ARC-022](ARC-022-no-release-signing-no-versioning.md) | The release build cannot be released | medium | open |
+| [ARC-023](ARC-023-instrumented-tests-never-run.md) | The instrumented tests are in no gate | medium | open |
+| [ARC-024](ARC-024-dead-dotnet-tier.md) | Half the repository is a backend nothing calls | medium | open |
+| [ARC-025](ARC-025-collectasstate-without-lifecycle.md) | Flows keep collecting while the app is backgrounded | medium | open |
+| [ARC-026](ARC-026-viewmodel-holds-navigation.md) | A ViewModel holds the navigation callbacks | medium | open |
+| [ARC-033](ARC-033-no-export.md) | Nothing can leave the app except a copied transcript | medium | open |
+| [ARC-034](ARC-034-no-pause-resume.md) | A recording cannot be paused | medium | open |
+| [ARC-027](ARC-027-duplicate-tracker-id.md) | Two tickets share the ID UI-032 | low | open |
+| [ARC-028](ARC-028-stale-doc-references.md) | Comments point at files that no longer exist | low | open |
+| [ARC-029](ARC-029-locale-independent-formatting.md) | `String.format` without a Locale | low | open |
+| [ARC-030](ARC-030-wavwriter-seeks-every-chunk.md) | The WAV writer seeks before every write | low | open |
+| [ARC-031](ARC-031-model-handle-leak-on-throw.md) | A failed `nativeFreeModel` leaks the handle permanently | low | open |
