@@ -1,6 +1,7 @@
 package com.harken.android.audio
 
 import java.io.RandomAccessFile
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -53,6 +54,33 @@ class WavWriterTest {
         WavWriter(RandomAccessFile(file, "rw")).use { it.write(ByteArray(50), 0, 50) }
 
         assertFalse(WavWriter.repairHeader(file.absolutePath))
+        file.delete()
+    }
+
+    @Test
+    fun `successive writes append in order`() {
+        // write() no longer seeks before each chunk (ARC-030): it relies on the pointer
+        // being left at the end of the data by the header and by the previous write. If
+        // that invariant ever breaks, chunks overwrite each other and the recording is
+        // silence with one chunk in it.
+        val file = kotlin.io.path.createTempFile().toFile()
+        file.delete()
+        WavWriter(RandomAccessFile(file, "rw")).use { writer ->
+            writer.write(ByteArray(4) { 1 }, 0, 4)
+            writer.write(ByteArray(4) { 2 }, 0, 4)
+            // Offset and length honoured: the capture buffer is reused and only partly
+            // filled, so a write of the whole array would append the previous chunk's tail.
+            writer.write(ByteArray(8) { 3 }, 2, 4)
+        }
+
+        val raf = RandomAccessFile(file, "r")
+        raf.seek(WavFormat.HeaderLength.toLong())
+        val data = ByteArray(12)
+        raf.readFully(data)
+        assertArrayEquals(byteArrayOf(1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3), data)
+        raf.seek(40)
+        assertEquals(12, readIntLE(raf))
+        raf.close()
         file.delete()
     }
 

@@ -38,6 +38,12 @@ class NoiseFloor(private val windowBytes: Int = WindowBytes) {
     private val sizes = ArrayDeque<Int>()
     private var bytesHeld = 0
 
+    // The last floor computed, or -1 if the window has changed since. The floor moves by
+    // at most one entry per chunk but was re-derived — copy the window, sort it — by every
+    // read of either getter below, several times a second for the length of the recording
+    // (ARC-011). One chunk in, at most one sort.
+    private var cachedFloor = -1
+
     /** Records one chunk's RMS [chunkRms], which stood for [bytes] of audio. */
     fun observe(chunkRms: Int, bytes: Int) {
         if (bytes <= 0) return
@@ -51,6 +57,22 @@ class NoiseFloor(private val windowBytes: Int = WindowBytes) {
             levels.removeFirst()
             bytesHeld -= sizes.removeFirst()
         }
+        cachedFloor = -1
+    }
+
+    /**
+     * The percentile of the window that stands for "what this recording sounds like when
+     * nobody is talking". Memoised: the answer only changes when [observe] changes the
+     * window.
+     */
+    private fun floor(): Int {
+        if (cachedFloor >= 0) return cachedFloor
+        if (levels.isEmpty()) return 0
+        val ordered = levels.toIntArray()
+        ordered.sort()
+        val index = (ordered.size * SpeechSpans.NoiseFloorPercentile / 100).coerceAtMost(ordered.lastIndex)
+        cachedFloor = ordered[index]
+        return cachedFloor
     }
 
     /**
@@ -64,24 +86,10 @@ class NoiseFloor(private val windowBytes: Int = WindowBytes) {
      * bag never times out.
      */
     val speechThreshold: Int
-        get() {
-            if (levels.isEmpty()) return MinSpeechThreshold
-            val ordered = levels.toIntArray()
-            ordered.sort()
-            val floorIndex = (ordered.size * SpeechSpans.NoiseFloorPercentile / 100)
-                .coerceAtMost(ordered.lastIndex)
-            return (ordered[floorIndex] * SpeechFactor)
-                .coerceIn(MinSpeechThreshold, MaxSpeechThreshold)
-        }
+        get() = (floor() * SpeechFactor).coerceIn(MinSpeechThreshold, MaxSpeechThreshold)
 
     /** The current estimate of the floor itself, for telemetry. */
-    val estimate: Int
-        get() {
-            if (levels.isEmpty()) return 0
-            val ordered = levels.toIntArray()
-            ordered.sort()
-            return ordered[(ordered.size * SpeechSpans.NoiseFloorPercentile / 100).coerceAtMost(ordered.lastIndex)]
-        }
+    val estimate: Int get() = floor()
 
     companion object {
         /**

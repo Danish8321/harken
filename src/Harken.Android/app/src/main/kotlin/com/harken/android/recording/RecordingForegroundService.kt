@@ -9,6 +9,7 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import com.harken.android.audio.AudioRecordCapture
+import com.harken.android.audio.Pcm16
 import com.harken.android.audio.RecordingStopReason
 import com.harken.android.audio.SilenceDetector
 import com.harken.android.audio.WavFormat
@@ -167,7 +168,11 @@ class RecordingForegroundService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun writeChunk(chunk: ByteArray) {
+    /**
+     * [length] bytes of [chunk] are this chunk; the array is the capture buffer and is
+     * only valid until this returns (ARC-013), so nothing here may keep a reference to it.
+     */
+    private fun writeChunk(chunk: ByteArray, length: Int) {
         if (paused.get()) {
             // Not written, not counted, and not shown to the silence detector — so the
             // five-minute auto-stop does not run down over a break, and the WAV contains
@@ -177,11 +182,14 @@ class RecordingForegroundService : Service() {
             return
         }
         var stopReason = RecordingStopReason.None
+        // Once, here, for all three readers of it: the meter, the noise floor and the
+        // silence verdict (ARC-010).
+        val level = Pcm16.rms(chunk, 0, length)
         val writeStartNs = System.nanoTime()
         try {
             synchronized(writerGate) {
-                writer?.write(chunk, 0, chunk.size)
-                stopReason = silenceDetector?.add(chunk, 0, chunk.size) ?: RecordingStopReason.None
+                writer?.write(chunk, 0, length)
+                stopReason = silenceDetector?.add(level, length) ?: RecordingStopReason.None
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed writing an audio chunk to disk", e)
@@ -197,11 +205,11 @@ class RecordingForegroundService : Service() {
         }
         val writeMs = Telemetry.elapsedMsSince(writeStartNs)
         chunkCount += 1
-        byteCount += chunk.size
+        byteCount += length
         if (writeMs > maxChunkWriteMs) maxChunkWriteMs = writeMs
         if (writeMs > SlowChunkMs) slowChunks += 1
 
-        RecordingState.publishAmplitude(pcm16Rms(chunk))
+        RecordingState.publishAmplitude(Pcm16.normalized(level))
         if (stopReason != RecordingStopReason.None) {
             stopRecording(stopReason)
         }
@@ -238,23 +246,6 @@ class RecordingForegroundService : Service() {
     private fun onCaptureError(message: String) {
         RecordingState.publishError(message)
         stopRecording(RecordingStopReason.None)
-    }
-
-    /** RMS of a little-endian 16-bit PCM chunk, normalized to [0, 1] against full scale. */
-    private fun pcm16Rms(chunk: ByteArray): Float {
-        if (chunk.size < 2) return 0f
-        var sumSquares = 0.0
-        var sampleCount = 0
-        var i = 0
-        while (i + 1 < chunk.size) {
-            val sample = ((chunk[i + 1].toInt() shl 8) or (chunk[i].toInt() and 0xFF)).toShort().toInt()
-            sumSquares += (sample * sample).toDouble()
-            sampleCount += 1
-            i += 2
-        }
-        if (sampleCount == 0) return 0f
-        val rms = kotlin.math.sqrt(sumSquares / sampleCount)
-        return (rms / Short.MAX_VALUE).toFloat().coerceIn(0f, 1f)
     }
 
     /**

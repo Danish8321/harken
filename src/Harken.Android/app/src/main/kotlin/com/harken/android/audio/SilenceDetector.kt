@@ -30,14 +30,19 @@ class SilenceDetector(
     private val bytesPerMs: Double =
         (WavFormat.SampleRate * WavFormat.Channels * (WavFormat.BitsPerSample / 8)) / 1000.0
 
-    fun add(pcm: ByteArray, offset: Int, length: Int): RecordingStopReason {
-        totalBytes += length
-        noiseFloor.observe(chunkRms(pcm, offset, length), length)
+    /**
+     * Takes one chunk's level, not the chunk. The bytes are read once where they arrive
+     * ([Pcm16.rms]) and the number is passed down — this detector used to compute it twice
+     * more over the same bytes (ARC-010).
+     */
+    fun add(chunkRms: Int, bytes: Int): RecordingStopReason {
+        totalBytes += bytes
+        noiseFloor.observe(chunkRms, bytes)
 
-        silentBytes = if (isSilent(pcm, offset, length)) {
-            silentBytes + length.toLong()
+        silentBytes = if (isSilent(chunkRms)) {
+            silentBytes + bytes.toLong()
         } else {
-            (silentBytes - length.toLong() * AudibleDecayFactor).coerceAtLeast(0L)
+            (silentBytes - bytes.toLong() * AudibleDecayFactor).coerceAtLeast(0L)
         }
         if (silentBytes > peakSilentBytes) peakSilentBytes = silentBytes
 
@@ -81,36 +86,7 @@ class SilenceDetector(
      * So a chunk is speech when it rises well above what this recording has sounded like
      * recently — see [NoiseFloor], which owns that judgement and its constants.
      */
-    private fun isSilent(pcm: ByteArray, offset: Int, length: Int): Boolean =
-        chunkRms(pcm, offset, length) < noiseFloor.speechThreshold
-
-    /**
-     * The level of the chunk, not its loudest sample.
-     *
-     * Reading the peak let one click speak for a whole chunk: measured on a Nothing Phone
-     * 2, chunk peak cleared 500 in 86% of a 7m25s capture of an ordinary room, holding the
-     * longest quiet run to 1.4s against the 300s the timeout needs.
-     *
-     * The mean square is taken in Long — the loudest possible chunk sums 32768² per sample
-     * and stays inside it — and rooted once per chunk, six times a second at the 160 ms
-     * chunks the capture delivers. The root is what makes the value comparable to a floor
-     * read off other chunks.
-     */
-    private fun chunkRms(pcm: ByteArray, offset: Int, length: Int): Int {
-        var sumOfSquares = 0L
-        var samples = 0L
-        var i = offset
-        // Whole 16-bit little-endian samples only. A trailing odd byte cannot be read as a
-        // sample and is ignored rather than misread as a loud one.
-        while (i + 1 < offset + length) {
-            val sample = ((pcm[i + 1].toInt() shl 8) or (pcm[i].toInt() and 0xFF)).toShort().toLong()
-            sumOfSquares += sample * sample
-            samples++
-            i += 2
-        }
-        if (samples == 0L) return 0
-        return kotlin.math.sqrt(sumOfSquares.toDouble() / samples).toInt()
-    }
+    private fun isSilent(chunkRms: Int): Boolean = chunkRms < noiseFloor.speechThreshold
 
     private fun toDuration(bytes: Long): Long = (bytes / bytesPerMs).toLong()
 

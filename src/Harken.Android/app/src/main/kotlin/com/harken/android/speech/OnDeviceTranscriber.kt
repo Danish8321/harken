@@ -12,14 +12,15 @@ import org.json.JSONArray
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.Locale
 
 /** Bytes pulled from the WAV per read. 64 KiB is 2 seconds of 16 kHz mono 16-bit audio. */
 private const val ReadBlockBytes = 64 * 1024
 
 /**
- * A single decoded segment from an on-device whisper.cpp transcription. Deliberately not
- * the backend's `TranscribedSegment` shape (see network/HarkenApi.kt) — this is a
- * local-only, on-device concept with no server counterpart (ADR-0011).
+ * A single decoded segment from an on-device whisper.cpp transcription. Deliberately its
+ * own type rather than a shape shared with a server: this is a local-only, on-device
+ * concept, and the backend's transcription client was deleted outright (ADR-0011).
  */
 data class LocalTranscribedSegment(
     val offsetSeconds: Int,
@@ -135,7 +136,9 @@ class OnDeviceTranscriber(
                 val sampleCount = pcmSampleCount(file)
 
                 val scanStartNs = System.nanoTime()
-                val windowRms = scanWindowRms(file, sampleCount)
+                // Blocking reads belong on IO; the decode below is the part that genuinely
+                // uses a core, and it stays on Default (ARC-012).
+                val windowRms = withContext(Dispatchers.IO) { scanWindowRms(file, sampleCount) }
                 val spans = SpeechSpans.assemble(windowRms, sampleCount)
                 val scanMs = Telemetry.elapsedMsSince(scanStartNs)
 
@@ -164,7 +167,7 @@ class OnDeviceTranscriber(
                 var decodedSoFar = 0L
                 val segments = spans.flatMapIndexed { index, span ->
                     val readStartNs = System.nanoTime()
-                    val pcm16 = readSamples(file, span.startSample, span.sampleCount)
+                    val pcm16 = withContext(Dispatchers.IO) { readSamples(file, span.startSample, span.sampleCount) }
                     readMs += Telemetry.elapsedMsSince(readStartNs)
 
                     val decodeStartNs = System.nanoTime()
@@ -243,7 +246,10 @@ class OnDeviceTranscriber(
      * bearable; at 3.0 a one-hour meeting costs three hours.
      */
     private fun realtimeFactor(decodeMs: Long, audioSeconds: Int): String =
-        if (audioSeconds <= 0) "0.00" else String.format("%.2f", decodeMs / (audioSeconds * 1000.0))
+        // Locale.ROOT: this goes into a key=value telemetry line, and a device set to a
+        // decimal-comma locale would emit realtimeFactor=1,84 and break every reader of
+        // those logs (ARC-029). Locale.getDefault() is for text a person reads.
+        if (audioSeconds <= 0) "0.00" else String.format(Locale.ROOT, "%.2f", decodeMs / (audioSeconds * 1000.0))
 
     /** Releases the native model handle. Safe to call even if a model was never loaded. */
     override fun release() {

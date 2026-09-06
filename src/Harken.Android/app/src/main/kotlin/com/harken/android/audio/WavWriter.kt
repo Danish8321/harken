@@ -53,8 +53,13 @@ class WavWriter(private val file: RandomAccessFile) : AutoCloseable {
         writeIntLE(0) // data chunk size, patched on close
     }
 
+    /**
+     * Appends to the data chunk. No seek: the pointer is left at the end of the data by
+     * the placeholder header and by every write, and the only thing that ever moves it is
+     * [patchLengths], which runs once, on close. Seeking to where the pointer already was,
+     * 6.25 times a second for three hours, was a syscall per chunk for nothing (ARC-030).
+     */
     fun write(pcm: ByteArray, offset: Int, length: Int) {
-        file.seek(WavFormat.HeaderLength.toLong() + dataLength)
         file.write(pcm, offset, length)
         dataLength += length
     }
@@ -65,6 +70,14 @@ class WavWriter(private val file: RandomAccessFile) : AutoCloseable {
     }
 
     private fun patchLengths() {
+        // Both header fields are unsigned 32-bit, so the format itself cannot describe a
+        // longer file. The app's three-hour cap is 345 MB, a hundredth of this, so it
+        // cannot fire today — it is here because this is the value that decides whether
+        // the recording is readable at all, and a silent narrowing would write a negative
+        // length into a file the user believes they still have.
+        require(dataLength + RiffHeaderOverhead <= MaxRiffLength) {
+            "WAV data length $dataLength exceeds the format's 4 GB limit"
+        }
         file.seek(4)
         writeIntLE((36 + dataLength).toInt())
         file.seek(40)
@@ -88,6 +101,12 @@ class WavWriter(private val file: RandomAccessFile) : AutoCloseable {
     }
 
     companion object {
+        /** Bytes of RIFF header counted by the size field at offset 4, beside the data. */
+        private const val RiffHeaderOverhead = 36
+
+        /** The largest value an unsigned 32-bit RIFF size field can hold. */
+        private const val MaxRiffLength = 0xFFFF_FFFFL
+
         // Repairs a WAV file left with a zero/placeholder data-length header because the
         // process died mid-capture (e.g. killed foreground service) before close() patched
         // it. Returns true if a repair was made, false if the header already matched.

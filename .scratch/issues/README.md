@@ -68,10 +68,10 @@ inferred.
 | [ARC-008](ARC-008-sticky-restart-shows-phantom-error.md) | A sticky restart reports a recording the user never started | high | closed |
 | [ARC-009](ARC-009-wall-clock-durations.md) | Recording duration is measured with the wall clock | high | closed |
 | [ARC-032](ARC-032-no-search.md) | There is no way to find anything | high | fixed |
-| [ARC-010](ARC-010-chunk-rms-computed-three-times.md) | Every audio chunk's RMS is computed three times | medium | open |
-| [ARC-011](ARC-011-noisefloor-sorts-every-chunk.md) | The noise floor re-sorts its whole window on every chunk | medium | open |
-| [ARC-012](ARC-012-blocking-io-on-default-dispatcher.md) | Blocking reads run on the CPU dispatcher | medium | open |
-| [ARC-013](ARC-013-per-chunk-allocation.md) | A fresh byte array is allocated for every audio chunk | medium | open |
+| [ARC-010](ARC-010-chunk-rms-computed-three-times.md) | Every audio chunk's RMS is computed three times | medium | fixed |
+| [ARC-011](ARC-011-noisefloor-sorts-every-chunk.md) | The noise floor re-sorts its whole window on every chunk | medium | fixed |
+| [ARC-012](ARC-012-blocking-io-on-default-dispatcher.md) | Blocking reads run on the CPU dispatcher | medium | fixed |
+| [ARC-013](ARC-013-per-chunk-allocation.md) | A fresh byte array is allocated for every audio chunk | medium | fixed |
 | [ARC-014](ARC-014-no-composition-root.md) | Every ViewModel builds its own dependencies | medium | closed |
 | [ARC-015](ARC-015-domain-speaks-a-removed-backends-language.md) | The data layer speaks the language of a removed backend | medium | blocked |
 | [ARC-016](ARC-016-persistence-triggered-from-the-ui-layer.md) | A finished recording is saved by the UI, not by the recorder | medium | closed |
@@ -89,8 +89,8 @@ inferred.
 | [ARC-034](ARC-034-no-pause-resume.md) | A recording cannot be paused | medium | fixed |
 | [ARC-027](ARC-027-duplicate-tracker-id.md) | Two tickets share the ID UI-032 | low | open |
 | [ARC-028](ARC-028-stale-doc-references.md) | Comments point at files that no longer exist | low | open |
-| [ARC-029](ARC-029-locale-independent-formatting.md) | `String.format` without a Locale | low | open |
-| [ARC-030](ARC-030-wavwriter-seeks-every-chunk.md) | The WAV writer seeks before every write | low | open |
+| [ARC-029](ARC-029-locale-independent-formatting.md) | `String.format` without a Locale | low | fixed |
+| [ARC-030](ARC-030-wavwriter-seeks-every-chunk.md) | The WAV writer seeks before every write | low | fixed |
 | [ARC-031](ARC-031-model-handle-leak-on-throw.md) | A failed `nativeFreeModel` leaks the handle permanently | low | closed |
 | [ARC-035](ARC-035-tab-transition-animated-a-pane-against-itself.md) | The tab transition animated each screen against itself | medium | fixed |
 | [ARC-036](ARC-036-dynamic-color-crashes-below-api-31.md) | The wallpaper-colours switch crashes on Android 8 through 11 | high | fixed |

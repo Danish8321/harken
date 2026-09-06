@@ -18,11 +18,19 @@ private const val TAG = "AudioRecordCapture"
 // Ports src/Harken.Mobile/Platforms/Android/AndroidAudioCapture.cs directly against
 // AudioRecord — no MAUI binding layer in between.
 class AudioRecordCapture(
-    private val onChunk: (ByteArray) -> Unit,
+    /**
+     * Called with the capture buffer itself and the number of bytes in it, which is valid
+     * only for the duration of the call. Handing over a copy instead cost a fresh 5 KB
+     * array 6.25 times a second — ~345 MB of garbage over a three-hour session, collected
+     * on the one path where a GC pause is a gap in the recording (ARC-013).
+     */
+    private val onChunk: (chunk: ByteArray, length: Int) -> Unit,
     // Fatal for the in-flight recording: init failed, or the read loop hit an AudioRecord
     // error code (ERROR_DEAD_OBJECT etc) it can't just spin through. Called at most once.
     private val onError: (String) -> Unit = {},
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+    // IO, not Default: the loop below spends its life inside record.read(), which parks a
+    // thread rather than using a core, and Default is sized to the core count (ARC-012).
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
 ) {
     @Volatile private var isRunning = false
     private var audioRecord: AudioRecord? = null
@@ -78,7 +86,7 @@ class AudioRecordCapture(
         while (isRunning) {
             val bytesRead = record.read(buffer, 0, buffer.size)
             if (bytesRead > 0) {
-                onChunk(buffer.copyOf(bytesRead))
+                onChunk(buffer, bytesRead)
             } else if (bytesRead < 0) {
                 Log.e(TAG, "AudioRecord.read returned error code $bytesRead")
                 isRunning = false
