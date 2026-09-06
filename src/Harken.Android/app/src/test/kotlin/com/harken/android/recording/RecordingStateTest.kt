@@ -8,15 +8,26 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 class RecordingStateTest {
+    /** Stands in for elapsedRealtime, so a pause can be several seconds long in no time at all. */
+    private var now = 1_000L
+
+    @Before
+    fun useTestClock() {
+        RecordingState.elapsedRealtime = { now }
+    }
+
     @After
     fun drainState() {
         // Process-wide singleton: a test that leaves a recording in flight poisons the next one.
         RecordingState.markStopped()
+        RecordingState.elapsedRealtime = { android.os.SystemClock.elapsedRealtime() }
     }
 
     @Test
@@ -87,5 +98,87 @@ class RecordingStateTest {
         assertTrue("duplicate stop re-emitted a completion", second.isActive)
         second.cancel()
         assertNull(RecordingState.recordingId)
+    }
+
+    @Test
+    fun `the counter freezes while paused`() {
+        // The number on screen has to agree with the length of the WAV, and no audio is
+        // written while paused (ARC-034).
+        RecordingState.markStarted(UUID.randomUUID(), "/tmp/p.wav")
+        now += 5_000
+        RecordingState.markPaused()
+
+        now += 30_000
+        assertEquals(5_000, RecordingState.elapsedMs())
+        assertTrue(RecordingState.isPaused.value)
+    }
+
+    @Test
+    fun `resuming excludes the break, not the audio around it`() {
+        RecordingState.markStarted(UUID.randomUUID(), "/tmp/p.wav")
+        now += 5_000
+        RecordingState.markPaused()
+        now += 30_000
+        RecordingState.markResumed()
+        now += 2_000
+
+        assertEquals(7_000, RecordingState.elapsedMs())
+        assertFalse(RecordingState.isPaused.value)
+    }
+
+    @Test
+    fun `every break is subtracted, not only the last`() {
+        RecordingState.markStarted(UUID.randomUUID(), "/tmp/p.wav")
+        repeat(3) {
+            now += 1_000
+            RecordingState.markPaused()
+            now += 10_000
+            RecordingState.markResumed()
+        }
+
+        assertEquals(3_000, RecordingState.elapsedMs())
+    }
+
+    @Test
+    fun `a second pause does not restart the break`() {
+        // The notification's Pause action can be tapped twice before the rebuild lands; the
+        // second tap must not discard the time already banked.
+        RecordingState.markStarted(UUID.randomUUID(), "/tmp/p.wav")
+        now += 5_000
+        RecordingState.markPaused()
+        now += 10_000
+        RecordingState.markPaused()
+        now += 10_000
+        RecordingState.markResumed()
+
+        assertEquals(5_000, RecordingState.elapsedMs())
+    }
+
+    @Test
+    fun `resuming a recording that is not paused changes nothing`() {
+        RecordingState.markStarted(UUID.randomUUID(), "/tmp/p.wav")
+        now += 5_000
+        RecordingState.markResumed()
+
+        assertEquals(5_000, RecordingState.elapsedMs())
+        assertFalse(RecordingState.isPaused.value)
+    }
+
+    @Test
+    fun `pausing with no recording in flight is ignored`() {
+        RecordingState.markPaused()
+
+        assertFalse(RecordingState.isPaused.value)
+        assertEquals(0, RecordingState.elapsedMs())
+    }
+
+    @Test
+    fun `stopping while paused clears the paused flag`() {
+        // Otherwise the next recording starts life looking paused to the UI.
+        RecordingState.markStarted(UUID.randomUUID(), "/tmp/p.wav")
+        RecordingState.markPaused()
+        RecordingState.markStopped()
+
+        assertFalse(RecordingState.isPaused.value)
     }
 }

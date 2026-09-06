@@ -7,7 +7,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.os.SystemClock
 import android.util.Log
 import com.harken.android.audio.AudioRecordCapture
 import com.harken.android.audio.RecordingStopReason
@@ -47,7 +46,6 @@ class RecordingForegroundService : Service() {
     private var writer: WavWriter? = null
     private var silenceDetector: SilenceDetector? = null
     private var capture: AudioRecordCapture? = null
-    private var startedAtElapsedMs: Long = 0
 
     // What is being recorded, kept here because the stop path needs it after
     // RecordingState has already been cleared.
@@ -73,6 +71,10 @@ class RecordingForegroundService : Service() {
     // reported several times over.
     private val stopping = AtomicBoolean(false)
 
+    // Pausing is not writing chunks. AudioRecord keeps running and the microphone is never
+    // given up, so resuming costs nothing and there is no re-acquisition to fail (ARC-034).
+    private val paused = AtomicBoolean(false)
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     // The recorder owns the recording, so the recorder owns the write. It used to be done
@@ -89,9 +91,18 @@ class RecordingForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ActionStop) {
-            stopRecording(RecordingStopReason.None)
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ActionStop -> {
+                stopRecording(RecordingStopReason.None)
+                return START_NOT_STICKY
+            }
+            ActionPause, ActionResume -> {
+                // Nothing to pause means this process was started only to deliver the
+                // action — most likely a notification button tapped after the recording
+                // already ended. Let go of it rather than sitting alive with no foreground.
+                if (activeRecordingId == null) stopSelf(startId) else setPaused(intent.action == ActionPause)
+                return START_NOT_STICKY
+            }
         }
 
         val recordingId = intent?.getStringExtra(RecordingIdExtra)?.let(UUID::fromString)
@@ -108,7 +119,6 @@ class RecordingForegroundService : Service() {
         }
 
         createNotificationChannelIfNeeded()
-        startedAtElapsedMs = SystemClock.elapsedRealtime()
         try {
             startForeground(NotificationId, buildNotification(recordingId))
         } catch (e: Exception) {
@@ -144,6 +154,7 @@ class RecordingForegroundService : Service() {
         maxChunkWriteMs = 0
         slowChunks = 0
         stopping.set(false)
+        paused.set(false)
         Telemetry.event("recording_started", "session" to sessionTag)
 
         capture = AudioRecordCapture(onChunk = ::writeChunk, onError = ::onCaptureError, scope = scope)
@@ -157,6 +168,14 @@ class RecordingForegroundService : Service() {
     }
 
     private fun writeChunk(chunk: ByteArray) {
+        if (paused.get()) {
+            // Not written, not counted, and not shown to the silence detector — so the
+            // five-minute auto-stop does not run down over a break, and the WAV contains
+            // no trace of it. At most one 160ms chunk already in flight when the pause
+            // lands is written, which is below the resolution of anything downstream.
+            RecordingState.publishAmplitude(0f)
+            return
+        }
         var stopReason = RecordingStopReason.None
         val writeStartNs = System.nanoTime()
         try {
@@ -186,6 +205,34 @@ class RecordingForegroundService : Service() {
         if (stopReason != RecordingStopReason.None) {
             stopRecording(stopReason)
         }
+    }
+
+    /**
+     * Freezes or resumes the write side of the capture.
+     *
+     * Deliberately does not touch [AudioRecordCapture]: stopping and restarting it means
+     * giving up the microphone and asking for it back, which can fail, can be taken by
+     * another app in between, and drops the pipeline's first buffers on the way back.
+     */
+    private fun setPaused(wantPaused: Boolean) {
+        if (activeRecordingId == null) return
+        if (!paused.compareAndSet(!wantPaused, wantPaused)) return
+
+        if (wantPaused) RecordingState.markPaused() else RecordingState.markResumed()
+        Telemetry.event(
+            if (wantPaused) "recording_paused" else "recording_resumed",
+            "session" to sessionTag,
+            "elapsedMs" to RecordingState.elapsedMs(),
+            "chunks" to chunkCount,
+        )
+        refreshNotification()
+    }
+
+    private fun refreshNotification() {
+        val recordingId = activeRecordingId ?: return
+        val manager = getSystemService(NotificationManager::class.java) ?: return
+        runCatching { manager.notify(NotificationId, buildNotification(recordingId)) }
+            .onFailure { Log.w(TAG, "Could not update the recording notification", it) }
     }
 
     private fun onCaptureError(message: String) {
@@ -257,7 +304,9 @@ class RecordingForegroundService : Service() {
                 "recording_stopped",
                 "session" to sessionTag,
                 "reason" to stopReason,
-                "elapsedMs" to SystemClock.elapsedRealtime() - startedAtElapsedMs,
+                // Capture time, not wall time: a recording paused for ten minutes is not
+                // ten minutes long, and every other number in this event is about bytes.
+                "elapsedMs" to RecordingState.elapsedMs(),
                 "chunks" to chunkCount,
                 "bytes" to byteCount,
                 "maxChunkWriteMs" to maxChunkWriteMs,
@@ -293,8 +342,13 @@ class RecordingForegroundService : Service() {
     private fun buildNotification(recordingId: UUID): Notification = LiveUpdateNotification.recording(
         context = this,
         channelId = ChannelId,
-        startedAtWallClockMs = System.currentTimeMillis() - (SystemClock.elapsedRealtime() - startedAtElapsedMs),
+        // The chronometer counts from here, so it is shifted forward by whatever this
+        // recording has spent paused — otherwise the notification counts the break and the
+        // record screen does not.
+        startedAtWallClockMs = System.currentTimeMillis() - RecordingState.elapsedMs(),
         title = recordingId.toString().take(8),
+        paused = paused.get(),
+        elapsedMs = RecordingState.elapsedMs(),
     )
 
     private fun createNotificationChannelIfNeeded() {
@@ -310,6 +364,8 @@ class RecordingForegroundService : Service() {
         const val ChannelId = "recording"
         const val NotificationId = 1001
         const val ActionStop = "harken.action.STOP"
+        const val ActionPause = "harken.action.PAUSE"
+        const val ActionResume = "harken.action.RESUME"
         const val RecordingIdExtra = "harken.recordingId"
         const val FilePathExtra = "harken.filePath"
 
@@ -319,6 +375,13 @@ class RecordingForegroundService : Service() {
                 putExtra(FilePathExtra, filePath)
             }
             context.startForegroundService(intent)
+        }
+
+        fun setPaused(context: Context, paused: Boolean) {
+            val intent = Intent(context, RecordingForegroundService::class.java).apply {
+                action = if (paused) ActionPause else ActionResume
+            }
+            context.startService(intent)
         }
 
         fun stop(context: Context) {

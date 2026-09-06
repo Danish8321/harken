@@ -9,6 +9,9 @@
     <string name="splash_skip">Skip</string>
     <string name="notification_recording_title">Recording — %1$s</string>
     <string name="notification_recording_stop">Stop</string>
+    <string name="notification_recording_pause">Pause</string>
+    <string name="notification_recording_resume">Resume</string>
+    <string name="notification_recording_paused">Paused at %1$s</string>
     <string name="notification_transcribing_title">Transcribing “%1$s”</string>
     <string name="notification_transcribing_body">Transcribing on this phone. Nothing is uploaded.</string>
     <string name="notification_transcribing_body_eta">About %1$d min left. Transcribing on this phone.</string>
@@ -54,6 +57,9 @@
     <string name="record_meter_idle_elapsed">0:00</string>
     <string name="record_meter_idle_hint">tap to start</string>
     <string name="record_meter_live">LIVE INPUT · 16 KHZ MONO</string>
+    <string name="record_meter_paused">PAUSED · NOT RECORDING</string>
+    <string name="record_pause">Pause recording</string>
+    <string name="record_resume">Resume recording</string>
     <string name="record_meter_cap">cap 3:00:00</string>
     <string name="record_start">Start recording</string>
     <string name="record_stop">Stop recording</string>

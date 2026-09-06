@@ -46,6 +46,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
@@ -220,7 +222,7 @@ fun RecordScreen(
             } else {
                 Column {
                     Spacer(Modifier.height(18.dp))
-                    LiveMeter(c, formatElapsed(elapsed))
+                    LiveMeter(c, formatElapsed(elapsed), paused = state.isPaused)
 
                     AnimatedVisibility(elapsed >= 10500, enter = fadeIn(fade), exit = fadeOut(fade)) {
                         Column {
@@ -266,6 +268,23 @@ fun RecordScreen(
             )
         }
         Box(Modifier.fillMaxWidth().padding(bottom = 24.dp), contentAlignment = Alignment.Center) {
+            // Pause sits beside the record button rather than replacing it, and the record
+            // button stays centred whether or not it is there: a control that moves under
+            // the thumb between two states is a control that gets mistapped, and the two
+            // here are "take a break" and "end the recording".
+            // Fully qualified: inside a Box the unqualified name resolves to the outer
+            // Column's scoped overload, which cannot be called here.
+            androidx.compose.animation.AnimatedVisibility(
+                visible = state.isRecording,
+                enter = fadeIn(fade),
+                exit = fadeOut(fade),
+                modifier = Modifier.align(Alignment.CenterStart),
+            ) {
+                PauseButton(paused = state.isPaused) {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    viewModel.togglePause()
+                }
+            }
             RecordButton(state.isRecording) {
                 when {
                     !hasMicPermission -> permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -515,7 +534,7 @@ private fun amplitudeToBarHeight(amplitude: Float): Float {
 
 /** Real amplitude off RecordingState.amplitude — the bars go flat the instant audio stops. */
 @Composable
-private fun LiveMeter(c: ProtoColors, elapsed: String) {
+private fun LiveMeter(c: ProtoColors, elapsed: String, paused: Boolean) {
     // Same bar count/width/shape as the idle and splash waves — this is a live-driven
     // instance of the same trace, not a different widget, so it must read as the same object.
     val bars = remember { mutableStateListOf<Float>().apply { repeat(HarkenWaveform.BarCount) { add(0f) } } }
@@ -533,7 +552,7 @@ private fun LiveMeter(c: ProtoColors, elapsed: String) {
         c = c,
         height = 240.dp,
         iconTint = c.accent,
-        label = stringResource(R.string.record_meter_live),
+        label = stringResource(if (paused) R.string.record_meter_paused else R.string.record_meter_live),
         labelColor = c.inkStrong,
         footerLeft = "",
         footerRight = stringResource(R.string.record_meter_cap),
@@ -557,6 +576,29 @@ private fun LiveMeter(c: ProtoColors, elapsed: String) {
                 )
             }
         }
+    }
+}
+
+/**
+ * Pause/resume, deliberately quieter than the record button: it is the reversible action
+ * of the two, and the one that must not be reached for by accident.
+ */
+@Composable
+private fun PauseButton(paused: Boolean, onTap: () -> Unit) {
+    val c = LocalProtoColors.current
+    Box(
+        Modifier
+            .size(60.dp)
+            .background(c.card, CircleShape)
+            .clickable(role = Role.Button, onClick = onTap),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+            contentDescription = stringResource(if (paused) R.string.record_resume else R.string.record_pause),
+            tint = c.text,
+            modifier = Modifier.size(26.dp),
+        )
     }
 }
 

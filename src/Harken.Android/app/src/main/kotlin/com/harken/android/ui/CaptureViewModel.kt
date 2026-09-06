@@ -26,6 +26,8 @@ enum class SaveStatus { Idle, Succeeded, Failed }
 
 data class CaptureUiState(
     val isRecording: Boolean = false,
+    /** True while a recording is running but not writing. [isRecording] stays true. */
+    val isPaused: Boolean = false,
     val saveStatus: SaveStatus = SaveStatus.Idle,
     val lastError: String? = null,
     val lastSessionId: java.util.UUID? = null,
@@ -62,6 +64,11 @@ class CaptureViewModel(
             }
         }
         viewModelScope.launch {
+            RecordingState.isPaused.collect { paused ->
+                _uiState.value = _uiState.value.copy(isPaused = paused)
+            }
+        }
+        viewModelScope.launch {
             RecordingState.completed.collect(::report)
         }
     }
@@ -79,6 +86,11 @@ class CaptureViewModel(
             )
         }
         RecordingController.startRecording(getApplication())
+    }
+
+    /** Pause a running recording, or resume a paused one. */
+    fun togglePause() {
+        RecordingController.setPaused(getApplication(), !_uiState.value.isPaused)
     }
 
     fun stopRecording() {

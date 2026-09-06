@@ -1,6 +1,7 @@
 package com.harken.android.recording
 
 import android.os.SystemClock
+import androidx.annotation.VisibleForTesting
 import com.harken.android.audio.RecordingStopReason
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
@@ -27,7 +28,15 @@ data class RecordingCompleted(
 /** A recording failed to start or was aborted mid-capture by something the user has no lever over. */
 data class RecordingError(val message: String)
 
-private data class InProgress(val recordingId: UUID, val filePath: String, val startedAtElapsedMs: Long)
+private data class InProgress(
+    val recordingId: UUID,
+    val filePath: String,
+    val startedAtElapsedMs: Long,
+    /** How long this recording has spent paused, summed over every completed pause. */
+    val pausedTotalMs: Long = 0,
+    /** When the current pause began, or null while audio is being written. */
+    val pausedAtElapsedMs: Long? = null,
+)
 
 // Ports src/Harken.Mobile/Services/RecordingState.cs — a process-wide singleton (the
 // foreground service and the Compose UI run in the same process, so a bound-service
@@ -49,6 +58,12 @@ object RecordingState {
     private val _isRecording = MutableStateFlow(false)
     val isRecording = _isRecording.asStateFlow()
 
+    // Paused is a state OF a recording, not a third state beside recording and idle: the
+    // service still holds the microphone and the notification is still ongoing. isRecording
+    // stays true throughout, and the UI reads both.
+    private val _isPaused = MutableStateFlow(false)
+    val isPaused = _isPaused.asStateFlow()
+
     // The capture thread publishes one normalized RMS sample per chunk; RecordScreen's
     // waveform reads it directly instead of drawing a decorative sine — see
     // AudioRecordCapture's chunk callback in RecordingForegroundService.
@@ -62,18 +77,48 @@ object RecordingState {
     val recordingId: UUID?
         get() = current.get()?.recordingId
 
+    // The one seam in this object. SystemClock is an Android static, and JVM unit tests run
+    // against the stub, which returns 0 forever — so the pause arithmetic below, the only
+    // arithmetic here, would be untestable off-device. Production never assigns this.
+    @VisibleForTesting
+    internal var elapsedRealtime: () -> Long = SystemClock::elapsedRealtime
+
     // elapsedRealtime, not currentTimeMillis: the wall clock is settable, and an NTP
     // correction or a DST rollover mid-capture would make the on-screen timer jump or run
     // backwards (ARC-009). This is the same clock RecordingForegroundService times itself
     // with, so the two no longer disagree about one recording.
     fun elapsedMs(): Long {
-        val started = current.get()?.startedAtElapsedMs ?: return 0
-        return SystemClock.elapsedRealtime() - started
+        val progress = current.get() ?: return 0
+        // While paused, time is measured to the moment the pause began: the counter on
+        // screen has to agree with the length of the WAV, and no audio is being written.
+        val until = progress.pausedAtElapsedMs ?: elapsedRealtime()
+        return until - progress.startedAtElapsedMs - progress.pausedTotalMs
     }
 
     fun markStarted(recordingId: UUID, filePath: String) {
-        current.set(InProgress(recordingId, filePath, SystemClock.elapsedRealtime()))
+        current.set(InProgress(recordingId, filePath, elapsedRealtime()))
+        _isPaused.value = false
         _isRecording.value = true
+    }
+
+    /** No-op if there is no recording, or if it is already paused. */
+    fun markPaused() {
+        val now = elapsedRealtime()
+        val updated = current.updateAndGet { progress ->
+            if (progress == null || progress.pausedAtElapsedMs != null) progress
+            else progress.copy(pausedAtElapsedMs = now)
+        }
+        _isPaused.value = updated?.pausedAtElapsedMs != null
+    }
+
+    /** No-op if there is no recording, or if it is not paused. */
+    fun markResumed() {
+        val now = elapsedRealtime()
+        val updated = current.updateAndGet { progress ->
+            val since = progress?.pausedAtElapsedMs ?: return@updateAndGet progress
+            progress.copy(pausedTotalMs = progress.pausedTotalMs + (now - since), pausedAtElapsedMs = null)
+        }
+        _isPaused.value = updated?.pausedAtElapsedMs != null
     }
 
     // Only promotes a path that was actually being recorded — MarkStopped can arrive
@@ -85,6 +130,7 @@ object RecordingState {
         saveError: String? = null,
     ) {
         val finished = current.getAndSet(null) ?: return
+        _isPaused.value = false
         _isRecording.value = false
         _completed.tryEmit(
             RecordingCompleted(finished.recordingId, finished.filePath, stopReason, durationSeconds, saveError),

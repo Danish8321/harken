@@ -24,18 +24,48 @@ import com.harken.android.R
  */
 object LiveUpdateNotification {
 
-    fun recording(context: Context, channelId: String, startedAtWallClockMs: Long, title: String): Notification {
+    /**
+     * [startedAtWallClockMs] is what the chronometer counts up from, so a resumed
+     * recording passes a time shifted forward by however long it was paused — the
+     * notification then reads the same elapsed as the app, rather than counting the break.
+     * While paused the chronometer is off entirely and the frozen figure is text: a
+     * counter still running under a "Paused" label is the notification contradicting
+     * itself.
+     */
+    fun recording(
+        context: Context,
+        channelId: String,
+        startedAtWallClockMs: Long,
+        title: String,
+        paused: Boolean = false,
+        elapsedMs: Long = 0,
+    ): Notification {
         val stopIntent = Intent(context, RecordingForegroundService::class.java).apply {
             action = RecordingForegroundService.ActionStop
         }
         val stop = PendingIntent.getService(context, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE)
 
+        val toggleIntent = Intent(context, RecordingForegroundService::class.java).apply {
+            action = if (paused) RecordingForegroundService.ActionResume else RecordingForegroundService.ActionPause
+        }
+        // Distinct request code, or this PendingIntent and the stop one are the same
+        // object to the system and the second addAction silently reuses the first's.
+        val toggle = PendingIntent.getService(context, 1, toggleIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+
         return NotificationCompat.Builder(context, channelId)
             .setContentTitle(context.getString(R.string.notification_recording_title, title))
             .setSmallIcon(R.drawable.ic_notification_mic)
             .setOngoing(true)
-            .setUsesChronometer(true)
+            .setUsesChronometer(!paused)
             .setWhen(startedAtWallClockMs)
+            .also { builder ->
+                if (paused) builder.setContentText(context.getString(R.string.notification_recording_paused, formatElapsed(elapsedMs)))
+            }
+            .addAction(
+                0,
+                context.getString(if (paused) R.string.notification_recording_resume else R.string.notification_recording_pause),
+                toggle,
+            )
             .setColorized(true)
             .setColor(RECORDING_ACCENT)
             .setCategory(Notification.CATEGORY_PROGRESS)
@@ -94,6 +124,12 @@ object LiveUpdateNotification {
     // and were still painting the notification terracotta and sage after the re-palette.
     // The dark values are used in both themes: the shade renders on its own ground, not
     // the app's, and these read on either.
+    /** "12:04" — the same shape the record screen shows, so the two never disagree. */
+    private fun formatElapsed(ms: Long): String {
+        val totalSeconds = (ms / 1000).coerceAtLeast(0)
+        return "%d:%02d".format(java.util.Locale.ROOT, totalSeconds / 60, totalSeconds % 60)
+    }
+
     private const val RECORDING_ACCENT = 0xFFBFA789.toInt()
     private const val DONE_ACCENT = 0xFF8FBF9A.toInt()
 }
