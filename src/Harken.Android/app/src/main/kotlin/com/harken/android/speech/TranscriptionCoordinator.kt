@@ -155,11 +155,6 @@ object TranscriptionCoordinator {
     }
 
     // Segment offsets only mark where speech was detected, not the recording's actual
-    // length — the last segment's offset undercounts trailing silence. Derive the real
-    // duration from the WAV file's own byte length instead (fixed 16kHz mono 16-bit PCM).
-    private fun wavDurationSeconds(filePath: String): Int {
-        val dataLength = (File(filePath).length() - WavFormat.HeaderLength).coerceAtLeast(0)
-        val bytesPerSecond = WavFormat.SampleRate * WavFormat.Channels * (WavFormat.BitsPerSample / 8)
-        return (dataLength / bytesPerSecond).toInt()
-    }
+    // length — the last segment's offset undercounts trailing silence.
+    private fun wavDurationSeconds(filePath: String): Int = WavFormat.durationSeconds(File(filePath))
 }

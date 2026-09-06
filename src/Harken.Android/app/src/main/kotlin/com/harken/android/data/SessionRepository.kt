@@ -141,14 +141,19 @@ class SessionRepository(
      * straight back.
      */
     suspend fun purge(id: UUID): Result<Unit> = runCatching {
+        // Audio first, row second. The other order looks harmless — a file the delete
+        // missed is just an orphan — except that RecordingRecovery is built to adopt
+        // orphans, so a failed delete meant the recording came back at the next launch,
+        // with a derived title because the row that carried the real one was gone
+        // (ARC-007). Failing here leaves the recording whole and says so; delete is the
+        // one operation a user expects to be final, so a half-done one is not reported
+        // as done.
         val audio = dao.findById(id)?.pendingUploadPath
-        dao.deleteSession(id)
         audio?.let { path ->
             val file = java.io.File(path)
-            if (file.exists() && !file.delete()) {
-                android.util.Log.w("SessionRepository", "Deleted session $id but could not delete $path")
-            }
+            check(!file.exists() || file.delete()) { "Could not delete the audio for this recording" }
         }
+        dao.deleteSession(id)
         Unit
     }
 

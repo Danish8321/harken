@@ -65,8 +65,6 @@ class RecordingRecovery(
     )
 
     companion object {
-        private const val BytesPerSecond = WavFormat.SampleRate * WavFormat.Channels * (WavFormat.BitsPerSample / 8)
-
         /**
          * The WAVs in [files] that hold audio but no session, newest first.
          *
@@ -88,7 +86,7 @@ class RecordingRecovery(
                 val audioBytes = file.length() - WavFormat.HeaderLength
                 if (audioBytes <= 0) return@mapNotNull null
 
-                val duration = (audioBytes / BytesPerSecond).toInt()
+                val duration = WavFormat.durationSeconds(file)
                 val endedAt = Instant.ofEpochMilli(file.lastModified())
                 Orphan(
                     id = id,

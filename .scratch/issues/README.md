@@ -63,9 +63,9 @@ inferred.
 | [ARC-004](ARC-004-cleartext-traffic.md) | `usesCleartextTraffic=true` for an app that only talks HTTPS | high | fixed |
 | [ARC-005](ARC-005-model-download-has-no-integrity-check.md) | The downloaded model is never verified, only counted | high | open |
 | [ARC-006](ARC-006-audiorecord-use-after-release.md) | `AudioRecordCapture.stop()` can release a native object mid-read | high | open |
-| [ARC-007](ARC-007-deleted-recording-comes-back.md) | A deleted recording reappears at the next launch | high | open |
-| [ARC-008](ARC-008-sticky-restart-shows-phantom-error.md) | A sticky restart reports a recording the user never started | high | open |
-| [ARC-009](ARC-009-wall-clock-durations.md) | Recording duration is measured with the wall clock | high | open |
+| [ARC-007](ARC-007-deleted-recording-comes-back.md) | A deleted recording reappears at the next launch | high | closed |
+| [ARC-008](ARC-008-sticky-restart-shows-phantom-error.md) | A sticky restart reports a recording the user never started | high | closed |
+| [ARC-009](ARC-009-wall-clock-durations.md) | Recording duration is measured with the wall clock | high | closed |
 | [ARC-032](ARC-032-no-search.md) | There is no way to find anything | high | open |
 | [ARC-010](ARC-010-chunk-rms-computed-three-times.md) | Every audio chunk's RMS is computed three times | medium | open |
 | [ARC-011](ARC-011-noisefloor-sorts-every-chunk.md) | The noise floor re-sorts its whole window on every chunk | medium | open |
@@ -73,7 +73,7 @@ inferred.
 | [ARC-013](ARC-013-per-chunk-allocation.md) | A fresh byte array is allocated for every audio chunk | medium | open |
 | [ARC-014](ARC-014-no-composition-root.md) | Every ViewModel builds its own dependencies | medium | open |
 | [ARC-015](ARC-015-domain-speaks-a-removed-backends-language.md) | The data layer speaks the language of a removed backend | medium | open |
-| [ARC-016](ARC-016-persistence-triggered-from-the-ui-layer.md) | A finished recording is saved by the UI, not by the recorder | medium | open |
+| [ARC-016](ARC-016-persistence-triggered-from-the-ui-layer.md) | A finished recording is saved by the UI, not by the recorder | medium | closed |
 | [ARC-017](ARC-017-derived-titles-not-localizable.md) | Derived recording titles are hardcoded English | medium | open |
 | [ARC-018](ARC-018-notification-title-is-a-hex-fragment.md) | The recording notification is titled with eight hex characters | medium | open |
 | [ARC-019](ARC-019-download-guard-does-not-guard.md) | The concurrent-download guard does not guard the download | medium | open |

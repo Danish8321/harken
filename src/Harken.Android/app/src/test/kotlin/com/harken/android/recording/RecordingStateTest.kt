@@ -20,21 +20,34 @@ class RecordingStateTest {
     }
 
     @Test
-    fun `completion carries the capture's duration`() = runTest {
+    fun `completion carries the capture's duration and file`() = runTest {
         val id = UUID.randomUUID()
         val completed = async { RecordingState.completed.first() }
         yield()
 
         RecordingState.markStarted(id, "/tmp/$id.wav")
-        Thread.sleep(1100)
-        RecordingState.markStopped()
+        // The recorder measures the length off the finished WAV and passes it in; this
+        // object no longer times the capture itself (ARC-009).
+        RecordingState.markStopped(durationSeconds = 249)
 
         val result = completed.await()
         assertEquals(id, result.recordingId)
-        // Wall-clock, so pinned to a range rather than a value: the point is that it is the
-        // real length and not 0, which is what the Library used to show for every recording.
-        assertTrue("expected >= 1s, got ${result.durationSeconds}", result.durationSeconds >= 1)
-        assertTrue("expected < 10s, got ${result.durationSeconds}", result.durationSeconds < 10)
+        assertEquals("/tmp/$id.wav", result.filePath)
+        assertEquals(249, result.durationSeconds)
+        assertNull(result.saveError)
+    }
+
+    @Test
+    fun `completion carries a save failure`() = runTest {
+        // The recorder writes the row, so the screen learns a save failed the same way it
+        // learns anything else about the recording (ARC-016).
+        val completed = async { RecordingState.completed.first() }
+        yield()
+
+        RecordingState.markStarted(UUID.randomUUID(), "/tmp/unsaved.wav")
+        RecordingState.markStopped(durationSeconds = 12, saveError = "disk full")
+
+        assertEquals("disk full", completed.await().saveError)
     }
 
     @Test

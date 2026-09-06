@@ -11,6 +11,18 @@ object WavFormat {
     const val Channels = 1
     const val BitsPerSample = 16
     const val HeaderLength = 44
+    const val BytesPerSecond = SampleRate * Channels * (BitsPerSample / 8)
+
+    /**
+     * How many seconds of audio a finished recording holds, from its own byte length.
+     *
+     * The file is the only authority on this. A duration timed with a clock is a second,
+     * weaker source — the wall clock is settable, and a segment offset only marks where
+     * speech was found — so the recorder, the recovery pass and the transcriber all read
+     * the length here rather than each deriving it (ARC-009).
+     */
+    fun durationSeconds(file: java.io.File): Int =
+        ((file.length() - HeaderLength).coerceAtLeast(0) / BytesPerSecond).toInt()
 }
 
 class WavWriter(private val file: RandomAccessFile) : AutoCloseable {

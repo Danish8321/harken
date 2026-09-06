@@ -12,9 +12,14 @@ import android.util.Log
 import com.harken.android.audio.AudioRecordCapture
 import com.harken.android.audio.RecordingStopReason
 import com.harken.android.audio.SilenceDetector
+import com.harken.android.audio.WavFormat
 import com.harken.android.audio.WavWriter
+import com.harken.android.data.SessionRepository
+import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.telemetry.Telemetry
+import java.io.File
 import java.io.RandomAccessFile
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -44,6 +49,11 @@ class RecordingForegroundService : Service() {
     private var capture: AudioRecordCapture? = null
     private var startedAtElapsedMs: Long = 0
 
+    // What is being recorded, kept here because the stop path needs it after
+    // RecordingState has already been cleared.
+    private var activeRecordingId: UUID? = null
+    private var activeFilePath: String? = null
+
     // Named so every line of this recording's life can be joined: capture, transcription,
     // playback. Without it a recording's chunk-write failures and its transcription timings
     // are two unrelated piles of logcat.
@@ -65,7 +75,18 @@ class RecordingForegroundService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    // The recorder owns the recording, so the recorder owns the write. It used to be done
+    // by whichever ViewModel happened to be collecting `RecordingState.completed` when the
+    // capture ended — a durable record that existed only if a screen was alive to make it
+    // (ARC-016).
+    private lateinit var repository: SessionRepository
+
     override fun onBind(intent: Intent?) = null
+
+    override fun onCreate() {
+        super.onCreate()
+        repository = SessionRepository(db = HarkenDatabase.get(this))
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ActionStop) {
@@ -77,9 +98,12 @@ class RecordingForegroundService : Service() {
         val filePath = intent?.getStringExtra(FilePathExtra)
 
         if (recordingId == null || filePath == null) {
-            Log.e(TAG, "onStartCommand missing recordingId/filePath extras")
-            RecordingState.publishError("Couldn't start recording — missing session details")
-            stopSelf()
+            // A null intent is Android redelivering a start for a service it killed, not a
+            // bug the user caused. Telling them "couldn't start recording" about a capture
+            // they never asked for — hours later, with the real one already recovered — is
+            // worse than saying nothing (ARC-008).
+            Log.w(TAG, "Started with no recording; stopping")
+            stopSelf(startId)
             return START_NOT_STICKY
         }
 
@@ -110,6 +134,8 @@ class RecordingForegroundService : Service() {
             return START_NOT_STICKY
         }
 
+        activeRecordingId = recordingId
+        activeFilePath = filePath
         RecordingState.markStarted(recordingId, filePath)
 
         sessionTag = Telemetry.shortId(recordingId)
@@ -123,7 +149,11 @@ class RecordingForegroundService : Service() {
         capture = AudioRecordCapture(onChunk = ::writeChunk, onError = ::onCaptureError, scope = scope)
         capture?.start()
 
-        return START_STICKY
+        // NOT_STICKY: restarting a microphone capture without the user's knowledge is worse
+        // than not restarting it. The audio between the kill and the restart is gone either
+        // way, and what comes back is a second recording of a moment nobody chose to
+        // record. RecordingRecovery adopts the interrupted file at the next launch.
+        return START_NOT_STICKY
     }
 
     private fun writeChunk(chunk: ByteArray) {
@@ -180,6 +210,32 @@ class RecordingForegroundService : Service() {
         return (rms / Short.MAX_VALUE).toFloat().coerceIn(0f, 1f)
     }
 
+    /**
+     * Writes the session row, and returns the message to show if it could not be written.
+     *
+     * The audio survives either way — [RecordingRecovery] adopts a WAV with no row at the
+     * next launch — so a failure here costs the user a restart, not the recording.
+     */
+    private suspend fun saveSession(recordingId: UUID, filePath: String, durationSeconds: Int): String? = try {
+        // "Now" is the end of the capture, not its start: stamping startedAt with it dated
+        // a 40-minute recording to when it finished, and handed DerivedTitle the wrong
+        // part of the day.
+        val endedAt = Instant.now()
+        repository.createLocalSession(
+            id = recordingId,
+            startedAt = endedAt.minusSeconds(durationSeconds.toLong()).toString(),
+            endedAt = endedAt.toString(),
+            source = "Microphone",
+            filePath = filePath,
+            durationSeconds = durationSeconds,
+        )
+        null
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed saving local session $recordingId", e)
+        Telemetry.event("recording_save_failed", "session" to sessionTag, "error" to Telemetry.describe(e))
+        e.message ?: "Couldn't save this recording"
+    }
+
     private fun stopRecording(stopReason: RecordingStopReason) {
         if (!stopping.compareAndSet(false, true)) return
         scope.launch {
@@ -215,7 +271,15 @@ class RecordingForegroundService : Service() {
                 "speechAt" to (summary?.speechThreshold ?: 0),
                 "peakSilentMs" to (summary?.peakSilentMs ?: 0L),
             )
-            RecordingState.markStopped(stopReason)
+            val recordingId = activeRecordingId
+            val filePath = activeFilePath
+            var durationSeconds = 0
+            var saveError: String? = null
+            if (recordingId != null && filePath != null) {
+                durationSeconds = WavFormat.durationSeconds(File(filePath))
+                saveError = saveSession(recordingId, filePath, durationSeconds)
+            }
+            RecordingState.markStopped(stopReason, durationSeconds, saveError)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }

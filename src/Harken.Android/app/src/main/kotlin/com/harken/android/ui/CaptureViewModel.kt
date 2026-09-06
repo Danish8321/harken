@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.harken.android.audio.RecordingStopReason
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.local.HarkenDatabase
+import com.harken.android.recording.RecordingCompleted
 import com.harken.android.recording.RecordingController
 import com.harken.android.recording.RecordingState
 import java.time.Instant
@@ -33,9 +34,10 @@ data class CaptureUiState(
     val stopReason: RecordingStopReason = RecordingStopReason.None,
 )
 
-// Every recording is on-device only (ADR-0011): every stop routes through
-// RecordingState.completed (manual Stop tap, silence timeout, session cap alike) so an
-// auto-stop saves the same way a manual one does (ADR-0007), and transcription is a
+// Every recording is on-device only (ADR-0011). The recorder writes the session row
+// itself (ARC-016); this screen only reports what happened, so a capture that ends while
+// the user is on another tab is saved exactly the same way as one they watched. An
+// auto-stop and a Stop tap arrive by the same path (ADR-0007), and transcription is a
 // separate, explicit action taken later from the Library.
 class CaptureViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = SessionRepository(db = HarkenDatabase.get(application))
@@ -54,14 +56,7 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
             }
         }
         viewModelScope.launch {
-            RecordingState.completed.collect { completed ->
-                saveLocal(
-                    completed.recordingId,
-                    completed.filePath,
-                    completed.durationSeconds,
-                    completed.stopReason,
-                )
-            }
+            RecordingState.completed.collect(::report)
         }
     }
 
@@ -84,44 +79,48 @@ class CaptureViewModel(application: Application) : AndroidViewModel(application)
         RecordingController.stopRecording(getApplication())
     }
 
+    /**
+     * Re-attempts a save the recorder could not make. The audio is still on disk, so this
+     * is a shortcut past waiting for the next launch, where RecordingRecovery would adopt
+     * it anyway.
+     */
     fun retrySave() {
         val recordingId = lastRecordingId ?: return
         val filePath = lastFilePath ?: return
-        viewModelScope.launch { saveLocal(recordingId, filePath, lastDurationSeconds, lastStopReason) }
+        viewModelScope.launch {
+            try {
+                val endedAt = Instant.now()
+                repository.createLocalSession(
+                    id = recordingId,
+                    startedAt = endedAt.minusSeconds(lastDurationSeconds.toLong()).toString(),
+                    endedAt = endedAt.toString(),
+                    source = "Microphone",
+                    filePath = filePath,
+                    durationSeconds = lastDurationSeconds,
+                )
+                _uiState.value = _uiState.value.copy(
+                    saveStatus = SaveStatus.Succeeded,
+                    lastSessionId = recordingId,
+                    lastError = null,
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed saving local session $recordingId", e)
+                _uiState.value = _uiState.value.copy(saveStatus = SaveStatus.Failed, lastError = e.message)
+            }
+        }
     }
 
-    private suspend fun saveLocal(
-        recordingId: java.util.UUID,
-        filePath: String,
-        durationSeconds: Int,
-        stopReason: RecordingStopReason,
-    ) {
-        lastRecordingId = recordingId
-        lastFilePath = filePath
-        lastDurationSeconds = durationSeconds
-        lastStopReason = stopReason
-        _uiState.value = _uiState.value.copy(lastError = null, stopReason = stopReason)
-        try {
-            // This runs at stop, so "now" is the end of the capture, not its start —
-            // stamping startedAt with it dated a 40-minute recording to when it finished
-            // and could hand DerivedTitle the wrong part of day.
-            val endedAt = Instant.now()
-            repository.createLocalSession(
-                id = recordingId,
-                startedAt = endedAt.minusSeconds(durationSeconds.toLong()).toString(),
-                endedAt = endedAt.toString(),
-                source = "Microphone",
-                filePath = filePath,
-                durationSeconds = durationSeconds,
-            )
-            _uiState.value = _uiState.value.copy(
-                saveStatus = SaveStatus.Succeeded,
-                lastSessionId = recordingId,
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed saving local session $recordingId", e)
-            _uiState.value = _uiState.value.copy(saveStatus = SaveStatus.Failed, lastError = e.message)
-        }
+    private fun report(completed: RecordingCompleted) {
+        lastRecordingId = completed.recordingId
+        lastFilePath = completed.filePath
+        lastDurationSeconds = completed.durationSeconds
+        lastStopReason = completed.stopReason
+        _uiState.value = _uiState.value.copy(
+            stopReason = completed.stopReason,
+            lastError = completed.saveError,
+            saveStatus = if (completed.saveError == null) SaveStatus.Succeeded else SaveStatus.Failed,
+            lastSessionId = completed.recordingId.takeIf { completed.saveError == null },
+        )
     }
 }
 
