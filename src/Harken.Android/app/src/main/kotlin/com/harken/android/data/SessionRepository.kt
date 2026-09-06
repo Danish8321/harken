@@ -5,8 +5,6 @@ import com.harken.android.data.local.SegmentRow
 import com.harken.android.data.local.SessionRow
 import com.harken.android.speech.LocalTranscribedSegment
 import com.harken.android.telemetry.Telemetry
-import java.time.Instant
-import java.time.ZoneId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
@@ -35,8 +33,14 @@ class SessionRepository(
 
     data class SessionView(
         val id: UUID,
-        val title: String,
-        val hasLocalTitle: Boolean,
+        /**
+         * The name the user typed, or null if they never did. The name to *show* is
+         * [com.harken.android.displayTitle] — this layer does not compose display text
+         * and has no opinion about the reader's language (ARC-017).
+         */
+        val localTitle: String?,
+        /** What an untitled recording is named after: when it was made. */
+        val partOfDay: PartOfDay,
         val startedAt: String,
         val durationSeconds: Int?,
         val segmentCount: Int,
@@ -80,9 +84,16 @@ class SessionRepository(
      * recordings is a couple of megabytes, and the audio — the part that is gigabytes — is
      * streamed from its path rather than loaded here.
      */
-    suspend fun exportItems(): List<ExportItem> = dao.allSessions().map { row ->
+    /**
+     * Every recording, formatted for a backup. [displayTitle] resolves the name of an
+     * untitled one — the caller supplies it, because the file names this produces are
+     * read by a person and this layer does not know their language (ARC-017).
+     */
+    suspend fun exportItems(
+        displayTitle: (localTitle: String?, partOfDay: PartOfDay) -> String,
+    ): List<ExportItem> = dao.allSessions().map { row ->
         ExportItem(
-            title = row.localTitle ?: DerivedTitle.of(row.startedAt),
+            title = displayTitle(row.localTitle, PartOfDay.of(row.startedAt)),
             startedAt = row.startedAt,
             audioPath = row.pendingUploadPath,
             lines = dao.segmentsOnce(row.id).map { TranscriptText.Line(it.offsetSeconds, it.text) },
@@ -246,8 +257,8 @@ class SessionRepository(
 
     private fun toView(row: SessionRow) = SessionView(
         id = row.id,
-        title = row.localTitle ?: DerivedTitle.of(row.startedAt),
-        hasLocalTitle = row.localTitle != null,
+        localTitle = row.localTitle,
+        partOfDay = PartOfDay.of(row.startedAt),
         startedAt = row.startedAt,
         durationSeconds = row.durationSeconds,
         segmentCount = row.segmentCount,
@@ -260,27 +271,3 @@ class SessionRepository(
     )
 }
 
-/**
- * The name a recording gets before anyone renames it.
- *
- * Reads the time of day back as a phrase a person would use ("Morning recording")
- * instead of "Untitled recording" or a bare timestamp. A real title is one tap away in
- * the session sheet.
- */
-object DerivedTitle {
-    fun of(startedAtIso: String, zone: ZoneId = ZoneId.systemDefault()): String {
-        // Parsed into the reader's zone, not read off the string: startedAt is stored as
-        // UTC, so a 1:41 pm capture in UTC+5:30 carried the hour "08" and was titled
-        // "Morning recording" while the card beside it read "1:41 pm".
-        val hour = runCatching { Instant.parse(startedAtIso).atZone(zone).hour }
-            .getOrElse { startedAtIso.substringAfter('T', "").take(2).toIntOrNull() }
-            ?: return "Recording"
-        val partOfDay = when (hour) {
-            in 5..11 -> "Morning"
-            in 12..16 -> "Afternoon"
-            in 17..21 -> "Evening"
-            else -> "Late night"
-        }
-        return "$partOfDay recording"
-    }
-}

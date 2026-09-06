@@ -25,6 +25,10 @@ import com.harken.android.R
 object LiveUpdateNotification {
 
     /**
+     * [title] is the name the recording will be saved under, not its id: this is the
+     * app's most persistent surface, visible on the lock screen for the whole recording,
+     * and it read as eight hex characters until ARC-018.
+     *
      * [startedAtWallClockMs] is what the chronometer counts up from, so a resumed
      * recording passes a time shifted forward by however long it was paused — the
      * notification then reads the same elapsed as the app, rather than counting the break.
@@ -53,14 +57,18 @@ object LiveUpdateNotification {
         val toggle = PendingIntent.getService(context, 1, toggleIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
         return NotificationCompat.Builder(context, channelId)
-            .setContentTitle(context.getString(R.string.notification_recording_title, title))
+            .setContentTitle(title)
+            .setContentText(
+                if (paused) {
+                    context.getString(R.string.notification_recording_paused, formatElapsed(elapsedMs))
+                } else {
+                    context.getString(R.string.notification_recording_body)
+                },
+            )
             .setSmallIcon(R.drawable.ic_notification_mic)
             .setOngoing(true)
             .setUsesChronometer(!paused)
             .setWhen(startedAtWallClockMs)
-            .also { builder ->
-                if (paused) builder.setContentText(context.getString(R.string.notification_recording_paused, formatElapsed(elapsedMs)))
-            }
             .addAction(
                 0,
                 context.getString(if (paused) R.string.notification_recording_resume else R.string.notification_recording_pause),

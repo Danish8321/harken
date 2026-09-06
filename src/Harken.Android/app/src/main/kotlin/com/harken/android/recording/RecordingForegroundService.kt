@@ -15,7 +15,9 @@ import com.harken.android.audio.SilenceDetector
 import com.harken.android.audio.WavFormat
 import com.harken.android.audio.WavWriter
 import com.harken.android.container
+import com.harken.android.data.PartOfDay
 import com.harken.android.data.SessionRepository
+import com.harken.android.recordingTitle
 import com.harken.android.telemetry.Telemetry
 import java.io.File
 import java.io.RandomAccessFile
@@ -52,6 +54,12 @@ class RecordingForegroundService : Service() {
     // RecordingState has already been cleared.
     private var activeRecordingId: UUID? = null
     private var activeFilePath: String? = null
+
+    // What the shade calls this recording. Fixed when the recording starts rather than
+    // read per notification, so a capture that crosses noon is not renamed under the
+    // user mid-recording. It is the same name the saved session will derive, unless the
+    // recording crosses a boundary — in which case the row's own startedAt wins.
+    private var activeTitle: String = ""
 
     // Named so every line of this recording's life can be joined: capture, transcription,
     // playback. Without it a recording's chunk-write failures and its transcription timings
@@ -120,8 +128,9 @@ class RecordingForegroundService : Service() {
         }
 
         createNotificationChannelIfNeeded()
+        activeTitle = recordingTitle(localTitle = null, partOfDay = PartOfDay.now())
         try {
-            startForeground(NotificationId, buildNotification(recordingId))
+            startForeground(NotificationId, buildNotification())
         } catch (e: Exception) {
             Log.e(TAG, "startForeground failed", e)
             RecordingState.publishError(e.message ?: "Couldn't start the recording notification")
@@ -237,9 +246,9 @@ class RecordingForegroundService : Service() {
     }
 
     private fun refreshNotification() {
-        val recordingId = activeRecordingId ?: return
+        if (activeRecordingId == null) return
         val manager = getSystemService(NotificationManager::class.java) ?: return
-        runCatching { manager.notify(NotificationId, buildNotification(recordingId)) }
+        runCatching { manager.notify(NotificationId, buildNotification()) }
             .onFailure { Log.w(TAG, "Could not update the recording notification", it) }
     }
 
@@ -330,14 +339,17 @@ class RecordingForegroundService : Service() {
         super.onDestroy()
     }
 
-    private fun buildNotification(recordingId: UUID): Notification = LiveUpdateNotification.recording(
+    private fun buildNotification(): Notification = LiveUpdateNotification.recording(
         context = this,
         channelId = ChannelId,
         // The chronometer counts from here, so it is shifted forward by whatever this
         // recording has spent paused — otherwise the notification counts the break and the
         // record screen does not.
         startedAtWallClockMs = System.currentTimeMillis() - RecordingState.elapsedMs(),
-        title = recordingId.toString().take(8),
+        // Not the recording's id. The user, mid-meeting, was reading eight hex
+        // characters on their lock screen — on the app's most persistent surface, and
+        // the one they tap to get back in (ARC-018).
+        title = activeTitle,
         paused = paused.get(),
         elapsedMs = RecordingState.elapsedMs(),
     )

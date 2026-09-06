@@ -15,6 +15,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import com.harken.android.R
 import com.harken.android.container
+import com.harken.android.recordingTitle
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.SpeakerHeuristic
 import com.harken.android.data.TranscriptText
@@ -85,6 +86,10 @@ class SessionSheetViewModel(
     private var player: MediaPlayer? = null
     private var ticker: Job? = null
 
+    /** This ViewModel's own Context, for the strings the repository deliberately does
+     * not produce (ARC-017). */
+    private val app: Application get() = getApplication()
+
     fun load(id: UUID) {
         // A prior session's job must not keep running once a new one loads — otherwise
         // opening several sessions in one sheet lifetime piles up observers that keep
@@ -102,8 +107,8 @@ class SessionSheetViewModel(
                 val voices = SpeakerHeuristic.voiceCount(rows.map { it.voiceIndex })
                 val duration = session?.durationSeconds ?: rows.lastOrNull()?.offsetSeconds ?: 0
                 _uiState.value.copy(
-                    title = session?.title.orEmpty(),
-                    hasLocalTitle = session?.hasLocalTitle == true,
+                    title = session?.let { app.recordingTitle(it.localTitle, it.partOfDay) }.orEmpty(),
+                    hasLocalTitle = session?.localTitle != null,
                     meta = buildMeta(session, duration, rows.isNotEmpty()),
                     tags = session?.tags.orEmpty(),
                     segments = rows,

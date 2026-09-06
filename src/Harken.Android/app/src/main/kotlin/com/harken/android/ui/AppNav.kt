@@ -35,7 +35,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +48,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.harken.android.ui.theme.ProtoBodyFont
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -98,7 +98,7 @@ private fun tabOrder(route: String?): Int = tabs.indexOfFirst { it.route == rout
 fun AppNav() {
     val context = LocalContext.current
     val settings = remember(context) { (context.applicationContext as HarkenApplication).container.settings }
-    val onboardingComplete by settings.onboardingComplete.collectAsState(initial = null)
+    val onboardingComplete by settings.onboardingComplete.collectAsStateWithLifecycle(initialValue = null)
 
     // Wait for the real DataStore value before picking a start destination — defaulting
     // to Record would flash past onboarding for a first-time user on a slow read. Render
@@ -187,7 +187,7 @@ private fun MainHost(
     var openSession by remember { mutableStateOf<OpenSession?>(null) }
 
     val c = LocalProtoColors.current
-    val isRecording by RecordingState.isRecording.collectAsState()
+    val isRecording by RecordingState.isRecording.collectAsStateWithLifecycle()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,

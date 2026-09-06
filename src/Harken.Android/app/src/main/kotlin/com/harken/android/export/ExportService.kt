@@ -13,6 +13,7 @@ import android.util.Log
 import com.harken.android.MainActivity
 import com.harken.android.R
 import com.harken.android.container
+import com.harken.android.recordingTitle
 import com.harken.android.recording.LiveUpdateNotification
 import com.harken.android.telemetry.Telemetry
 import kotlinx.coroutines.CancellationException
@@ -79,7 +80,12 @@ class ExportService : Service() {
             val startNanos = System.nanoTime()
             val repository = application.container.repository
             try {
-                val items = withContext(Dispatchers.IO) { repository.exportItems() }
+                val items = withContext(Dispatchers.IO) {
+                    // The Service is the Context this resolves the names against.
+                    repository.exportItems { localTitle, partOfDay ->
+                        recordingTitle(localTitle, partOfDay)
+                    }
+                }
                 ExportStatus.set(ExportState.Running(done = 0, total = items.size))
                 publish(done = 0, total = items.size)
 

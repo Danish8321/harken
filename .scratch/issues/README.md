@@ -75,15 +75,15 @@ inferred.
 | [ARC-014](ARC-014-no-composition-root.md) | Every ViewModel builds its own dependencies | medium | closed |
 | [ARC-015](ARC-015-domain-speaks-a-removed-backends-language.md) | The data layer speaks the language of a removed backend | medium | blocked |
 | [ARC-016](ARC-016-persistence-triggered-from-the-ui-layer.md) | A finished recording is saved by the UI, not by the recorder | medium | closed |
-| [ARC-017](ARC-017-derived-titles-not-localizable.md) | Derived recording titles are hardcoded English | medium | open |
-| [ARC-018](ARC-018-notification-title-is-a-hex-fragment.md) | The recording notification is titled with eight hex characters | medium | open |
+| [ARC-017](ARC-017-derived-titles-not-localizable.md) | Derived recording titles are hardcoded English | medium | fixed |
+| [ARC-018](ARC-018-notification-title-is-a-hex-fragment.md) | The recording notification is titled with eight hex characters | medium | fixed |
 | [ARC-019](ARC-019-download-guard-does-not-guard.md) | The concurrent-download guard does not guard the download | medium | closed |
 | [ARC-020](ARC-020-no-static-analysis-no-ci.md) | Nothing checks style, lint or correctness except a compiler | medium | fixed |
 | [ARC-021](ARC-021-no-version-catalog.md) | Dependency versions are string literals in the build file | medium | fixed |
 | [ARC-022](ARC-022-no-release-signing-no-versioning.md) | The release build cannot be released | medium | fixed |
 | [ARC-023](ARC-023-instrumented-tests-never-run.md) | The instrumented tests are in no gate | medium | fixed |
 | [ARC-024](ARC-024-dead-dotnet-tier.md) | Half the repository is a backend nothing calls | medium | blocked |
-| [ARC-025](ARC-025-collectasstate-without-lifecycle.md) | Flows keep collecting while the app is backgrounded | medium | open |
+| [ARC-025](ARC-025-collectasstate-without-lifecycle.md) | Flows keep collecting while the app is backgrounded | medium | fixed |
 | [ARC-026](ARC-026-viewmodel-holds-navigation.md) | A ViewModel holds the navigation callbacks | medium | closed |
 | [ARC-033](ARC-033-no-export.md) | Nothing can leave the app except a copied transcript | medium | fixed |
 | [ARC-034](ARC-034-no-pause-resume.md) | A recording cannot be paused | medium | fixed |

@@ -57,7 +57,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -80,6 +79,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
 import com.harken.android.audio.RecordingStopReason
@@ -114,7 +114,7 @@ fun RecordScreen(
     val cardResize = HarkenMotion.spatialDefault<androidx.compose.ui.unit.IntSize>()
     val reduced = LocalReducedMotion.current
     val context = LocalContext.current
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
 
     // Fires exactly once per genuine upload-status transition, not on every recomposition —
@@ -538,7 +538,7 @@ private fun LiveMeter(c: ProtoColors, elapsed: String, paused: Boolean) {
     // Same bar count/width/shape as the idle and splash waves — this is a live-driven
     // instance of the same trace, not a different widget, so it must read as the same object.
     val bars = remember { mutableStateListOf<Float>().apply { repeat(HarkenWaveform.BarCount) { add(0f) } } }
-    val amplitude by RecordingState.amplitude.collectAsState()
+    val amplitude by RecordingState.amplitude.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         while (true) {

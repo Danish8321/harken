@@ -10,6 +10,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import com.harken.android.R
 import com.harken.android.container
+import com.harken.android.recordingTitle
 import com.harken.android.data.SearchQuery
 import com.harken.android.data.SessionRepository
 import com.harken.android.speech.TranscriptionCoordinator
@@ -124,7 +125,7 @@ class LibraryViewModel(
             context = getApplication(),
             sessionId = session.id,
             filePath = filePath,
-            title = session.title,
+            title = getApplication<Application>().recordingTitle(session.localTitle, session.partOfDay),
         )
     }
 

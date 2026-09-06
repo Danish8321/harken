@@ -7,11 +7,20 @@
     <!-- Splash -->
     <string name="splash_tagline">Listen back to everything.</string>
     <string name="splash_skip">Skip</string>
-    <string name="notification_recording_title">Recording — %1$s</string>
+    <string name="notification_recording_body">Recording</string>
     <string name="notification_recording_stop">Stop</string>
     <string name="notification_recording_pause">Pause</string>
     <string name="notification_recording_resume">Resume</string>
     <string name="notification_recording_paused">Paused at %1$s</string>
+
+    <!-- What an untitled recording is called: its time of day, as a person would say it.
+         The data layer reports the kind and these name it, so a translation changes the
+         name without touching Kotlin (ARC-017). -->
+    <string name="recording_title_morning">Morning recording</string>
+    <string name="recording_title_afternoon">Afternoon recording</string>
+    <string name="recording_title_evening">Evening recording</string>
+    <string name="recording_title_late_night">Late night recording</string>
+    <string name="recording_title_unknown">Recording</string>
     <string name="notification_transcribing_title">Transcribing “%1$s”</string>
     <string name="notification_transcribing_body">Transcribing on this phone. Nothing is uploaded.</string>
     <string name="notification_transcribing_body_eta">About %1$d min left. Transcribing on this phone.</string>

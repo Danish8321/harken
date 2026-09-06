@@ -39,7 +39,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateSetOf
@@ -62,10 +61,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
 import com.harken.android.data.SearchQuery
 import com.harken.android.data.SessionRepository
+import com.harken.android.displayTitle
 import com.harken.android.ui.components.EmptyState
 import com.harken.android.ui.components.ErrorState
 import com.harken.android.ui.components.SkeletonRow
@@ -92,8 +93,8 @@ fun LibraryScreen(
     viewModel: LibraryViewModel = viewModel(factory = LibraryViewModel.Factory),
 ) {
     val c = LocalProtoColors.current
-    val state by viewModel.uiState.collectAsState()
-    val search by viewModel.searchState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val search by viewModel.searchState.collectAsStateWithLifecycle()
     var filter by remember { mutableStateOf(LibraryFilter.All) }
 
     val visible = remember(state.sessions, filter) {
@@ -347,7 +348,7 @@ private fun SearchResultCard(
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                hit.session.title,
+                hit.session.displayTitle(),
                 color = c.text,
                 fontFamily = ProtoBodyFont,
                 fontWeight = FontWeight.Bold,
@@ -453,7 +454,7 @@ private fun SessionCard(
     Column(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(24.dp)).padding(16.dp)) {
         Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onOpen), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Text(s.title, color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(s.displayTitle(), color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(metaLine, color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
                 // Why it failed, not just that it can be retried. The reason is recorded on
                 // the session by every failure path, and until it was rendered here the user
