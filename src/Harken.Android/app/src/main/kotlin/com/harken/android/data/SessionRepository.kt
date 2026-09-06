@@ -44,7 +44,6 @@ class SessionRepository(
         val startedAt: String,
         val durationSeconds: Int?,
         val segmentCount: Int,
-        val hasSummary: Boolean,
         val status: String?,
         val failureReason: String?,
         val tags: List<String>,
@@ -119,7 +118,6 @@ class SessionRepository(
         id: UUID,
         startedAt: String,
         endedAt: String,
-        source: String,
         filePath: String,
         durationSeconds: Int,
     ) {
@@ -128,7 +126,11 @@ class SessionRepository(
                 id = id,
                 startedAt = startedAt,
                 endedAt = endedAt,
-                source = source,
+                // source, hasSummary and syncedAt are sync-era columns: nothing on the
+                // phone reads them, and every recording has the same origin. They are
+                // written once here and drop out with the rename migration (ARC-015),
+                // because dropping a column is a migration and migrations wait for it.
+                source = "Microphone",
                 segmentCount = 0,
                 hasSummary = false,
                 transcriptionStatus = "Recorded",
@@ -260,7 +262,6 @@ class SessionRepository(
         startedAt = row.startedAt,
         durationSeconds = row.durationSeconds,
         segmentCount = row.segmentCount,
-        hasSummary = row.hasSummary,
         status = row.transcriptionStatus,
         failureReason = row.transcriptionFailureReason,
         tags = row.localTags.split(',').filter { it.isNotBlank() },

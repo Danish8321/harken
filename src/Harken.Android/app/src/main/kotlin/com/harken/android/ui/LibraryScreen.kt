@@ -441,7 +441,6 @@ private fun SessionCard(
     val (chipBg, chipFg, chipLabel) = when {
         transcribing -> Triple(c.stateDone, c.stateDoneFg, R.string.library_chip_transcribing)
         failed -> Triple(c.stateError, c.stateErrorFg, R.string.library_chip_kept_on_device)
-        s.hasSummary -> Triple(c.stateDone, c.stateDoneFg, R.string.library_chip_summarized)
         else -> Triple(c.pillTrack, c.textSecondary, R.string.library_chip_transcribed)
     }
     val metaLine = buildString {

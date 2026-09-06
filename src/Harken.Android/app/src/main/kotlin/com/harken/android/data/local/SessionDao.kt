@@ -39,72 +39,17 @@ interface SessionDao {
     @Query("SELECT * FROM segments WHERE sessionId = :id ORDER BY offsetSeconds ASC")
     suspend fun segmentsOnce(id: UUID): List<SegmentRow>
 
-    // insertIfNew + updateMirroredFields deliberately do NOT touch localTitle, localTags
-    // or pendingUploadPath: a sync must never clobber something the user typed on this
-    // device. That is the whole reason this is a hand-written UPDATE rather than an
-    // @Upsert of the full row.
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertIfNew(session: SessionRow)
-
     // A local-only session's id is always freshly generated on this device, so a
     // conflict here would mean a real bug (id collision), not a benign re-sync race —
     // unlike insertIfNew, this must not silently swallow it.
     @Insert
     suspend fun insertLocalOnly(session: SessionRow)
 
-    @Query(
-        """
-        UPDATE sessions SET
-            startedAt = :startedAt,
-            endedAt = :endedAt,
-            source = :source,
-            segmentCount = :segmentCount,
-            hasSummary = :hasSummary,
-            transcriptionStatus = :status,
-            transcriptionFailureReason = :failureReason,
-            durationSeconds = COALESCE(:durationSeconds, durationSeconds),
-            syncedAt = :syncedAt
-        WHERE id = :id
-        """,
-    )
-    suspend fun updateMirroredFields(
-        id: UUID,
-        startedAt: String,
-        endedAt: String?,
-        source: String,
-        segmentCount: Int,
-        hasSummary: Boolean,
-        status: String?,
-        failureReason: String?,
-        durationSeconds: Int?,
-        syncedAt: Long,
-    )
-
-    @Transaction
-    suspend fun upsertMirrored(row: SessionRow) {
-        insertIfNew(row)
-        updateMirroredFields(
-            id = row.id,
-            startedAt = row.startedAt,
-            endedAt = row.endedAt,
-            source = row.source,
-            segmentCount = row.segmentCount,
-            hasSummary = row.hasSummary,
-            status = row.transcriptionStatus,
-            failureReason = row.transcriptionFailureReason,
-            durationSeconds = row.durationSeconds,
-            syncedAt = row.syncedAt,
-        )
-    }
-
     @Query("UPDATE sessions SET localTitle = :title WHERE id = :id")
     suspend fun setTitle(id: UUID, title: String?)
 
     @Query("UPDATE sessions SET localTags = :tags WHERE id = :id")
     suspend fun setTags(id: UUID, tags: String)
-
-    @Query("UPDATE sessions SET pendingUploadPath = :path WHERE id = :id")
-    suspend fun setPendingUpload(id: UUID, path: String?)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun replaceSegments(segments: List<SegmentRow>)
@@ -215,8 +160,6 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE id IN (:ids)")
     suspend fun sessionsByIds(ids: List<UUID>): List<SessionRow>
 
-    @Query("SELECT DISTINCT localTags FROM sessions WHERE localTags != ''")
-    fun observeTagStrings(): Flow<List<String>>
 }
 
 class UuidConverters {

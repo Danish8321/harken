@@ -112,7 +112,6 @@ class CaptureViewModel(
                     id = recordingId,
                     startedAt = endedAt.minusSeconds(lastDurationSeconds.toLong()).toString(),
                     endedAt = endedAt.toString(),
-                    source = "Microphone",
                     filePath = filePath,
                     durationSeconds = lastDurationSeconds,
                 )

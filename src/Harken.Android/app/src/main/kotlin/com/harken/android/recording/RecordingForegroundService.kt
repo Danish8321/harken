@@ -276,7 +276,6 @@ class RecordingForegroundService : Service() {
             id = recordingId,
             startedAt = endedAt.minusSeconds(durationSeconds.toLong()).toString(),
             endedAt = endedAt.toString(),
-            source = "Microphone",
             filePath = filePath,
             durationSeconds = durationSeconds,
         )

@@ -43,7 +43,6 @@ class RecordingRecovery(
                     id = orphan.id,
                     startedAt = orphan.startedAt.toString(),
                     endedAt = orphan.endedAt.toString(),
-                    source = "Microphone",
                     filePath = orphan.file.path,
                     durationSeconds = orphan.durationSeconds,
                 )
