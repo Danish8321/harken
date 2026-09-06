@@ -49,12 +49,10 @@ data class SessionSheetUiState(
     val meta: String = "",
     val tags: List<String> = emptyList(),
     val segments: List<TranscriptRowModel> = emptyList(),
-    val summary: String? = null,
     val transcriptMeta: String = "",
     val voiceCount: Int = 1,
     val durationSeconds: Int = 0,
     val status: String? = null,
-    val summaryOptionsOpen: Boolean = false,
     val toast: String? = null,
     val loadError: String? = null,
     /** The WAV this session was recorded to, or null once it is no longer on disk. */
@@ -101,8 +99,7 @@ class SessionSheetViewModel(
             combine(
                 repository.observeSession(id),
                 repository.observeSegments(id),
-                repository.observeSummary(id),
-            ) { session, segments, summary ->
+            ) { session, segments ->
                 val rows = segments.map { TranscriptRowModel(it.id, it.offsetSeconds, it.text, it.voiceIndex) }
                 val voices = SpeakerHeuristic.voiceCount(rows.map { it.voiceIndex })
                 val duration = session?.durationSeconds ?: rows.lastOrNull()?.offsetSeconds ?: 0
@@ -112,7 +109,6 @@ class SessionSheetViewModel(
                     meta = buildMeta(session, duration, rows.isNotEmpty()),
                     tags = session?.tags.orEmpty(),
                     segments = rows,
-                    summary = summary?.summary?.let(::stripMarkdown),
                     transcriptMeta = transcriptMeta(rows.size, voices),
                     voiceCount = voices,
                     status = session?.status,
@@ -268,10 +264,6 @@ class SessionSheetViewModel(
         _uiState.value = _uiState.value.copy(toast = null)
     }
 
-    fun toggleSummaryOptions(open: Boolean) {
-        _uiState.value = _uiState.value.copy(summaryOptionsOpen = open)
-    }
-
     /**
      * Shares the transcript as text.
      *
@@ -362,14 +354,6 @@ class SessionSheetViewModel(
         // of every transcript, but false to claim for a session nothing has transcribed yet.
         return if (transcribed) "$base · whisper base.en" else base
     }
-
-    private fun stripMarkdown(text: String): String = text
-        .replace(Regex("\\*\\*(.+?)\\*\\*"), "$1")
-        .lines()
-        .joinToString("\n") { line ->
-            val trimmed = line.trimStart()
-            if (trimmed.startsWith("* ")) "•" + trimmed.removePrefix("*") else line
-        }
 
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {

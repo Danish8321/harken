@@ -100,8 +100,6 @@ class SessionRepository(
         )
     }
 
-    fun observeSummary(id: UUID) = dao.observeSummary(id)
-
     /** Flips a "Recorded" (recorded, not yet transcribed) session to "Running". */
     override suspend fun startLocalTranscription(id: UUID) = dao.markLocalTranscriptionStarted(id)
 

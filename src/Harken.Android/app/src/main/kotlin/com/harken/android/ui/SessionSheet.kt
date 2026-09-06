@@ -1,7 +1,5 @@
 package com.harken.android.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.clickable
@@ -24,12 +22,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AudioFile
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
@@ -71,7 +67,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -121,9 +116,7 @@ fun SessionSheet(
         mutableStateOf(if (state.hasLocalTitle) state.title else "")
     }
     val titleFocus = remember { FocusRequester() }
-    var summaryOpen by remember { mutableStateOf(true) }
     var confirmDelete by remember { mutableStateOf(false) }
-    var summaryMenuOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(sessionId) { viewModel.load(sessionId) }
 
@@ -241,14 +234,6 @@ fun SessionSheet(
                         onSeek = viewModel::seekTo,
                         modifier = Modifier.padding(top = 18.dp),
                     )
-                    state.summary?.let { summary ->
-                        SummaryCard(
-                            summary = summary,
-                            expanded = summaryOpen,
-                            onToggle = { summaryOpen = !summaryOpen },
-                            modifier = Modifier.padding(top = 16.dp),
-                        )
-                    }
                     Row(
                         Modifier.fillMaxWidth().padding(top = 26.dp, bottom = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -420,37 +405,6 @@ private fun PlaybackCard(
                 style = MaterialTheme.typography.labelMedium,
                 color = ink.onInkDim,
             )
-        }
-    }
-}
-
-@Composable
-private fun SummaryCard(summary: String, expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
-    val rotation by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
-        animationSpec = com.harken.android.ui.theme.HarkenMotion.spatialFast(),
-        label = "summaryChevron",
-    )
-    Surface(
-        onClick = onToggle,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.secondaryContainer,
-    ) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
-                Text(stringResource(R.string.session_summary_header), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.weight(1f))
-                Icon(
-                    Icons.Filled.ExpandMore,
-                    contentDescription = stringResource(if (expanded) R.string.session_summary_collapse else R.string.session_summary_expand),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.rotate(rotation),
-                )
-            }
-            AnimatedVisibility(visible = expanded) {
-                Text(summary, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
-            }
         }
     }
 }

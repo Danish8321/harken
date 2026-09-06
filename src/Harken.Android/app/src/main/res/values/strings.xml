@@ -51,7 +51,6 @@
     <string name="record_wordmark">Harken</string>
     <string name="record_idle_headline">Ready when\nyou are.</string>
     <string name="record_format_line">16 kHz mono · caps at 3 h</string>
-    <string name="record_capturing">CAPTURING</string>
     <string name="record_cap_warning">Approaching the 3-hour cap — it\'ll stop and save on its own.</string>
     <string name="record_saved_local_title">Saved</string>
     <string name="record_saved_local_body">Transcribe it from the Library when you\'re ready</string>
@@ -122,16 +121,6 @@
     <string name="session_share_audio_failed">Couldn\'t prepare the recording to share.</string>
     <string name="session_share_nothing_yet">There is no transcript to share yet.</string>
     <string name="session_share_no_target">No app on this phone can take that.</string>
-    <string name="session_summarizing">Summarizing…</string>
-    <string name="session_resummarizing">Re-summarizing…</string>
-    <string name="session_summarize">Summarize</string>
-    <string name="session_resummarize">Re-summarize</string>
-    <string name="session_summary_options">Summary options</string>
-    <string name="session_summary_short">Short</string>
-    <string name="session_summary_detailed">Detailed</string>
-    <string name="session_summary_header">SUMMARY</string>
-    <string name="session_summary_collapse">Collapse summary</string>
-    <string name="session_summary_expand">Expand summary</string>
     <string name="session_delete_confirm_title">Delete this recording?</string>
     <string name="session_delete_confirm_body">The audio, the transcript and its segments are removed from this phone. This cannot be undone.</string>
     <string name="session_delete_confirm">Delete</string>
@@ -140,7 +129,6 @@
     <string name="session_remove_tag">Remove the %1$s tag</string>
     <string name="session_voice">VOICE %1$d</string>
     <string name="session_toast_renamed">Renamed</string>
-    <string name="session_toast_summary_ready">Summary ready</string>
     <string name="session_toast_copied">Transcript copied</string>
     <plurals name="session_segment_count">
         <item quantity="one">%1$d segment</item>

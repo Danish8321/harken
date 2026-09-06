@@ -39,9 +39,6 @@ interface SessionDao {
     @Query("SELECT * FROM segments WHERE sessionId = :id ORDER BY offsetSeconds ASC")
     suspend fun segmentsOnce(id: UUID): List<SegmentRow>
 
-    @Query("SELECT * FROM summaries WHERE sessionId = :id")
-    fun observeSummary(id: UUID): Flow<SummaryRow?>
-
     // insertIfNew + updateMirroredFields deliberately do NOT touch localTitle, localTags
     // or pendingUploadPath: a sync must never clobber something the user typed on this
     // device. That is the whole reason this is a hand-written UPDATE rather than an
@@ -177,9 +174,6 @@ interface SessionDao {
         """,
     )
     suspend fun failInterruptedTranscriptions(reason: String): Int
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun replaceSummary(summary: SummaryRow)
 
     @Query("DELETE FROM sessions WHERE id = :id")
     suspend fun deleteSession(id: UUID)
