@@ -59,7 +59,7 @@ inferred.
 |----|-------|----------|--------|
 | [ARC-001](ARC-001-no-launcher-icon.md) | The app ships with no launcher icon | critical | fixed |
 | [ARC-002](ARC-002-allowbackup-exfiltrates-recordings.md) | `allowBackup=true` copies recordings and transcripts off the phone | critical | fixed |
-| [ARC-003](ARC-003-transcription-has-no-foreground-service.md) | A transcription is killed whenever the user leaves the app | critical | open |
+| [ARC-003](ARC-003-transcription-has-no-foreground-service.md) | A transcription is killed whenever the user leaves the app | critical | closed |
 | [ARC-004](ARC-004-cleartext-traffic.md) | `usesCleartextTraffic=true` for an app that only talks HTTPS | high | fixed |
 | [ARC-005](ARC-005-model-download-has-no-integrity-check.md) | The downloaded model is never verified, only counted | high | open |
 | [ARC-006](ARC-006-audiorecord-use-after-release.md) | `AudioRecordCapture.stop()` can release a native object mid-read | high | open |

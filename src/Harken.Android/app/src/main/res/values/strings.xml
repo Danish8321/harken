@@ -8,6 +8,12 @@
     <string name="splash_tagline">Listen back to everything.</string>
     <string name="splash_skip">Skip</string>
     <string name="notification_recording_title">Recording — %1$s</string>
+    <string name="notification_recording_stop">Stop</string>
+    <string name="notification_transcribing_title">Transcribing “%1$s”</string>
+    <string name="notification_transcribing_body">Transcribing on this phone. Nothing is uploaded.</string>
+    <string name="notification_transcribing_body_eta">About %1$d min left. Transcribing on this phone.</string>
+    <string name="notification_transcribing_cancel">Cancel</string>
+    <string name="notification_transcribing_channel">Transcribing</string>
 
     <!-- Onboarding (on-device transcription wizard) -->
     <string name="onboarding2_step_of">STEP %1$d OF 2</string>
@@ -147,6 +153,7 @@
     <!-- Shared states -->
     <string name="state_retry">Retry</string>
     <string name="state_dismiss">Dismiss</string>
+    <string name="error_transcription_cancelled">Transcription cancelled. Tap to try again.</string>
     <string name="error_transcription_interrupted">Transcription stopped when the app closed. Tap to try again.</string>
     <string name="error_transcription_interrupted_low_memory">Transcription stopped part-way. This phone has less memory than Harken needs, so it may not finish. Tap to try again.</string>
     <string name="error_recording_failed">Recording failed</string>

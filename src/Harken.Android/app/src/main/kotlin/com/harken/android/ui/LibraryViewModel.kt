@@ -11,6 +11,7 @@ import com.harken.android.speech.ModelDownloadManager
 import com.harken.android.speech.NativeDecodeBreadcrumb
 import com.harken.android.speech.OnDeviceTranscriber
 import com.harken.android.speech.TranscriptionCoordinator
+import com.harken.android.speech.TranscriptionService
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,15 +61,23 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    /** Starts on-device transcription for a "Recorded" session. No-op if one is already running. */
+    /**
+     * Starts on-device transcription for a "Recorded" session. No-op if one is already
+     * running — [TranscriptionCoordinator] holds that invariant and the service defers to
+     * it.
+     *
+     * Goes through [TranscriptionService] rather than calling the coordinator directly:
+     * the coordinator survives this ViewModel, but nothing here survives the *process*
+     * being reclaimed, and a decode holding whisper's working set in a cached process is
+     * the first thing Android takes (ARC-003).
+     */
     fun transcribe(session: SessionRepository.SessionView) {
         val filePath = session.pendingUploadPath ?: return
-        TranscriptionCoordinator.transcribe(
-            repository = repository,
-            modelDownloadManager = modelDownloadManager,
-            onDeviceTranscriber = onDeviceTranscriber,
+        TranscriptionService.start(
+            context = getApplication(),
             sessionId = session.id,
             filePath = filePath,
+            title = session.title,
         )
     }
 

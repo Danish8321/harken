@@ -14,6 +14,7 @@
 #include <android/log.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -25,6 +26,15 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 namespace {
+
+// Set from Kotlin when the user cancels; read by ggml before each graph computation.
+// One flag rather than one per context because decoding is single-flight — see
+// TranscriptionCoordinator, which will not start a second decode while one is running.
+std::atomic<bool> g_abortRequested{false};
+
+bool AbortRequested(void* /*user_data*/) {
+    return g_abortRequested.load(std::memory_order_relaxed);
+}
 
 // whisper.cpp always expects mono float32 PCM at 16kHz. Convert/resample
 // whatever the recorder captured into that shape.
@@ -126,6 +136,10 @@ Java_com_harken_android_speech_OnDeviceTranscriber_nativeTranscribe(
     wparams.language = "en";
     wparams.n_threads = 4;
     wparams.no_timestamps = false;
+    // Without this whisper_full runs a whole span to completion — up to 300 seconds of
+    // audio, minutes of compute — and a Cancel tap does nothing until it returns.
+    wparams.abort_callback = AbortRequested;
+    wparams.abort_callback_user_data = nullptr;
 
     const int result = whisper_full(ctx, wparams, pcmf32.data(), static_cast<int>(pcmf32.size()));
     if (result != 0) {
@@ -150,6 +164,11 @@ Java_com_harken_android_speech_OnDeviceTranscriber_nativeTranscribe(
     json += "]";
 
     return env->NewStringUTF(json.c_str());
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_harken_android_speech_OnDeviceTranscriber_nativeSetAbort(JNIEnv* /*env*/, jobject /*thiz*/, jboolean abort) {
+    g_abortRequested.store(abort == JNI_TRUE, std::memory_order_relaxed);
 }
 
 extern "C" JNIEXPORT void JNICALL

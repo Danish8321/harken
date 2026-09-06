@@ -4,6 +4,9 @@ import com.harken.android.audio.SpeechSpans
 import com.harken.android.audio.WavFormat
 import com.harken.android.telemetry.Telemetry
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.io.RandomAccessFile
@@ -57,7 +60,19 @@ private fun parseNativeSegments(json: String): List<NativeSegment> {
  * that doesn't exist on the JVM test runner).
  */
 interface Transcriber {
-    suspend fun transcribe(wavPath: String, modelPath: String): List<LocalTranscribedSegment>
+    /**
+     * [onProgress] reports the fraction of the decodable audio finished, 0f..1f, once per
+     * span. It exists because a decode is minutes long and now runs under a foreground
+     * service notification the user can see — a progress bar that never moves is worse
+     * than none. Called on whatever thread the decode is running on, so an implementation
+     * of it must be safe there.
+     */
+    suspend fun transcribe(
+        wavPath: String,
+        modelPath: String,
+        onProgress: (fraction: Float) -> Unit = {},
+    ): List<LocalTranscribedSegment>
+
     fun release()
 }
 
@@ -81,8 +96,22 @@ class OnDeviceTranscriber(
      * at [modelPath]. Loads the model if it isn't already loaded — the caller is expected
      * to call [release] when done, per instance, per transcription.
      */
-    override suspend fun transcribe(wavPath: String, modelPath: String): List<LocalTranscribedSegment> =
+    override suspend fun transcribe(
+        wavPath: String,
+        modelPath: String,
+        onProgress: (fraction: Float) -> Unit,
+    ): List<LocalTranscribedSegment> =
         withContext(Dispatchers.Default) {
+            // whisper_full does not return until a whole span is decoded — up to 300
+            // seconds of audio — so cancelling the coroutine alone leaves the user
+            // watching a Cancel they already tapped. The native flag is what stops the
+            // compute; the ensureActive below turns that into a CancellationException.
+            // The handler needs no disposal: it is registered on this call's own job,
+            // which completes a few lines later.
+            nativeSetAbort(false)
+            val decodeJob = currentCoroutineContext().job
+            decodeJob.invokeOnCompletion { nativeSetAbort(true) }
+
             // Every phase below is timed separately because they fail differently: a slow
             // model load is a storage problem, a slow WAV read is an I/O problem, and slow
             // decoding is whisper doing too much work. Reported as one number they are
@@ -129,6 +158,10 @@ class OnDeviceTranscriber(
 
                 var decodeMs = 0L
                 var readMs = 0L
+                // Progress is measured in samples handed to whisper, not in spans: spans
+                // range from 30 to 300 seconds, so counting them would make the bar jump
+                // ten times further for one span than the next.
+                var decodedSoFar = 0L
                 val segments = spans.flatMapIndexed { index, span ->
                     val readStartNs = System.nanoTime()
                     val pcm16 = readSamples(file, span.startSample, span.sampleCount)
@@ -147,6 +180,10 @@ class OnDeviceTranscriber(
                     } finally {
                         breadcrumb?.leave()
                     }
+                    // An aborted whisper_full returns an empty result rather than
+                    // throwing, so the cancellation has to be raised here or the loop
+                    // would quietly record the rest of the recording as silence.
+                    decodeJob.ensureActive()
                     val spanDecodeMs = Telemetry.elapsedMsSince(decodeStartNs)
                     decodeMs += spanDecodeMs
 
@@ -164,6 +201,9 @@ class OnDeviceTranscriber(
                         "decodeMs" to spanDecodeMs,
                         "segments" to nativeSegments.size,
                     )
+
+                    decodedSoFar += span.sampleCount
+                    if (decodedSamples > 0) onProgress(decodedSoFar.toFloat() / decodedSamples)
 
                     nativeSegments.map { segment ->
                         // Whisper times each segment from the start of what it was given,
@@ -274,6 +314,10 @@ class OnDeviceTranscriber(
 
         @JvmStatic
         external fun nativeTranscribe(handle: Long, pcm16: ShortArray, sampleRate: Int): String
+
+        /** Asks an in-flight [nativeTranscribe] to give up, and clears that request. */
+        @JvmStatic
+        external fun nativeSetAbort(abort: Boolean)
 
         @JvmStatic
         external fun nativeFreeModel(handle: Long)
