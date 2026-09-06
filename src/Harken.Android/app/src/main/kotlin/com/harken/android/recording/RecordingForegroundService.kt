@@ -9,6 +9,8 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import com.harken.android.audio.AudioRecordCapture
+import com.harken.android.R
+import com.harken.android.audio.CaptureFailure
 import com.harken.android.audio.Pcm16
 import com.harken.android.audio.RecordingStopReason
 import com.harken.android.audio.SilenceDetector
@@ -132,7 +134,7 @@ class RecordingForegroundService : Service() {
             startForeground(NotificationId, buildNotification())
         } catch (e: Exception) {
             Log.e(TAG, "startForeground failed", e)
-            RecordingState.publishError(e.message ?: "Couldn't start the recording notification")
+            RecordingState.publishError(R.string.error_recording_start_failed, e.message)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -147,7 +149,7 @@ class RecordingForegroundService : Service() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to open recording file at $filePath", e)
-            RecordingState.publishError(e.message ?: "Couldn't create the recording file")
+            RecordingState.publishError(R.string.error_recording_start_failed, e.message)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -207,7 +209,7 @@ class RecordingForegroundService : Service() {
                 "afterChunks" to chunkCount,
                 "error" to Telemetry.describe(e),
             )
-            RecordingState.publishError(e.message ?: "Recording stopped — couldn't write to disk")
+            RecordingState.publishError(R.string.error_recording_write_failed, e.message)
             stopRecording(RecordingStopReason.None)
             return
         }
@@ -251,8 +253,12 @@ class RecordingForegroundService : Service() {
             .onFailure { Log.w(TAG, "Could not update the recording notification", it) }
     }
 
-    private fun onCaptureError(message: String) {
-        RecordingState.publishError(message)
+    private fun onCaptureError(failure: CaptureFailure, detail: String?) {
+        val message = when (failure) {
+            CaptureFailure.MicrophoneUnavailable -> R.string.error_recording_mic_unavailable
+            CaptureFailure.MicrophoneStopped -> R.string.error_recording_mic_stopped
+        }
+        RecordingState.publishError(message, detail)
         stopRecording(RecordingStopReason.None)
     }
 
@@ -291,7 +297,7 @@ class RecordingForegroundService : Service() {
                     writer?.close()
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed closing/patching the WAV file", e)
-                    RecordingState.publishError(e.message ?: "Recording may be incomplete on disk")
+                    RecordingState.publishError(R.string.error_recording_incomplete, e.message)
                 }
                 writer = null
                 // Read before the detector is dropped, and carried out as one value: the

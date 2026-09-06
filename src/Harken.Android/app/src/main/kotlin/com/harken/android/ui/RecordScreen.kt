@@ -84,6 +84,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
 import com.harken.android.audio.RecordingStopReason
 import com.harken.android.data.AppSettings
+import com.harken.android.recording.RecordingError
 import com.harken.android.recording.RecordingState
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalReducedMotion
@@ -152,14 +153,17 @@ fun RecordScreen(
         }
     }
 
-    var recordingError by remember { mutableStateOf<String?>(null) }
+    var recordingError by remember { mutableStateOf<RecordingError?>(null) }
     LaunchedEffect(Unit) {
-        RecordingState.error.collect { error -> recordingError = error.message }
+        RecordingState.error.collect { error -> recordingError = error }
     }
-    recordingError?.let { message ->
+    recordingError?.let { error ->
         HarkenErrorDialog(
             title = stringResource(R.string.error_recording_failed),
-            body = message,
+            // The platform's own text, when there is any, sits under the sentence rather
+            // than replacing it: it is untranslated and often cryptic, but it is the only
+            // thing that says which of several causes this was.
+            body = listOfNotNull(stringResource(error.messageRes), error.detail).joinToString("\n\n"),
             onDismiss = { recordingError = null },
         )
     }

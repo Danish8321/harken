@@ -27,7 +27,8 @@ class AudioRecordCapture(
     private val onChunk: (chunk: ByteArray, length: Int) -> Unit,
     // Fatal for the in-flight recording: init failed, or the read loop hit an AudioRecord
     // error code (ERROR_DEAD_OBJECT etc) it can't just spin through. Called at most once.
-    private val onError: (String) -> Unit = {},
+    // The detail is the platform's own text and may be null; it is never the whole message.
+    private val onError: (failure: CaptureFailure, detail: String?) -> Unit = { _, _ -> },
     // IO, not Default: the loop below spends its life inside record.read(), which parks a
     // thread rather than using a core, and Default is sized to the core count (ARC-012).
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
@@ -55,14 +56,14 @@ class AudioRecordCapture(
             )
         } catch (e: Exception) {
             Log.e(TAG, "AudioRecord construction failed", e)
-            onError(e.message ?: "Microphone unavailable")
+            onError(CaptureFailure.MicrophoneUnavailable, e.message)
             return
         }
 
         if (record.state != AudioRecord.STATE_INITIALIZED) {
             Log.e(TAG, "AudioRecord failed to initialize, state=${record.state}")
             record.release()
-            onError("Microphone unavailable")
+            onError(CaptureFailure.MicrophoneUnavailable, null)
             return
         }
 
@@ -73,7 +74,7 @@ class AudioRecordCapture(
             Log.e(TAG, "AudioRecord.startRecording failed", e)
             record.release()
             audioRecord = null
-            onError(e.message ?: "Microphone unavailable")
+            onError(CaptureFailure.MicrophoneUnavailable, e.message)
             return
         }
         isRunning = true
@@ -90,7 +91,7 @@ class AudioRecordCapture(
             } else if (bytesRead < 0) {
                 Log.e(TAG, "AudioRecord.read returned error code $bytesRead")
                 isRunning = false
-                onError("Microphone stopped responding (code $bytesRead)")
+                onError(CaptureFailure.MicrophoneStopped, "code $bytesRead")
             }
         }
     }

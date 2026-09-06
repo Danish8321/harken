@@ -1,5 +1,6 @@
 package com.harken.android.recording
 
+import androidx.annotation.StringRes
 import android.os.SystemClock
 import androidx.annotation.VisibleForTesting
 import com.harken.android.audio.RecordingStopReason
@@ -25,8 +26,12 @@ data class RecordingCompleted(
     val saveError: String? = null,
 )
 
-/** A recording failed to start or was aborted mid-capture by something the user has no lever over. */
-data class RecordingError(val message: String)
+/**
+  * A recording failed to start or was aborted mid-capture by something the user has no
+  * lever over. The sentence is a string resource so it is read in the user's language;
+  * `detail` is the platform's own text, which is not translated and may be absent.
+  */
+data class RecordingError(@StringRes val messageRes: Int, val detail: String?)
 
 private data class InProgress(
     val recordingId: UUID,
@@ -51,8 +56,8 @@ object RecordingState {
     private val _error = MutableSharedFlow<RecordingError>(extraBufferCapacity = 1)
     val error = _error.asSharedFlow()
 
-    fun publishError(message: String) {
-        _error.tryEmit(RecordingError(message))
+    fun publishError(@StringRes messageRes: Int, detail: String? = null) {
+        _error.tryEmit(RecordingError(messageRes, detail))
     }
 
     private val _isRecording = MutableStateFlow(false)

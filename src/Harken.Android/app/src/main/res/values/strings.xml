@@ -207,8 +207,13 @@
     <string name="error_transcription_interrupted">Transcription stopped when the app closed. Tap to try again.</string>
     <string name="error_transcription_interrupted_low_memory">Transcription stopped part-way. This phone has less memory than Harken needs, so it may not finish. Tap to try again.</string>
     <string name="error_recording_failed">Recording failed</string>
-    <string name="error_recording_start_failed">Couldn\'t start recording. %1$s</string>
-    <string name="error_recording_aborted">Recording stopped early. %1$s</string>
+    <!-- The sentence the dialog leads with. Anything the platform said follows it as a
+         separate paragraph, so these do not take a format argument. -->
+    <string name="error_recording_start_failed">Harken couldn\'t start recording.</string>
+    <string name="error_recording_mic_unavailable">The microphone isn\'t available. Another app may be holding it.</string>
+    <string name="error_recording_mic_stopped">The microphone stopped responding, so the recording stopped.</string>
+    <string name="error_recording_write_failed">Harken couldn\'t write to storage, so the recording stopped.</string>
+    <string name="error_recording_incomplete">The recording was saved, but it may be incomplete.</string>
     <string name="library_load_failed_title">Couldn\'t load your recordings</string>
     <string name="library_load_failed_body">Something went wrong reading the local database. %1$s</string>
     <string name="session_action_failed">Something went wrong. Try again.</string>
