@@ -35,6 +35,8 @@ relative-luminance formula.
 | [UI-036](UI-036-voice-one-label-invisible.md) | The "Voice 1" label is painted in the on-accent colour | medium | fixed |
 | [UI-037](UI-037-stuck-transcription-and-repair-header.md) | Stuck-transcription reconciliation + wire up `WavWriter.repairHeader` | medium | fixed |
 | [UI-038](UI-038-silence-hint-shown-while-paused.md) | The silence-timeout hint stays on screen while paused | low | done |
+| [UI-034](UI-034-recorder-silence-threshold.md) | Recorder auto-stop's fixed silence threshold vs the transcriber's adaptive one | medium | closed |
+| [UI-035](UI-035-below-minimum-device-guard.md) | Nothing tells a below-minimum device why transcription dies | medium | closed |
 
 UI-019..UI-027 were driven by direct interactive requests and have no
 ticket files of their own — [UI-030](UI-030-interactive-pass-backfill.md)
