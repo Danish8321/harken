@@ -37,7 +37,29 @@ gate has only been observed failing correctly. Writing a migration over a column
 holds every user's audio path without being able to run the test that proves it preserves
 them is exactly the case CLAUDE.md's "data is irreversible" rule exists for.
 
-Also note `.claude/scripts/schema.sh`, which CLAUDE.md names as the only route for a
-schema change, does not exist in this repository. It needs writing as part of this ticket.
-
 Unblocks the moment a phone is plugged in.
+
+## Progress — the gate exists now
+
+`.claude/scripts/schema.sh` written, 2026-09-07. It was the half of this ticket that
+needed no device, and it was the more urgent half: CLAUDE.md named it as the only route
+for a schema change and it did not exist, so every schema change so far went through no
+route at all.
+
+It applies nothing. It re-runs Room's export from the entities as they are written right
+now, diffs the result against what is committed, prints it, and states the three things
+that must be true before the change ships — that a rename is written as
+`ALTER TABLE … RENAME COLUMN` rather than left to a generated drop-and-add, that the
+version is bumped and the old schema file left untouched, and that `test-full.sh` passes
+on a phone.
+
+One check is machine-made rather than left to the reader: if the export modified a
+schema file already committed for a shipped version, the entities no longer describe the
+version they are numbered as, and Room will refuse to open every existing install. The
+script says so by name.
+
+Verified both ways — clean tree reports "the entities produce the schema that is
+committed", and a probe rename of one column produced the column-level diff and the
+version-bump warning. The probe was reverted; nothing in `app/schemas` changed.
+
+The rename itself is still device-blocked, for the reason above.
