@@ -108,14 +108,11 @@ class SessionSearchTest {
         id = id,
         startedAt = startedAt,
         endedAt = null,
-        source = "Device",
         segmentCount = 2,
-        hasSummary = false,
         transcriptionStatus = "Succeeded",
         transcriptionFailureReason = null,
         durationSeconds = 60,
         localTitle = title,
-        isLocalOnly = true,
     )
 
     private fun segment(

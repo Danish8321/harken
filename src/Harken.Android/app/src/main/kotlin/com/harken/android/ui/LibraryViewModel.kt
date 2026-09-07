@@ -120,7 +120,7 @@ class LibraryViewModel(
      * the first thing Android takes (ARC-003).
      */
     fun transcribe(session: SessionRepository.SessionView) {
-        val filePath = session.pendingUploadPath ?: return
+        val filePath = session.audioPath ?: return
         TranscriptionService.start(
             context = getApplication(),
             sessionId = session.id,

@@ -56,8 +56,8 @@ class SessionRepository(
         val status: String?,
         val failureReason: String?,
         val tags: List<String>,
-        val pendingUploadPath: String?,
-        val isLocalOnly: Boolean,
+        /** Where the WAV is, or null once it has been deleted. */
+        val audioPath: String?,
     )
 
     /**
@@ -99,7 +99,7 @@ class SessionRepository(
             ExportItem(
                 title = displayTitle(row.localTitle, PartOfDay.of(row.startedAt)),
                 startedAt = row.startedAt,
-                audioPath = row.pendingUploadPath,
+                audioPath = row.audioPath,
                 lines = dao.segmentsOnce(row.id).map { TranscriptText.Line(it.offsetSeconds, it.text) },
             )
         }
@@ -136,21 +136,13 @@ class SessionRepository(
                 id = id,
                 startedAt = startedAt,
                 endedAt = endedAt,
-                // source, hasSummary and syncedAt are sync-era columns: nothing on the
-                // phone reads them, and every recording has the same origin. They are
-                // written once here and drop out with the rename migration (ARC-015),
-                // because dropping a column is a migration and migrations wait for it.
-                source = "Microphone",
                 segmentCount = 0,
-                hasSummary = false,
                 transcriptionStatus = "Recorded",
                 transcriptionFailureReason = null,
                 // Known here, not only after transcription: the capture's own length. Left
                 // null, every un-transcribed session read "0m 00s" in the Library.
                 durationSeconds = durationSeconds,
-                syncedAt = System.currentTimeMillis(),
-                isLocalOnly = true,
-                pendingUploadPath = filePath,
+                audioPath = filePath,
             ),
         )
     }
@@ -265,7 +257,7 @@ class SessionRepository(
             // (ARC-007). Failing here leaves the recording whole and says so; delete is the
             // one operation a user expects to be final, so a half-done one is not reported
             // as done.
-            val audio = dao.findById(id)?.pendingUploadPath
+            val audio = dao.findById(id)?.audioPath
             audio?.let { path ->
                 val file = java.io.File(path)
                 check(!file.exists() || file.delete()) { "Could not delete the audio for this recording" }
@@ -285,7 +277,6 @@ class SessionRepository(
             status = row.transcriptionStatus,
             failureReason = row.transcriptionFailureReason,
             tags = row.localTags.split(',').filter { it.isNotBlank() },
-            pendingUploadPath = row.pendingUploadPath,
-            isLocalOnly = row.isLocalOnly,
+            audioPath = row.audioPath,
         )
 }

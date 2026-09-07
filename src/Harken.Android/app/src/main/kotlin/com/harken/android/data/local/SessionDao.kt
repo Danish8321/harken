@@ -201,7 +201,62 @@ val MIGRATION_1_2 =
         }
     }
 
-@Database(entities = [SessionRow::class, SegmentRow::class, SummaryRow::class], version = 2, exportSchema = true)
+/**
+ * Drops the four columns that described a backend (ADR-0011 removed it) and renames the
+ * fifth, which had stopped meaning what it said: `pendingUploadPath` has held the path of
+ * the recording's own WAV since the app started transcribing on-device (ARC-015).
+ *
+ * Written as a table rebuild rather than four `ALTER TABLE`s because minSdk is 26 and
+ * neither statement this needs exists at that level: SQLite gained `RENAME COLUMN` in
+ * 3.25 (API 30) and `DROP COLUMN` in 3.35 (API 34), and API 26 ships 3.18. So the rebuild
+ * is the rename — every surviving column is named on both sides of the copy, and
+ * `pendingUploadPath` is read into `audioPath` by name. Nothing here creates a column and
+ * leaves it empty, which is what a generated drop-and-add would have done to every user's
+ * only pointer to their audio.
+ *
+ * `source`, `hasSummary` and `syncedAt` are simply not carried across. They were written
+ * on every insert and read by nothing.
+ */
+val MIGRATION_2_3 =
+    object : androidx.room.migration.Migration(2, 3) {
+        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `sessions_new` (
+                    `id` TEXT NOT NULL,
+                    `startedAt` TEXT NOT NULL,
+                    `endedAt` TEXT,
+                    `segmentCount` INTEGER NOT NULL,
+                    `transcriptionStatus` TEXT,
+                    `transcriptionFailureReason` TEXT,
+                    `durationSeconds` INTEGER,
+                    `localTitle` TEXT,
+                    `localTags` TEXT NOT NULL,
+                    `audioPath` TEXT,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                INSERT INTO `sessions_new` (
+                    `id`, `startedAt`, `endedAt`, `segmentCount`, `transcriptionStatus`,
+                    `transcriptionFailureReason`, `durationSeconds`, `localTitle`,
+                    `localTags`, `audioPath`
+                )
+                SELECT
+                    `id`, `startedAt`, `endedAt`, `segmentCount`, `transcriptionStatus`,
+                    `transcriptionFailureReason`, `durationSeconds`, `localTitle`,
+                    `localTags`, `pendingUploadPath`
+                FROM `sessions`
+                """.trimIndent(),
+            )
+            db.execSQL("DROP TABLE `sessions`")
+            db.execSQL("ALTER TABLE `sessions_new` RENAME TO `sessions`")
+        }
+    }
+
+@Database(entities = [SessionRow::class, SegmentRow::class, SummaryRow::class], version = 3, exportSchema = true)
 @TypeConverters(UuidConverters::class)
 abstract class HarkenDatabase : RoomDatabase() {
     abstract fun sessions(): SessionDao
@@ -213,7 +268,7 @@ abstract class HarkenDatabase : RoomDatabase() {
             instance ?: synchronized(this) {
                 instance ?: androidx.room.Room
                     .databaseBuilder(context.applicationContext, HarkenDatabase::class.java, "harken-local.db")
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { instance = it }
             }

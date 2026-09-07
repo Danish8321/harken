@@ -114,7 +114,7 @@ class SessionSheetViewModel(
                         status = session?.status,
                         durationSeconds = duration,
                         loadError = null,
-                        audioPath = session?.pendingUploadPath?.takeIf { java.io.File(it).exists() },
+                        audioPath = session?.audioPath?.takeIf { java.io.File(it).exists() },
                         playbackDurationMs =
                             _uiState.value.playbackDurationMs.takeIf { it > 0 }
                                 ?: (duration * 1000),

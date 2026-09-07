@@ -1,7 +1,7 @@
 # ARC-015 — The data layer still speaks the language of a backend that no longer exists
 
 - **Severity:** medium
-- **Status:** blocked — needs a device
+- **Status:** written and gated offline; needs a device to prove the migration
 - **Area:** `data/local/SessionDao.kt`, `data/local/LocalModels.kt`, `data/SessionRepository.kt`
 
 ## Problem
@@ -63,3 +63,45 @@ committed", and a probe rename of one column produced the column-level diff and 
 version-bump warning. The probe was reverted; nothing in `app/schemas` changed.
 
 The rename itself is still device-blocked, for the reason above.
+
+## Written, 2026-09-07 — branch `arc-015-audio-path-rename`
+
+`pendingUploadPath` is `audioPath`. `isLocalOnly`, `source`, `hasSummary` and `syncedAt`
+are gone — the last three because `SessionRepository` already promised in a comment that
+they "drop out with the rename migration (ARC-015)", and the rebuild that the rename needs
+drops them at no extra cost. Database version 3, `MIGRATION_2_3`, schema `3.json` exported.
+
+The migration is a table rebuild, not four `ALTER TABLE`s, and not by preference: minSdk
+is 26 and neither statement exists there. SQLite gained `RENAME COLUMN` in 3.25 (API 30)
+and `DROP COLUMN` in 3.35 (API 34); API 26 ships 3.18. So the rebuild *is* the rename —
+every surviving column is named on both sides of the copy and `pendingUploadPath` is read
+into `audioPath` by name, which is the create-copy-drop-rename fallback `schema.sh` names.
+
+`SessionDatabaseMigrationTest` gained two tests. The 2→3 one is the one that matters: it
+writes a row with a real audio path and a row with a null one, migrates, and asserts the
+path *value* arrives rather than that a column of that name exists — a generated
+drop-and-add passes the second check and fails the first, and the path is the only pointer
+to a recording's WAV. The 1→3 one runs the chain a never-updated phone will actually run.
+
+Gates at this tree: `check.sh` OK, `test-fast.sh` OK (152 tests, 0 failures, 22 files),
+`schema.sh` shows version 3 and warns about no already-shipped schema.
+
+### Still blocked
+
+`test-full.sh`. The migration has never been run against a real SQLite, because no device
+is attached. Nothing else is outstanding: the moment a phone is plugged in this is one
+command, and it either passes or it says which assertion it broke.
+
+### Found while doing this
+
+Two bugs in `schema.sh` itself, both hit on its first real use — fixed on master in
+`4adb34b`, not here. It reported "Nothing" about a schema it had never re-exported: `git
+diff` cannot see a new untracked `N.json`, and KSP was `UP-TO-DATE` because
+`room.schemaLocation` sits outside its declared outputs.
+
+### Noted, not done
+
+The `summaries` table and `SummaryRow` are equally dead — ADR-0011 removed summaries and
+nothing reads either. `hasSummary` dropped here; the table it referred to did not, because
+this ticket does not name it and dropping a table is its own decision. Worth a ticket.
+

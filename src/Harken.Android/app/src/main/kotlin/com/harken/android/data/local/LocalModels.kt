@@ -4,35 +4,33 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-// The app's first Room database. Scope decision (ADR-0010): a FULL local mirror, not
-// just an overrides table. Library then opens instantly and reads offline, and the API
-// becomes a sync source rather than the thing the UI blocks on.
+// The app's database. ADR-0010 shaped it as a full local mirror of a backend; ADR-0011
+// removed the backend, so there is nothing on the other side to mirror and every column
+// here is owned by this device. The sync-era shape survived that change and was still
+// describing a server in version 2 — ARC-015 renamed and dropped the columns that did.
 //
-// Two kinds of column live here and they must not be confused:
-//   * mirrored   — owned by the backend, overwritten on every sync
-//   * local-only — owned by this device, never overwritten (title, tags)
+// Anything added here is local, permanent, and the only copy: nothing else holds it.
 
 @Entity(tableName = "sessions")
 data class SessionRow(
     @PrimaryKey val id: UUID,
     val startedAt: String,
     val endedAt: String?,
-    val source: String,
     val segmentCount: Int,
-    val hasSummary: Boolean,
     val transcriptionStatus: String?,
     val transcriptionFailureReason: String?,
-    /** Derived from the last segment's offset, since the API returns no duration. */
+    /** Set from the capture's own length when the row is written, refined once transcribed. */
     val durationSeconds: Int?,
-    /** Local: null means "show the derived name". */
+    /** Null means "show the derived name". */
     val localTitle: String? = null,
-    /** Local: comma-separated, empty means untagged. */
+    /** Comma-separated, empty means untagged. */
     val localTags: String = "",
-    /** Local: set when a recording was captured but never reached the backend. */
-    val pendingUploadPath: String? = null,
-    val syncedAt: Long = 0L,
-    /** Local: true when this session was transcribed on-device and never reached the backend. */
-    val isLocalOnly: Boolean = false,
+    /**
+     * Absolute path of the WAV this recording was captured to, or null once the audio is
+     * gone. The only pointer to it: deleting a session deletes this file, and nothing
+     * re-derives the path from the row.
+     */
+    val audioPath: String? = null,
 )
 
 @Entity(tableName = "segments")
