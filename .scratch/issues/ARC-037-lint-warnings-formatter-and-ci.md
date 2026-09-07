@@ -1,7 +1,7 @@
 # ARC-037 — Lint's 76 warnings, a formatter, and CI
 
 - **Severity:** medium
-- **Status:** in-progress
+- **Status:** done
 - **Area:** `.claude/scripts/`, `app/build.gradle.kts`, repository root
 
 ## Problem
@@ -129,10 +129,20 @@ deciding, and each one turned out to name something real:
 `.editorconfig` states two settings and the reason for each; everything else is
 ktlint's official Kotlin style, which is the point of adopting it.
 
-## Still open
-- **35 typos**, all inside `res/values/font_certs.xml` and all resolved by
-  [ARC-038](ARC-038-typeface-depends-on-play-services.md) if it is accepted.
-- **17 version notices**, held by the compileSdk 36 ceiling above.
+## Resolution, 2026-09-07
+
+[ARC-038](ARC-038-typeface-depends-on-play-services.md) landed: `font_certs.xml`
+is deleted, and with it the 35 `Typos`. Current Lint output is 0 errors, 19
+warnings — `GradleDependency` 12, `NewerVersionAvailable` 5,
+`AndroidGradlePluginVersion` 1 (18 version notices, up one from this ticket's
+last count as more 2026 releases shipped in the meantime) and
+`ChromeOsAbiSupport` 1, left standing per this ticket's own note above (ADR-0013
+named arm64-v8a on purpose). Every warning that named an actual defect in this
+app's own code, resources or config is gone.
+
+The 18 version notices are the compileSdk 36 ceiling described above, not a
+backlog — filed as its own job in
+[ARC-044](ARC-044-compilesdk-36-ceiling.md) rather than left open here.
 
 ## Evidence
 
