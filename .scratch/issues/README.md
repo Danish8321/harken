@@ -34,6 +34,7 @@ relative-luminance formula.
 | [UI-032](UI-032-on-device-pivot-leftovers.md) | On-device pivot leftovers: hardcoded model claim, stale backend copy, dead upload states, undocumented ink system, illegible duration bar | high | resolved |
 | [UI-036](UI-036-voice-one-label-invisible.md) | The "Voice 1" label is painted in the on-accent colour | medium | fixed |
 | [UI-037](UI-037-stuck-transcription-and-repair-header.md) | Stuck-transcription reconciliation + wire up `WavWriter.repairHeader` | medium | fixed |
+| [UI-038](UI-038-silence-hint-shown-while-paused.md) | The silence-timeout hint stays on screen while paused | low | open |
 
 UI-019..UI-027 were driven by direct interactive requests and have no
 ticket files of their own — [UI-030](UI-030-interactive-pass-backfill.md)
