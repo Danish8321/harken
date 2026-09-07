@@ -39,11 +39,12 @@ fun rememberReducedMotion(): Boolean {
     var reduced by remember { mutableStateOf(animatorScaleIsZero(context)) }
 
     DisposableEffect(resolver) {
-        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) {
-                reduced = animatorScaleIsZero(context)
+        val observer =
+            object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) {
+                    reduced = animatorScaleIsZero(context)
+                }
             }
-        }
         resolver.registerContentObserver(
             Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE),
             false,

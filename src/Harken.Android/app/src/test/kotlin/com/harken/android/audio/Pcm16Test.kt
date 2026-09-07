@@ -5,9 +5,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class Pcm16Test {
-
     /** [samples] little-endian 16-bit samples, all at [amplitude]. */
-    private fun tone(samples: Int, amplitude: Int): ByteArray {
+    private fun tone(
+        samples: Int,
+        amplitude: Int,
+    ): ByteArray {
         val bytes = ByteArray(samples * 2)
         for (i in 0 until samples) {
             bytes[i * 2] = (amplitude and 0xFF).toByte()

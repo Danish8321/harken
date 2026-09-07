@@ -4,8 +4,8 @@ import android.content.Context
 import android.util.Log
 import com.harken.android.telemetry.Telemetry
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -17,14 +17,14 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
-import kotlin.coroutines.cancellation.CancellationException
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.net.ssl.SSLException
+import kotlin.coroutines.cancellation.CancellationException
 
 private const val TAG = "ModelDownloadManager"
 
@@ -70,17 +70,18 @@ enum class ModelDownloadFailure {
     ;
 
     companion object {
-        fun of(error: Throwable): ModelDownloadFailure = when (error) {
-            // UnknownHostException is DNS with no network; SocketException covers the
-            // connection dying underneath a transfer already in progress, which is what
-            // switching off wifi mid-download actually produces.
-            is UnknownHostException, is SocketException, is SocketTimeoutException -> NoConnection
-            is SSLException -> NoConnection
-            // Ahead of the general IOException branch, which this is a subclass of.
-            is ModelIntegrityException -> Corrupt
-            is IOException -> if (error.isOutOfSpace()) OutOfSpace else ServerUnavailable
-            else -> Unknown
-        }
+        fun of(error: Throwable): ModelDownloadFailure =
+            when (error) {
+                // UnknownHostException is DNS with no network; SocketException covers the
+                // connection dying underneath a transfer already in progress, which is what
+                // switching off wifi mid-download actually produces.
+                is UnknownHostException, is SocketException, is SocketTimeoutException -> NoConnection
+                is SSLException -> NoConnection
+                // Ahead of the general IOException branch, which this is a subclass of.
+                is ModelIntegrityException -> Corrupt
+                is IOException -> if (error.isOutOfSpace()) OutOfSpace else ServerUnavailable
+                else -> Unknown
+            }
 
         private fun IOException.isOutOfSpace(): Boolean =
             message?.contains("ENOSPC", ignoreCase = true) == true ||
@@ -99,7 +100,7 @@ class ModelDownloadManager(
     private val filesDir: File,
     private val client: OkHttpClient = OkHttpClient(),
     /** Overridden only by tests, which cannot produce 148 MB that hashes to the real model. */
-    private val expectedSha256: String = ModelSha256,
+    private val expectedSha256: String = MODEL_SHA256,
 ) : ModelProvider {
     constructor(context: Context) : this(context.filesDir)
 
@@ -107,14 +108,13 @@ class ModelDownloadManager(
         get() = File(filesDir, "models")
 
     private val modelFile: File
-        get() = File(modelsDir, ModelFileName)
+        get() = File(modelsDir, MODEL_FILE_NAME)
 
     private val partialFile: File
-        get() = File(modelsDir, "$ModelFileName.tmp")
+        get() = File(modelsDir, "$MODEL_FILE_NAME.tmp")
 
     /** True if the model has already been downloaded and is ready to load. */
     fun isModelPresent(): Boolean = modelFile.exists()
-
 
     /**
      * Deletes a partial download that is too old to be worth resuming, and reports how many
@@ -139,7 +139,7 @@ class ModelDownloadManager(
         if (bytes == 0L) return 0L
 
         val ageMs = now - partialFile.lastModified()
-        if (ageMs < StalePartialAgeMs) {
+        if (ageMs < STALE_PARTIAL_AGE_MS) {
             Telemetry.event("model_partial_kept", "bytes" to bytes, "ageMs" to ageMs)
             return 0L
         }
@@ -153,32 +153,33 @@ class ModelDownloadManager(
      * Returns the absolute path to the model file, downloading it first if missing.
      * Safe to call repeatedly — a no-op once the model is present.
      */
-    override suspend fun ensureModel(): Result<String> = withContext(Dispatchers.IO) {
-        if (modelFile.exists()) {
-            return@withContext Result.success(modelFile.absolutePath)
-        }
-
-        runCatchingDownload {
-            // The lock, rather than the AtomicBoolean that only ever guarded the cleanup
-            // (ARC-019). Without it two callers open FileOutputStream(.tmp, append = true)
-            // on the same file and interleave their writes into it — and since both append
-            // toward the same Content-Length, the result is often exactly the right length.
-            // Held for the whole transfer, so waiting here can mean minutes: a suspended
-            // coroutine on the IO dispatcher, not a blocked thread.
-            downloadLock.withLock {
-                // Re-checked inside the lock. A caller that waited was waiting for this
-                // very file, and fetching it again is the work the lock exists to avoid.
-                if (!modelFile.exists()) {
-                    modelsDir.mkdirs()
-                    downloadTo(partialFile)
-                    installPartial()
-                }
+    override suspend fun ensureModel(): Result<String> =
+        withContext(Dispatchers.IO) {
+            if (modelFile.exists()) {
+                return@withContext Result.success(modelFile.absolutePath)
             }
-            modelFile.absolutePath
-        }.onFailure { e ->
-            Log.e(TAG, "ensureModel download failed", e)
+
+            runCatchingDownload {
+                // The lock, rather than the AtomicBoolean that only ever guarded the cleanup
+                // (ARC-019). Without it two callers open FileOutputStream(.tmp, append = true)
+                // on the same file and interleave their writes into it — and since both append
+                // toward the same Content-Length, the result is often exactly the right length.
+                // Held for the whole transfer, so waiting here can mean minutes: a suspended
+                // coroutine on the IO dispatcher, not a blocked thread.
+                downloadLock.withLock {
+                    // Re-checked inside the lock. A caller that waited was waiting for this
+                    // very file, and fetching it again is the work the lock exists to avoid.
+                    if (!modelFile.exists()) {
+                        modelsDir.mkdirs()
+                        downloadTo(partialFile)
+                        installPartial()
+                    }
+                }
+                modelFile.absolutePath
+            }.onFailure { e ->
+                Log.e(TAG, "ensureModel download failed", e)
+            }
         }
-    }
 
     /**
      * Verifies the completed partial, then moves it over the installed model, replacing it
@@ -276,35 +277,39 @@ class ModelDownloadManager(
      * left the user with no model at all and transcription unavailable until a later
      * attempt happened to succeed — verified on a Nothing Phone 2 before this changed.
      */
-    fun downloadProgress(replaceExisting: Boolean = false): Flow<Int> = callbackFlow {
-        if (modelFile.exists() && !replaceExisting) {
-            trySend(100)
-            close()
-            return@callbackFlow
-        }
-
-        withContext(Dispatchers.IO) {
-            runCatchingDownload {
-                downloadLock.withLock {
-                    // An update that starts while a first-run download is still running
-                    // waits for it, and then finds the model already installed.
-                    if (modelFile.exists() && !replaceExisting) return@withLock
-                    modelsDir.mkdirs()
-                    downloadTo(partialFile) { percent -> trySend(percent) }
-                    installPartial()
-                }
-            }.onFailure { e ->
-                Log.e(TAG, "downloadProgress failed", e)
-                close(e)
-                return@withContext
+    fun downloadProgress(replaceExisting: Boolean = false): Flow<Int> =
+        callbackFlow {
+            if (modelFile.exists() && !replaceExisting) {
+                trySend(100)
+                close()
+                return@callbackFlow
             }
+
+            withContext(Dispatchers.IO) {
+                runCatchingDownload {
+                    downloadLock.withLock {
+                        // An update that starts while a first-run download is still running
+                        // waits for it, and then finds the model already installed.
+                        if (modelFile.exists() && !replaceExisting) return@withLock
+                        modelsDir.mkdirs()
+                        downloadTo(partialFile) { percent -> trySend(percent) }
+                        installPartial()
+                    }
+                }.onFailure { e ->
+                    Log.e(TAG, "downloadProgress failed", e)
+                    close(e)
+                    return@withContext
+                }
+            }
+
+            close()
+            awaitClose { }
         }
 
-        close()
-        awaitClose { }
-    }
-
-    private fun downloadTo(destination: File, onProgress: ((Int) -> Unit)? = null) {
+    private fun downloadTo(
+        destination: File,
+        onProgress: ((Int) -> Unit)? = null,
+    ) {
         downloadInFlight.set(true)
         val startNanos = System.nanoTime()
         Telemetry.event("model_download_started")
@@ -333,15 +338,19 @@ class ModelDownloadManager(
         }
     }
 
-    private fun streamTo(destination: File, onProgress: ((Int) -> Unit)?) {
+    private fun streamTo(
+        destination: File,
+        onProgress: ((Int) -> Unit)?,
+    ) {
         // Resume where a previous attempt stopped. The model is ~148 MB, and restarting
         // from zero on every dropped connection is how a download on a flaky mobile link
         // never finishes — each attempt costs the user the full 148 MB of data again.
         val alreadyHave = destination.length()
-        val request = Request.Builder()
-            .url(MODEL_DOWNLOAD_URL)
-            .apply { if (alreadyHave > 0) header("Range", "bytes=$alreadyHave-") }
-            .build()
+        val request =
+            Request.Builder()
+                .url(MODEL_DOWNLOAD_URL)
+                .apply { if (alreadyHave > 0) header("Range", "bytes=$alreadyHave-") }
+                .build()
 
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
@@ -391,14 +400,14 @@ class ModelDownloadManager(
     }
 
     companion object {
-        const val ModelFileName = "ggml-base.en.bin"
+        const val MODEL_FILE_NAME = "ggml-base.en.bin"
 
         /**
          * How long a partial download stays resumable. A day covers "I lost signal on the
          * train and finished the download that evening" while still bounding how long the
          * user's storage can be held by a file they cannot see.
          */
-        const val StalePartialAgeMs = 24 * 60 * 60 * 1000L
+        const val STALE_PARTIAL_AGE_MS = 24 * 60 * 60 * 1000L
 
         /**
          * Whether this process is currently writing the partial file. Process-wide rather
@@ -421,7 +430,7 @@ class ModelDownloadManager(
          * that re-points the URL: a mismatch reaches the user as a corrupt download, so a
          * stale constant here looks to them like a broken server.
          */
-        const val ModelSha256 = "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002"
+        const val MODEL_SHA256 = "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002"
 
         const val MODEL_DOWNLOAD_URL =
             "https://github.com/Danish8321/harken/releases/download/models-v1/ggml-base.en.bin"

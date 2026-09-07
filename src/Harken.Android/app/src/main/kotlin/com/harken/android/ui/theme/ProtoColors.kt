@@ -72,58 +72,60 @@ data class ProtoColors(
 private val darkInk = Color(0xFFD1C9BE)
 private val lightInk = Color(0xFF10161A)
 
-val ProtoDarkColors = ProtoColors(
-    screenBg = Color(0xFF2C313A),
-    card = Color(0xFF3C414A),
-    cardBorder = Color(0xFF464D56),
-    text = Color(0xFFD1C9BE),
-    textSecondary = Color(0xFFA0A6AD),
-    navBg = Color(0xFF3C414A),
-    pillTrack = Color(0xFF464D56),
-    skeleton = Color(0xFF828A94),
-    accent = Color(0xFFBFA789),
-    onAccent = Color(0xFF2B2016),
-    // Recording-live now rides the same accent as everything else (UI-020) — same
-    // solid-tan-fill / dark-brown-icon pattern as the resting mic circle, so "live"
-    // and "idle" read as the same instrument rather than two different color systems.
-    stateLive = Color(0xFFBFA789),
-    stateLiveFg = Color(0xFF2B2016),
-    stateDone = Color(0xFF2E3D33),
-    stateDoneFg = Color(0xFF8FBF9A),
-    stateDoneSoft = Color(0xFF28352C),
-    success = Color(0xFF8FBF9A),
-    stateError = Color(0xFFE74C3C),
-    stateErrorFg = Color(0xFF2B0B08),
-    // The one surface that still goes darker than the ground — the meter is a readout
-    // behind the signal, and it has to sit under the card tier, not float above it.
-    meterBg = Color(0xFF232830),
-    inkSubtle = darkInk.copy(alpha = 0.60f),
-    inkStrong = darkInk.copy(alpha = 0.75f),
-)
+val ProtoDarkColors =
+    ProtoColors(
+        screenBg = Color(0xFF2C313A),
+        card = Color(0xFF3C414A),
+        cardBorder = Color(0xFF464D56),
+        text = Color(0xFFD1C9BE),
+        textSecondary = Color(0xFFA0A6AD),
+        navBg = Color(0xFF3C414A),
+        pillTrack = Color(0xFF464D56),
+        skeleton = Color(0xFF828A94),
+        accent = Color(0xFFBFA789),
+        onAccent = Color(0xFF2B2016),
+        // Recording-live now rides the same accent as everything else (UI-020) — same
+        // solid-tan-fill / dark-brown-icon pattern as the resting mic circle, so "live"
+        // and "idle" read as the same instrument rather than two different color systems.
+        stateLive = Color(0xFFBFA789),
+        stateLiveFg = Color(0xFF2B2016),
+        stateDone = Color(0xFF2E3D33),
+        stateDoneFg = Color(0xFF8FBF9A),
+        stateDoneSoft = Color(0xFF28352C),
+        success = Color(0xFF8FBF9A),
+        stateError = Color(0xFFE74C3C),
+        stateErrorFg = Color(0xFF2B0B08),
+        // The one surface that still goes darker than the ground — the meter is a readout
+        // behind the signal, and it has to sit under the card tier, not float above it.
+        meterBg = Color(0xFF232830),
+        inkSubtle = darkInk.copy(alpha = 0.60f),
+        inkStrong = darkInk.copy(alpha = 0.75f),
+    )
 
-val ProtoLightColors = ProtoColors(
-    screenBg = Color(0xFFF3F6F7),
-    card = Color(0xFFFFFFFF),
-    cardBorder = Color(0xFFDDE6E8),
-    text = Color(0xFF10161A),
-    textSecondary = Color(0xFF5B676C),
-    navBg = Color(0xFFFFFFFF),
-    pillTrack = Color(0xFFE4EAEC),
-    skeleton = Color(0xFFDDE6E8),
-    accent = Color(0xFF8A744A),
-    onAccent = Color(0xFFFDF4E8),
-    stateLive = Color(0xFF8A744A),
-    stateLiveFg = Color(0xFFFDF4E8),
-    stateDone = Color(0xFFDCEBDF),
-    stateDoneFg = Color(0xFF1F4A2B),
-    stateDoneSoft = Color(0xFFC9E0CE),
-    success = Color(0xFF2F6B3E),
-    stateError = Color(0xFFC7392F),
-    stateErrorFg = Color(0xFFFFFFFF),
-    meterBg = Color(0xFFE4EAEC),
-    inkSubtle = lightInk.copy(alpha = 0.60f),
-    inkStrong = lightInk.copy(alpha = 0.72f),
-)
+val ProtoLightColors =
+    ProtoColors(
+        screenBg = Color(0xFFF3F6F7),
+        card = Color(0xFFFFFFFF),
+        cardBorder = Color(0xFFDDE6E8),
+        text = Color(0xFF10161A),
+        textSecondary = Color(0xFF5B676C),
+        navBg = Color(0xFFFFFFFF),
+        pillTrack = Color(0xFFE4EAEC),
+        skeleton = Color(0xFFDDE6E8),
+        accent = Color(0xFF8A744A),
+        onAccent = Color(0xFFFDF4E8),
+        stateLive = Color(0xFF8A744A),
+        stateLiveFg = Color(0xFFFDF4E8),
+        stateDone = Color(0xFFDCEBDF),
+        stateDoneFg = Color(0xFF1F4A2B),
+        stateDoneSoft = Color(0xFFC9E0CE),
+        success = Color(0xFF2F6B3E),
+        stateError = Color(0xFFC7392F),
+        stateErrorFg = Color(0xFFFFFFFF),
+        meterBg = Color(0xFFE4EAEC),
+        inkSubtle = lightInk.copy(alpha = 0.60f),
+        inkStrong = lightInk.copy(alpha = 0.72f),
+    )
 
 fun protoColors(light: Boolean): ProtoColors = if (light) ProtoLightColors else ProtoDarkColors
 
@@ -134,6 +136,7 @@ fun protoColors(light: Boolean): ProtoColors = if (light) ProtoLightColors else 
  * redundantly, and theme resolution (system-dark fallback, mode mapping) was written three
  * times across MainActivity/Theme.kt/this file.
  */
-val LocalProtoColors = staticCompositionLocalOf<ProtoColors> {
-    error("LocalProtoColors not provided — wrap content in HarkenTheme")
-}
+val LocalProtoColors =
+    staticCompositionLocalOf<ProtoColors> {
+        error("LocalProtoColors not provided — wrap content in HarkenTheme")
+    }

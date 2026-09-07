@@ -14,7 +14,10 @@ object PlaybackCursor {
      * Offsets are whole seconds (that is the resolution the transcript stores) and are
      * assumed ordered, which is how the transcript is read out of the database.
      */
-    fun activeSegment(offsetsSeconds: List<Int>, positionMs: Int): Int? {
+    fun activeSegment(
+        offsetsSeconds: List<Int>,
+        positionMs: Int,
+    ): Int? {
         if (offsetsSeconds.isEmpty()) return null
         val positionSeconds = positionMs / 1000
         val index = offsetsSeconds.indexOfLast { it <= positionSeconds }
@@ -38,12 +41,17 @@ object PlaybackCursor {
      * Where a scrubber sitting [fraction] of the way along lands, in milliseconds, clamped
      * to the recording. A zero-length recording has nowhere to seek to.
      */
-    fun seekTarget(fraction: Float, durationMs: Int): Int {
+    fun seekTarget(
+        fraction: Float,
+        durationMs: Int,
+    ): Int {
         if (durationMs <= 0) return 0
         return (fraction.coerceIn(0f, 1f) * durationMs).toInt().coerceIn(0, durationMs)
     }
 
     /** Where the scrubber sits, 0f..1f. A recording with no known length shows empty. */
-    fun progress(positionMs: Int, durationMs: Int): Float =
-        if (durationMs <= 0) 0f else (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
+    fun progress(
+        positionMs: Int,
+        durationMs: Int,
+    ): Float = if (durationMs <= 0) 0f else (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
 }

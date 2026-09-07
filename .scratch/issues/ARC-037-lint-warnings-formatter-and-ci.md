@@ -75,7 +75,8 @@ app's own code or resources is gone. Three commits:
   wrapper for the platform, and `.github/workflows/gates.yml` runs `check.sh`
   and `test-fast.sh` themselves rather than a workflow-shaped copy of them.
   `.gitattributes` is new and load-bearing: `core.autocrlf` was checking the
-  scripts out as CRLF, and `#!/usr/bin/env bash` fails on Linux naming an
+  scripts out as CRLF, and `#!/usr/bin/env bash
+` fails on Linux naming an
   interpreter that does not exist.
 - `6bb1b6b` — nine libraries and the Gradle wrapper moved to the newest release
   that still builds. 59 warnings -> 54.
@@ -93,20 +94,51 @@ Three pins are held back for their own reasons, also recorded there: Room ties
 to KSP ties to Kotlin and its migration test needs a device; okhttp 4 -> 5 is a
 major on the one network path; Kotlin and AGP are the toolchain.
 
-## Still open
+## Progress — the formatter
 
-- **No formatter.** ktlint or detekt is a new Gradle plugin and needs sign-off.
-  This is the only thing left in this ticket that is not blocked on something
-  else, and it cannot be done without asking.
+ktlint approved and adopted, 2026-09-07. The plugin
+(`org.jlleitschuh.gradle.ktlint` 12.3.0) is applied to every module from the root
+build file, and `ktlintCheck` is the first step in `check.sh` — it is the fastest
+task in the gate and the one most likely to fail, so a badly-formatted change is
+rejected in seconds rather than after a native build.
+
+`ktlintFormat` fixed 1,900-odd lines mechanically. What it could not fix needed
+deciding, and each one turned out to name something real:
+
+- **66 `const val`s in PascalCase.** Kotlin's own convention is screaming snake
+  case for constants, and the codebase was already inconsistent with itself —
+  `ModelDownloadManager` held `MODEL_DOWNLOAD_URL` and `ModelSha256` side by side.
+  All 61 distinct names renamed. Done by qualified replacement
+  (`Routes.Settings` → `Routes.SETTINGS`) rather than a bare-name sweep, because
+  `Settings`, `Record`, `Library`, `Tag` and `Channels` all collide with framework
+  types the same files import.
+- **36 PascalCase `@Composable` functions.** Not a defect: that is Compose's own
+  API guideline. Handled with `ktlint_function_naming_ignore_when_annotated_with
+  = Composable` in `.editorconfig` — the rule's documented setting for this case,
+  not a disabled rule.
+- **An orphaned KDoc in `SessionRepository`**, left behind when the function it
+  described was deleted; its replacement below it had its own. Merged.
+- **`_search`**, a backing property named for a fragment of the property it
+  backs. Renamed `_searchState` to match `searchState`, which is the convention
+  the underscore prefix is for.
+- **`Waveform.kt` and `Color.kt`**, each holding one top-level declaration named
+  something else. Renamed to `HarkenWaveform.kt` and `Organic.kt`.
+- **Two lines over 140 columns** in `SessionSheet`, both a ternary picking a
+  colour scheme. Split.
+
+`.editorconfig` states two settings and the reason for each; everything else is
+ktlint's official Kotlin style, which is the point of adopting it.
+
+## Still open
 - **35 typos**, all inside `res/values/font_certs.xml` and all resolved by
   [ARC-038](ARC-038-typeface-depends-on-play-services.md) if it is accepted.
 - **17 version notices**, held by the compileSdk 36 ceiling above.
 
 ## Evidence
 
-- `.claude/scripts/check.sh` — `== check: OK ==` on all three commits.
-- `.claude/scripts/test-fast.sh` — `== test-fast: OK ==`, 151 unit tests,
-  0 failures, on all three.
+- `.claude/scripts/check.sh` — `== check: OK ==` on all four commits.
+- `.claude/scripts/test-fast.sh` — `== test-fast: OK ==`, 152 unit tests,
+  0 failures, on the ktlint commit; 151 on the three before it.
 - Lint warning counts read from `app/build/reports/lint-results-debug.xml`
   after each run, not from the summary line.
 

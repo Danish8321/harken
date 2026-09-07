@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -43,12 +42,12 @@ import com.harken.android.R
 import com.harken.android.device.DeviceCapability
 import com.harken.android.export.ExportState
 import com.harken.android.export.LibraryExporter
-import com.harken.android.ui.theme.PillShape
 import com.harken.android.ui.theme.DynamicColorAvailable
+import com.harken.android.ui.theme.LocalProtoColors
+import com.harken.android.ui.theme.PillShape
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
 import com.harken.android.ui.theme.ProtoHeadingFont
-import com.harken.android.ui.theme.LocalProtoColors
 
 // Prototype card styling wired to the real SettingsViewModel/AppSettings. The
 // prototype's Storage "warn before cap" and Transcription provider controls have no
@@ -77,9 +76,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
                         ModelDownloadState.Ready -> stringResource(R.string.settings_model_ready)
                         ModelDownloadState.Downloading -> stringResource(R.string.settings_model_downloading, state.modelDownloadProgress)
                         ModelDownloadState.Failed -> {
-                            val reason = stringResource(
-                                state.modelDownloadError?.messageRes() ?: R.string.settings_model_download_failed,
-                            )
+                            val reason =
+                                stringResource(
+                                    state.modelDownloadError?.messageRes() ?: R.string.settings_model_download_failed,
+                                )
                             // A failed *update* is not a missing model — the installed one is
                             // untouched and still transcribes. Saying only "failed" would read
                             // as though the user had lost it.
@@ -106,7 +106,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
                 ) {
                     Text(
                         stringResource(if (state.modelPresent) R.string.settings_model_update else R.string.settings_model_download),
-                        fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.5.sp,
+                        fontFamily = ProtoBodyFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.5.sp,
                     )
                 }
             }
@@ -124,7 +126,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
             // user dismissed six weeks ago is not there when the transcription dies.
             if (state.device.isBelowMinimum) {
                 Text(
-                    stringResource(R.string.settings_model_low_memory, DeviceCapability.MinimumNominalGb),
+                    stringResource(R.string.settings_model_low_memory, DeviceCapability.MINIMUM_NOMINAL_GB),
                     color = c.stateError,
                     fontFamily = ProtoBodyFont,
                     fontSize = 12.sp,
@@ -136,57 +138,81 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
 
         SettingsCard(c) {
             Eyebrow(c, stringResource(R.string.settings_capture_header))
-                CaptureLimitRow(c, stringResource(R.string.settings_session_cap), stringResource(R.string.settings_session_cap_value))
-                CaptureLimitDivider(c)
-                CaptureLimitRow(c, stringResource(R.string.settings_silence_timeout), stringResource(R.string.settings_silence_timeout_value))
-                CaptureLimitDivider(c)
-                CaptureLimitRow(c, stringResource(R.string.settings_format), stringResource(R.string.settings_format_value))
-                Text(
-                    stringResource(R.string.settings_capture_note),
-                    color = c.textSecondary,
-                    fontFamily = ProtoBodyFont,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                    modifier = Modifier.padding(top = 10.dp),
-                )
+            CaptureLimitRow(c, stringResource(R.string.settings_session_cap), stringResource(R.string.settings_session_cap_value))
+            CaptureLimitDivider(c)
+            CaptureLimitRow(
+                c,
+                stringResource(R.string.settings_silence_timeout),
+                stringResource(R.string.settings_silence_timeout_value),
+            )
+            CaptureLimitDivider(c)
+            CaptureLimitRow(c, stringResource(R.string.settings_format), stringResource(R.string.settings_format_value))
+            Text(
+                stringResource(R.string.settings_capture_note),
+                color = c.textSecondary,
+                fontFamily = ProtoBodyFont,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                modifier = Modifier.padding(top = 10.dp),
+            )
         }
 
         BackupCard(c, viewModel)
 
         SettingsCard(c) {
             Eyebrow(c, stringResource(R.string.settings_appearance_header))
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    val modes = ThemeMode.entries
-                    modes.forEachIndexed { index, mode ->
-                        SegmentedButton(
-                            selected = state.themeMode == mode,
-                            onClick = { viewModel.setThemeMode(mode) },
-                            shape = SegmentedButtonDefaults.itemShape(index, modes.size),
-                            icon = {},
-                            colors = protoSegmentedColors(c),
-                            label = { Text(stringResource(mode.label), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.5.sp) },
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                val modes = ThemeMode.entries
+                modes.forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        selected = state.themeMode == mode,
+                        onClick = { viewModel.setThemeMode(mode) },
+                        shape = SegmentedButtonDefaults.itemShape(index, modes.size),
+                        icon = {},
+                        colors = protoSegmentedColors(c),
+                        label = {
+                            Text(
+                                stringResource(mode.label),
+                                fontFamily = ProtoBodyFont,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.5.sp,
+                            )
+                        },
+                    )
+                }
+            }
+            // Hidden, not disabled, below API 31: wallpaper extraction does not exist
+            // there, so the switch had nothing to turn on. A control that moves and
+            // changes nothing is worse than one that is not offered.
+            if (DynamicColorAvailable) {
+                Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.settings_wallpaper_title),
+                            color = c.text,
+                            fontFamily = ProtoBodyFont,
+                            fontSize = 14.sp,
+                        )
+                        Text(
+                            stringResource(R.string.settings_wallpaper_body),
+                            color = c.textSecondary,
+                            fontFamily = ProtoBodyFont,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(top = 2.dp),
                         )
                     }
+                    Switch(checked = state.dynamicColor, onCheckedChange = viewModel::setDynamicColor, colors = protoSwitchColors(c))
                 }
-                // Hidden, not disabled, below API 31: wallpaper extraction does not exist
-                // there, so the switch had nothing to turn on. A control that moves and
-                // changes nothing is worse than one that is not offered.
-                if (DynamicColorAvailable) {
-                    Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.settings_wallpaper_title), color = c.text, fontFamily = ProtoBodyFont, fontSize = 14.sp)
-                            Text(stringResource(R.string.settings_wallpaper_body), color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
-                        }
-                        Switch(checked = state.dynamicColor, onCheckedChange = viewModel::setDynamicColor, colors = protoSwitchColors(c))
-                    }
-                }
+            }
         }
 
         Spacer(Modifier.height(8.dp))
     }
 }
 
-enum class ThemeMode(@StringRes val label: Int) {
+enum class ThemeMode(
+    @StringRes val label: Int,
+) {
     System(R.string.settings_theme_system),
     Light(R.string.settings_theme_light),
     Dark(R.string.settings_theme_dark),
@@ -201,13 +227,17 @@ enum class ThemeMode(@StringRes val label: Int) {
  * (ARC-033).
  */
 @Composable
-private fun BackupCard(c: ProtoColors, viewModel: SettingsViewModel) {
+private fun BackupCard(
+    c: ProtoColors,
+    viewModel: SettingsViewModel,
+) {
     val state by viewModel.exportState.collectAsStateWithLifecycle()
-    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        // Null when the user backed out of the picker. Nothing to say about that: they
-        // know they cancelled.
-        uri?.let(viewModel::startExport)
-    }
+    val pickFolder =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            // Null when the user backed out of the picker. Nothing to say about that: they
+            // know they cancelled.
+            uri?.let(viewModel::startExport)
+        }
     val busy = state is ExportState.Preparing || state is ExportState.Running
 
     SettingsCard(c) {
@@ -221,16 +251,18 @@ private fun BackupCard(c: ProtoColors, viewModel: SettingsViewModel) {
             modifier = Modifier.padding(top = 6.dp),
         )
         Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            val status = when (val current = state) {
-                ExportState.Idle -> ""
-                ExportState.Preparing -> stringResource(R.string.settings_backup_preparing)
-                is ExportState.Running -> stringResource(R.string.settings_backup_progress, current.done, current.total)
-                is ExportState.Finished -> exportSummary(current.report)
-                ExportState.Cancelled -> stringResource(R.string.settings_backup_cancelled)
-                is ExportState.Failed -> current.reason
-                    ?.let { stringResource(R.string.settings_backup_failed, it) }
-                    ?: stringResource(R.string.settings_backup_failed_unknown)
-            }
+            val status =
+                when (val current = state) {
+                    ExportState.Idle -> ""
+                    ExportState.Preparing -> stringResource(R.string.settings_backup_preparing)
+                    is ExportState.Running -> stringResource(R.string.settings_backup_progress, current.done, current.total)
+                    is ExportState.Finished -> exportSummary(current.report)
+                    ExportState.Cancelled -> stringResource(R.string.settings_backup_cancelled)
+                    is ExportState.Failed ->
+                        current.reason
+                            ?.let { stringResource(R.string.settings_backup_failed, it) }
+                            ?: stringResource(R.string.settings_backup_failed_unknown)
+                }
             if (status.isNotEmpty()) {
                 Text(
                     status,
@@ -264,7 +296,9 @@ private fun BackupCard(c: ProtoColors, viewModel: SettingsViewModel) {
                             else -> R.string.settings_backup_dismiss
                         },
                     ),
-                    fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 12.5.sp,
+                    fontFamily = ProtoBodyFont,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.5.sp,
                 )
             }
         }
@@ -291,41 +325,55 @@ private fun BackupCard(c: ProtoColors, viewModel: SettingsViewModel) {
 @Composable
 private fun exportSummary(report: LibraryExporter.Report): String {
     if (report.recordings == 0) return stringResource(R.string.settings_backup_empty)
-    val done = pluralStringResource(
-        R.plurals.settings_backup_done,
-        report.recordings,
-        report.recordings,
-        LibraryExporter.formatBytes(report.bytes),
-    )
-    val missing = if (report.missingAudio > 0) {
-        " " + pluralStringResource(
-            R.plurals.settings_backup_done_missing_audio,
-            report.missingAudio,
-            report.missingAudio,
+    val done =
+        pluralStringResource(
+            R.plurals.settings_backup_done,
+            report.recordings,
+            report.recordings,
+            LibraryExporter.formatBytes(report.bytes),
         )
-    } else {
-        ""
-    }
-    val failed = if (report.failed > 0) {
-        " " + pluralStringResource(R.plurals.settings_backup_done_failed, report.failed, report.failed)
-    } else {
-        ""
-    }
+    val missing =
+        if (report.missingAudio > 0) {
+            " " +
+                pluralStringResource(
+                    R.plurals.settings_backup_done_missing_audio,
+                    report.missingAudio,
+                    report.missingAudio,
+                )
+        } else {
+            ""
+        }
+    val failed =
+        if (report.failed > 0) {
+            " " + pluralStringResource(R.plurals.settings_backup_done_failed, report.failed, report.failed)
+        } else {
+            ""
+        }
     return done + missing + failed
 }
 
 @Composable
-private fun SettingsCard(c: ProtoColors, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+private fun SettingsCard(
+    c: ProtoColors,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
     Column(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(24.dp)).padding(16.dp), content = content)
 }
 
 @Composable
-private fun Eyebrow(c: ProtoColors, text: String) {
+private fun Eyebrow(
+    c: ProtoColors,
+    text: String,
+) {
     Text(text, color = c.textSecondary, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp, letterSpacing = 1.2.sp)
 }
 
 @Composable
-private fun CaptureLimitRow(c: ProtoColors, label: String, value: String) {
+private fun CaptureLimitRow(
+    c: ProtoColors,
+    label: String,
+    value: String,
+) {
     Row(
         Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -341,21 +389,23 @@ private fun CaptureLimitDivider(c: ProtoColors) {
 }
 
 @Composable
-private fun protoSwitchColors(c: ProtoColors) = SwitchDefaults.colors(
-    checkedThumbColor = c.onAccent,
-    checkedTrackColor = c.accent,
-    checkedBorderColor = Color.Transparent,
-    uncheckedThumbColor = c.textSecondary,
-    uncheckedTrackColor = c.pillTrack,
-    uncheckedBorderColor = Color.Transparent,
-)
+private fun protoSwitchColors(c: ProtoColors) =
+    SwitchDefaults.colors(
+        checkedThumbColor = c.onAccent,
+        checkedTrackColor = c.accent,
+        checkedBorderColor = Color.Transparent,
+        uncheckedThumbColor = c.textSecondary,
+        uncheckedTrackColor = c.pillTrack,
+        uncheckedBorderColor = Color.Transparent,
+    )
 
 @Composable
-private fun protoSegmentedColors(c: ProtoColors) = SegmentedButtonDefaults.colors(
-    activeContainerColor = c.accent,
-    activeContentColor = c.onAccent,
-    inactiveContainerColor = c.pillTrack,
-    inactiveContentColor = c.textSecondary,
-    activeBorderColor = Color.Transparent,
-    inactiveBorderColor = c.cardBorder,
-)
+private fun protoSegmentedColors(c: ProtoColors) =
+    SegmentedButtonDefaults.colors(
+        activeContainerColor = c.accent,
+        activeContentColor = c.onAccent,
+        inactiveContainerColor = c.pillTrack,
+        inactiveContentColor = c.textSecondary,
+        activeBorderColor = Color.Transparent,
+        inactiveBorderColor = c.cardBorder,
+    )

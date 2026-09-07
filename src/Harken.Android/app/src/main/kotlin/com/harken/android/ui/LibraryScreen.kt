@@ -6,9 +6,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,11 +21,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,7 +56,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -72,10 +69,10 @@ import com.harken.android.ui.components.ErrorState
 import com.harken.android.ui.components.SkeletonRow
 import com.harken.android.ui.components.rememberStaggerShown
 import com.harken.android.ui.theme.HarkenMotion
+import com.harken.android.ui.theme.LocalProtoColors
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
 import com.harken.android.ui.theme.ProtoHeadingFont
-import com.harken.android.ui.theme.LocalProtoColors
 import java.util.UUID
 
 // Prototype card visuals wired to the real LibraryViewModel — real Room+network session
@@ -97,12 +94,13 @@ fun LibraryScreen(
     val search by viewModel.searchState.collectAsStateWithLifecycle()
     var filter by remember { mutableStateOf(LibraryFilter.All) }
 
-    val visible = remember(state.sessions, filter) {
-        when (filter) {
-            LibraryFilter.All -> state.sessions
-            else -> state.sessions.filter { it.tags.any { t -> t.equals(filter.tag, ignoreCase = true) } }
+    val visible =
+        remember(state.sessions, filter) {
+            when (filter) {
+                LibraryFilter.All -> state.sessions
+                else -> state.sessions.filter { it.tags.any { t -> t.equals(filter.tag, ignoreCase = true) } }
+            }
         }
-    }
     val longest = remember(state.sessions) { state.sessions.mapNotNull { it.durationSeconds }.maxOrNull() ?: 1 }
 
     Column(Modifier.fillMaxSize().background(c.screenBg).padding(horizontal = 20.dp, vertical = 6.dp)) {
@@ -141,38 +139,44 @@ fun LibraryScreen(
         Spacer(Modifier.height(14.dp))
 
         when {
-            search.isActive -> SearchResults(
-                c = c,
-                term = search.query.trim(),
-                results = search.results,
-                isSearching = search.isSearching,
-                onOpen = onOpenSession,
-            )
+            search.isActive ->
+                SearchResults(
+                    c = c,
+                    term = search.query.trim(),
+                    results = search.results,
+                    isSearching = search.isSearching,
+                    onOpen = onOpenSession,
+                )
 
-            state.loadError != null -> ErrorState(
-                title = stringResource(R.string.library_load_failed_title),
-                body = stringResource(R.string.library_load_failed_body, state.loadError.orEmpty()),
-            )
+            state.loadError != null ->
+                ErrorState(
+                    title = stringResource(R.string.library_load_failed_title),
+                    body = stringResource(R.string.library_load_failed_body, state.loadError.orEmpty()),
+                )
 
-            state.isLoading && state.sessions.isEmpty() -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                repeat(4) { SkeletonRow() }
-            }
+            state.isLoading && state.sessions.isEmpty() ->
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    repeat(4) { SkeletonRow() }
+                }
 
-            visible.isEmpty() -> EmptyState(
-                icon = Icons.Filled.GraphicEq,
-                title = if (filter == LibraryFilter.All) {
-                    stringResource(R.string.library_empty_title)
-                } else {
-                    stringResource(R.string.library_empty_filtered_title, stringResource(filter.label))
-                },
-                body = if (filter == LibraryFilter.All) {
-                    stringResource(R.string.library_empty_body)
-                } else {
-                    stringResource(R.string.library_empty_filtered_body)
-                },
-                actionLabel = if (filter == LibraryFilter.All) stringResource(R.string.library_empty_action) else null,
-                onAction = if (filter == LibraryFilter.All) onGoToRecord else null,
-            )
+            visible.isEmpty() ->
+                EmptyState(
+                    icon = Icons.Filled.GraphicEq,
+                    title =
+                        if (filter == LibraryFilter.All) {
+                            stringResource(R.string.library_empty_title)
+                        } else {
+                            stringResource(R.string.library_empty_filtered_title, stringResource(filter.label))
+                        },
+                    body =
+                        if (filter == LibraryFilter.All) {
+                            stringResource(R.string.library_empty_body)
+                        } else {
+                            stringResource(R.string.library_empty_filtered_body)
+                        },
+                    actionLabel = if (filter == LibraryFilter.All) stringResource(R.string.library_empty_action) else null,
+                    onAction = if (filter == LibraryFilter.All) onGoToRecord else null,
+                )
 
             else -> {
                 // Rows fade/slide in staggered by index on genuine list-load/tab-arrival —
@@ -188,8 +192,9 @@ fun LibraryScreen(
                         val shown = rememberStaggerShown(session.id, index, animatedIds, reduced, STAGGER_CAP, STAGGER_STEP_MS)
                         AnimatedVisibility(
                             visible = shown,
-                            enter = fadeIn(HarkenMotion.effectsFast()) +
-                                slideInVertically(HarkenMotion.spatialFast()) { it / 6 },
+                            enter =
+                                fadeIn(HarkenMotion.effectsFast()) +
+                                    slideInVertically(HarkenMotion.spatialFast()) { it / 6 },
                         ) {
                             SessionCard(
                                 c = c,
@@ -292,22 +297,25 @@ private fun SearchResults(
     when {
         // Only while there is nothing to show. Re-running the query on the next keystroke
         // must not blank a list the user is already reading.
-        isSearching && results.isEmpty() -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            repeat(3) { SkeletonRow() }
-        }
-
-        results.isEmpty() -> EmptyState(
-            icon = Icons.Filled.Search,
-            title = stringResource(R.string.library_search_empty_title),
-            body = stringResource(R.string.library_search_empty_body),
-        )
-
-        else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(results, key = { it.session.id }) { hit ->
-                SearchResultCard(c = c, hit = hit, term = term) { onOpen(hit.session.id, hit.segmentId) }
+        isSearching && results.isEmpty() ->
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                repeat(3) { SkeletonRow() }
             }
-            item { Spacer(Modifier.height(8.dp)) }
-        }
+
+        results.isEmpty() ->
+            EmptyState(
+                icon = Icons.Filled.Search,
+                title = stringResource(R.string.library_search_empty_title),
+                body = stringResource(R.string.library_search_empty_body),
+            )
+
+        else ->
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(results, key = { it.session.id }) { hit ->
+                    SearchResultCard(c = c, hit = hit, term = term) { onOpen(hit.session.id, hit.segmentId) }
+                }
+                item { Spacer(Modifier.height(8.dp)) }
+            }
     }
 }
 
@@ -325,19 +333,20 @@ private fun SearchResultCard(
     onOpen: () -> Unit,
 ) {
     val snippet = remember(hit.snippet, term) { hit.snippet?.let { SearchQuery.snippet(it, term) } }
-    val highlighted = remember(snippet, c.accent) {
-        val window = snippet ?: return@remember null
-        buildAnnotatedString {
-            append(window.text)
-            if (window.hasMatch) {
-                addStyle(
-                    SpanStyle(color = c.accent, fontWeight = FontWeight.Bold),
-                    window.matchStart,
-                    window.matchEnd.coerceAtMost(window.text.length),
-                )
+    val highlighted =
+        remember(snippet, c.accent) {
+            val window = snippet ?: return@remember null
+            buildAnnotatedString {
+                append(window.text)
+                if (window.hasMatch) {
+                    addStyle(
+                        SpanStyle(color = c.accent, fontWeight = FontWeight.Bold),
+                        window.matchStart,
+                        window.matchEnd.coerceAtMost(window.text.length),
+                    )
+                }
             }
         }
-    }
 
     Column(
         Modifier
@@ -398,25 +407,32 @@ private fun SearchResultCard(
 }
 
 @Composable
-private fun FilterChipProto(c: ProtoColors, selected: Boolean, @StringRes label: Int, onClick: () -> Unit) {
+private fun FilterChipProto(
+    c: ProtoColors,
+    selected: Boolean,
+    @StringRes label: Int,
+    onClick: () -> Unit,
+) {
     FilterChip(
         selected = selected,
         onClick = onClick,
         modifier = Modifier.heightIn(min = 48.dp),
         label = { Text(stringResource(label), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) },
-        colors = FilterChipDefaults.filterChipColors(
-            containerColor = c.pillTrack,
-            labelColor = c.textSecondary,
-            selectedContainerColor = c.accent,
-            selectedLabelColor = c.onAccent,
-        ),
-        border = FilterChipDefaults.filterChipBorder(
-            enabled = true,
-            selected = selected,
-            borderColor = c.cardBorder,
-            selectedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
-            borderWidth = 1.dp,
-        ),
+        colors =
+            FilterChipDefaults.filterChipColors(
+                containerColor = c.pillTrack,
+                labelColor = c.textSecondary,
+                selectedContainerColor = c.accent,
+                selectedLabelColor = c.onAccent,
+            ),
+        border =
+            FilterChipDefaults.filterChipBorder(
+                enabled = true,
+                selected = selected,
+                borderColor = c.cardBorder,
+                selectedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
+                borderWidth = 1.dp,
+            ),
     )
 }
 
@@ -438,23 +454,39 @@ private fun SessionCard(
     val transcribing = isTranscribing || s.status == "Pending" || s.status == "Running"
     val recorded = s.status == "Recorded" && !isTranscribing
     val failed = s.status == "Failed"
-    val (chipBg, chipFg, chipLabel) = when {
-        transcribing -> Triple(c.stateDone, c.stateDoneFg, R.string.library_chip_transcribing)
-        failed -> Triple(c.stateError, c.stateErrorFg, R.string.library_chip_kept_on_device)
-        else -> Triple(c.pillTrack, c.textSecondary, R.string.library_chip_transcribed)
-    }
-    val metaLine = buildString {
-        append(formatSessionTimestamp(s.startedAt))
-        s.durationSeconds?.let { append(" · ${it / 60}m ${(it % 60).toString().padStart(2, '0')}s") }
-    }
+    val (chipBg, chipFg, chipLabel) =
+        when {
+            transcribing -> Triple(c.stateDone, c.stateDoneFg, R.string.library_chip_transcribing)
+            failed -> Triple(c.stateError, c.stateErrorFg, R.string.library_chip_kept_on_device)
+            else -> Triple(c.pillTrack, c.textSecondary, R.string.library_chip_transcribed)
+        }
+    val metaLine =
+        buildString {
+            append(formatSessionTimestamp(s.startedAt))
+            s.durationSeconds?.let { append(" · ${it / 60}m ${(it % 60).toString().padStart(2, '0')}s") }
+        }
     val barColor = if (transcribing) c.success else c.textSecondary
     val fraction = ((s.durationSeconds ?: 0).toFloat() / longestSeconds).coerceIn(0f, 1f)
 
     Column(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(24.dp)).padding(16.dp)) {
         Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onOpen), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Text(s.displayTitle(), color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(metaLine, color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+                Text(
+                    s.displayTitle(),
+                    color = c.text,
+                    fontFamily = ProtoBodyFont,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    metaLine,
+                    color = c.textSecondary,
+                    fontFamily = ProtoBodyFont,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
                 // Why it failed, not just that it can be retried. The reason is recorded on
                 // the session by every failure path, and until it was rendered here the user
                 // saw a Transcribe button with no account of what went wrong.
@@ -488,7 +520,13 @@ private fun SessionCard(
                         CircularProgressIndicator(modifier = Modifier.size(11.dp), strokeWidth = 1.5.dp, color = chipFg)
                         Spacer(Modifier.width(4.dp))
                     }
-                    Text(stringResource(chipLabel), color = chipFg, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    Text(
+                        stringResource(chipLabel),
+                        color = chipFg,
+                        fontFamily = ProtoBodyFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                    )
                 }
             }
         }
@@ -538,7 +576,10 @@ private fun SessionCard(
  * translating it would orphan every tag already on the device. [label] is what the chip
  * shows.
  */
-enum class LibraryFilter(val tag: String, @StringRes val label: Int) {
+enum class LibraryFilter(
+    val tag: String,
+    @StringRes val label: Int,
+) {
     All("All", R.string.library_filter_all),
     Meetings("Meetings", R.string.library_filter_meetings),
     Field("Field", R.string.library_filter_field),

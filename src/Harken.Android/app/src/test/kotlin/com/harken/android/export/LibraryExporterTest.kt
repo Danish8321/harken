@@ -5,7 +5,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LibraryExporterTest {
-
     @Test
     fun `small sizes are exact bytes`() {
         assertEquals("0 bytes", LibraryExporter.formatBytes(0))

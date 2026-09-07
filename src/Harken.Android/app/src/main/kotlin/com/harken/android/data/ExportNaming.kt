@@ -14,9 +14,8 @@ import java.util.Locale
  * meaningless outside it.
  */
 object ExportNaming {
-
     /** Long enough for a real title, short enough to survive every filesystem's path limit. */
-    const val MaxTitleChars = 60
+    const val MAX_TITLE_CHARS = 60
 
     /**
      * Characters no common filesystem accepts in a name.
@@ -28,7 +27,11 @@ object ExportNaming {
 
     private val Stamp: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HHmm", Locale.ROOT)
 
-    fun baseName(startedAtIso: String, title: String, zone: ZoneId = ZoneId.systemDefault()): String {
+    fun baseName(
+        startedAtIso: String,
+        title: String,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): String {
         val stamp = runCatching { Instant.parse(startedAtIso).atZone(zone).format(Stamp) }.getOrNull()
         val name = sanitize(title)
         return listOfNotNull(stamp, name.ifEmpty { null }).joinToString(" ").ifEmpty { "Recording" }
@@ -40,13 +43,14 @@ object ExportNaming {
      * Trailing dots and spaces go too: Windows silently strips them, which turns two
      * exports that differ only there into one file that overwrites the other.
      */
-    fun sanitize(title: String): String = title
-        .map { if (it in Forbidden || it.code < 0x20) ' ' else it }
-        .joinToString("")
-        .replace(Regex(" +"), " ")
-        .trim()
-        .take(MaxTitleChars)
-        .trimEnd(' ', '.')
+    fun sanitize(title: String): String =
+        title
+            .map { if (it in Forbidden || it.code < 0x20) ' ' else it }
+            .joinToString("")
+            .replace(Regex(" +"), " ")
+            .trim()
+            .take(MAX_TITLE_CHARS)
+            .trimEnd(' ', '.')
 
     /**
      * [base], or `base (2)`, `base (3)` … if that name is already spoken for.
@@ -55,7 +59,10 @@ object ExportNaming {
      * report — they are two recordings — so the export renames rather than skipping or
      * overwriting. [taken] is updated, so a caller loops over its sessions with one set.
      */
-    fun unique(base: String, taken: MutableSet<String>): String {
+    fun unique(
+        base: String,
+        taken: MutableSet<String>,
+    ): String {
         val key = base.lowercase(Locale.ROOT)
         if (taken.add(key)) return base
         var suffix = 2

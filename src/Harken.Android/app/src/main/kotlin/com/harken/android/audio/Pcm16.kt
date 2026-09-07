@@ -10,7 +10,6 @@ package com.harken.android.audio
  * the chunk arrives and passed down.
  */
 object Pcm16 {
-
     /**
      * The level of the chunk, not its loudest sample.
      *
@@ -22,7 +21,11 @@ object Pcm16 {
      * and stays inside it — and rooted once per chunk. The root is what makes the value
      * comparable to a floor read off other chunks.
      */
-    fun rms(pcm: ByteArray, offset: Int, length: Int): Int {
+    fun rms(
+        pcm: ByteArray,
+        offset: Int,
+        length: Int,
+    ): Int {
         var sumOfSquares = 0L
         var samples = 0L
         var i = offset

@@ -1,24 +1,23 @@
 package com.harken.android.audio
 
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.io.File
 
 /**
  * The recorder, the recovery pass and the transcriber all ask the file how long it is
  * (ARC-009). One implementation, so one test.
  */
 class WavDurationTest {
-
     @Test
     fun `duration is the audio byte count, header excluded`() {
         // 10 seconds of 16 kHz mono 16-bit PCM, plus the 44-byte header.
-        assertEquals(10, WavFormat.durationSeconds(wavOf(WavFormat.BytesPerSecond * 10)))
+        assertEquals(10, WavFormat.durationSeconds(wavOf(WavFormat.BYTES_PER_SECOND * 10)))
     }
 
     @Test
     fun `a partial second rounds down rather than up`() {
-        assertEquals(3, WavFormat.durationSeconds(wavOf(WavFormat.BytesPerSecond * 3 + 1)))
+        assertEquals(3, WavFormat.durationSeconds(wavOf(WavFormat.BYTES_PER_SECOND * 3 + 1)))
     }
 
     @Test
@@ -41,6 +40,6 @@ class WavDurationTest {
     private fun wavOf(audioBytes: Int): File =
         File.createTempFile("harken", ".wav").apply {
             deleteOnExit()
-            writeBytes(ByteArray((WavFormat.HeaderLength + audioBytes).coerceAtLeast(0)))
+            writeBytes(ByteArray((WavFormat.HEADER_LENGTH + audioBytes).coerceAtLeast(0)))
         }
 }

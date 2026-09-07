@@ -7,11 +7,11 @@ import java.io.RandomAccessFile
 // (commit 503fed7) so a file written by this app is byte-identical in shape to one
 // written by the MAUI client.
 object WavFormat {
-    const val SampleRate = 16000
-    const val Channels = 1
-    const val BitsPerSample = 16
-    const val HeaderLength = 44
-    const val BytesPerSecond = SampleRate * Channels * (BitsPerSample / 8)
+    const val SAMPLE_RATE = 16000
+    const val CHANNELS = 1
+    const val BITS_PER_SAMPLE = 16
+    const val HEADER_LENGTH = 44
+    const val BYTES_PER_SECOND = SAMPLE_RATE * CHANNELS * (BITS_PER_SAMPLE / 8)
 
     /**
      * How many seconds of audio a finished recording holds, from its own byte length.
@@ -21,8 +21,7 @@ object WavFormat {
      * speech was found — so the recorder, the recovery pass and the transcriber all read
      * the length here rather than each deriving it (ARC-009).
      */
-    fun durationSeconds(file: java.io.File): Int =
-        ((file.length() - HeaderLength).coerceAtLeast(0) / BytesPerSecond).toInt()
+    fun durationSeconds(file: java.io.File): Int = ((file.length() - HEADER_LENGTH).coerceAtLeast(0) / BYTES_PER_SECOND).toInt()
 }
 
 class WavWriter(private val file: RandomAccessFile) : AutoCloseable {
@@ -34,8 +33,8 @@ class WavWriter(private val file: RandomAccessFile) : AutoCloseable {
     }
 
     private fun writePlaceholderHeader() {
-        val byteRate = WavFormat.SampleRate * WavFormat.Channels * (WavFormat.BitsPerSample / 8)
-        val blockAlign = WavFormat.Channels * (WavFormat.BitsPerSample / 8)
+        val byteRate = WavFormat.SAMPLE_RATE * WavFormat.CHANNELS * (WavFormat.BITS_PER_SAMPLE / 8)
+        val blockAlign = WavFormat.CHANNELS * (WavFormat.BITS_PER_SAMPLE / 8)
 
         file.seek(0)
         file.writeBytes("RIFF")
@@ -44,11 +43,11 @@ class WavWriter(private val file: RandomAccessFile) : AutoCloseable {
         file.writeBytes("fmt ")
         writeIntLE(16) // fmt chunk size (PCM)
         writeShortLE(1) // audio format: PCM
-        writeShortLE(WavFormat.Channels)
-        writeIntLE(WavFormat.SampleRate)
+        writeShortLE(WavFormat.CHANNELS)
+        writeIntLE(WavFormat.SAMPLE_RATE)
         writeIntLE(byteRate)
         writeShortLE(blockAlign)
-        writeShortLE(WavFormat.BitsPerSample)
+        writeShortLE(WavFormat.BITS_PER_SAMPLE)
         file.writeBytes("data")
         writeIntLE(0) // data chunk size, patched on close
     }
@@ -59,7 +58,11 @@ class WavWriter(private val file: RandomAccessFile) : AutoCloseable {
      * [patchLengths], which runs once, on close. Seeking to where the pointer already was,
      * 6.25 times a second for three hours, was a syscall per chunk for nothing (ARC-030).
      */
-    fun write(pcm: ByteArray, offset: Int, length: Int) {
+    fun write(
+        pcm: ByteArray,
+        offset: Int,
+        length: Int,
+    ) {
         file.write(pcm, offset, length)
         dataLength += length
     }
@@ -75,7 +78,7 @@ class WavWriter(private val file: RandomAccessFile) : AutoCloseable {
         // cannot fire today — it is here because this is the value that decides whether
         // the recording is readable at all, and a silent narrowing would write a negative
         // length into a file the user believes they still have.
-        require(dataLength + RiffHeaderOverhead <= MaxRiffLength) {
+        require(dataLength + RIFF_HEADER_OVERHEAD <= MAX_RIFF_LENGTH) {
             "WAV data length $dataLength exceeds the format's 4 GB limit"
         }
         file.seek(4)
@@ -85,36 +88,40 @@ class WavWriter(private val file: RandomAccessFile) : AutoCloseable {
     }
 
     private fun writeIntLE(value: Int) {
-        file.write(byteArrayOf(
-            (value and 0xFF).toByte(),
-            ((value shr 8) and 0xFF).toByte(),
-            ((value shr 16) and 0xFF).toByte(),
-            ((value shr 24) and 0xFF).toByte(),
-        ))
+        file.write(
+            byteArrayOf(
+                (value and 0xFF).toByte(),
+                ((value shr 8) and 0xFF).toByte(),
+                ((value shr 16) and 0xFF).toByte(),
+                ((value shr 24) and 0xFF).toByte(),
+            ),
+        )
     }
 
     private fun writeShortLE(value: Int) {
-        file.write(byteArrayOf(
-            (value and 0xFF).toByte(),
-            ((value shr 8) and 0xFF).toByte(),
-        ))
+        file.write(
+            byteArrayOf(
+                (value and 0xFF).toByte(),
+                ((value shr 8) and 0xFF).toByte(),
+            ),
+        )
     }
 
     companion object {
         /** Bytes of RIFF header counted by the size field at offset 4, beside the data. */
-        private const val RiffHeaderOverhead = 36
+        private const val RIFF_HEADER_OVERHEAD = 36
 
         /** The largest value an unsigned 32-bit RIFF size field can hold. */
-        private const val MaxRiffLength = 0xFFFF_FFFFL
+        private const val MAX_RIFF_LENGTH = 0xFFFF_FFFFL
 
         // Repairs a WAV file left with a zero/placeholder data-length header because the
         // process died mid-capture (e.g. killed foreground service) before close() patched
         // it. Returns true if a repair was made, false if the header already matched.
         fun repairHeader(path: String): Boolean {
             RandomAccessFile(path, "rw").use { file ->
-                if (file.length() < WavFormat.HeaderLength) return false
+                if (file.length() < WavFormat.HEADER_LENGTH) return false
 
-                val dataLength = file.length() - WavFormat.HeaderLength
+                val dataLength = file.length() - WavFormat.HEADER_LENGTH
 
                 file.seek(40)
                 val existing = readIntLE(file)
@@ -138,13 +145,18 @@ class WavWriter(private val file: RandomAccessFile) : AutoCloseable {
                 ((b[3].toInt() and 0xFF) shl 24)
         }
 
-        private fun writeIntLEStatic(file: RandomAccessFile, value: Int) {
-            file.write(byteArrayOf(
-                (value and 0xFF).toByte(),
-                ((value shr 8) and 0xFF).toByte(),
-                ((value shr 16) and 0xFF).toByte(),
-                ((value shr 24) and 0xFF).toByte(),
-            ))
+        private fun writeIntLEStatic(
+            file: RandomAccessFile,
+            value: Int,
+        ) {
+            file.write(
+                byteArrayOf(
+                    (value and 0xFF).toByte(),
+                    ((value shr 8) and 0xFF).toByte(),
+                    ((value shr 16) and 0xFF).toByte(),
+                    ((value shr 24) and 0xFF).toByte(),
+                ),
+            )
         }
     }
 }

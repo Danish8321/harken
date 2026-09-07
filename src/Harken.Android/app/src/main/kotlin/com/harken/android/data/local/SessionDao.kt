@@ -6,15 +6,14 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RoomDatabase
+import androidx.room.Transaction
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
-import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
 
 @Dao
 interface SessionDao {
-
     @Query("SELECT * FROM sessions ORDER BY startedAt DESC")
     fun observeSessions(): Flow<List<SessionRow>>
 
@@ -46,10 +45,16 @@ interface SessionDao {
     suspend fun insertLocalOnly(session: SessionRow)
 
     @Query("UPDATE sessions SET localTitle = :title WHERE id = :id")
-    suspend fun setTitle(id: UUID, title: String?)
+    suspend fun setTitle(
+        id: UUID,
+        title: String?,
+    )
 
     @Query("UPDATE sessions SET localTags = :tags WHERE id = :id")
-    suspend fun setTags(id: UUID, tags: String)
+    suspend fun setTags(
+        id: UUID,
+        tags: String,
+    )
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun replaceSegments(segments: List<SegmentRow>)
@@ -64,7 +69,10 @@ interface SessionDao {
     // One transaction means Room's invalidation tracker only fires once, after both
     // statements land.
     @Transaction
-    suspend fun replaceSegmentsAtomically(id: UUID, segments: List<SegmentRow>) {
+    suspend fun replaceSegmentsAtomically(
+        id: UUID,
+        segments: List<SegmentRow>,
+    ) {
         clearSegments(id)
         replaceSegments(segments)
     }
@@ -81,13 +89,21 @@ interface SessionDao {
         WHERE id = :id
         """,
     )
-    suspend fun markLocalTranscriptionSucceeded(id: UUID, segmentCount: Int, durationSeconds: Int)
+    suspend fun markLocalTranscriptionSucceeded(
+        id: UUID,
+        segmentCount: Int,
+        durationSeconds: Int,
+    )
 
     // Same flicker-avoidance reasoning as replaceSegmentsAtomically: status/segmentCount
     // and the segment rows themselves must land as one transaction so observers never see
     // a "Succeeded" session with a momentarily empty transcript.
     @Transaction
-    suspend fun completeLocalTranscription(id: UUID, segments: List<SegmentRow>, durationSeconds: Int) {
+    suspend fun completeLocalTranscription(
+        id: UUID,
+        segments: List<SegmentRow>,
+        durationSeconds: Int,
+    ) {
         markLocalTranscriptionSucceeded(id, segments.size, durationSeconds)
         replaceSegmentsAtomically(id, segments)
     }
@@ -100,7 +116,10 @@ interface SessionDao {
         WHERE id = :id
         """,
     )
-    suspend fun failLocalTranscription(id: UUID, reason: String)
+    suspend fun failLocalTranscription(
+        id: UUID,
+        reason: String,
+    )
 
     /**
      * Settles transcriptions that were running when the process died. Only one on-device
@@ -144,7 +163,10 @@ interface SessionDao {
         LIMIT :limit
         """,
     )
-    suspend fun searchSegments(pattern: String, limit: Int): List<SegmentMatch>
+    suspend fun searchSegments(
+        pattern: String,
+        limit: Int,
+    ): List<SegmentMatch>
 
     /** Only titles the user typed: a derived name is not stored, so it cannot be matched here. */
     @Query(
@@ -155,25 +177,29 @@ interface SessionDao {
         LIMIT :limit
         """,
     )
-    suspend fun searchTitles(pattern: String, limit: Int): List<SessionRow>
+    suspend fun searchTitles(
+        pattern: String,
+        limit: Int,
+    ): List<SessionRow>
 
     @Query("SELECT * FROM sessions WHERE id IN (:ids)")
     suspend fun sessionsByIds(ids: List<UUID>): List<SessionRow>
-
 }
 
 class UuidConverters {
     @TypeConverter fun toUuid(value: String?): UUID? = value?.let(UUID::fromString)
+
     @TypeConverter fun fromUuid(value: UUID?): String? = value?.toString()
 }
 
 // Real user data already lives in the sessions table on shipped installs, so this must
 // be a real, additive migration — never fallbackToDestructiveMigration().
-val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
-    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE sessions ADD COLUMN isLocalOnly INTEGER NOT NULL DEFAULT 0")
+val MIGRATION_1_2 =
+    object : androidx.room.migration.Migration(1, 2) {
+        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE sessions ADD COLUMN isLocalOnly INTEGER NOT NULL DEFAULT 0")
+        }
     }
-}
 
 @Database(entities = [SessionRow::class, SegmentRow::class, SummaryRow::class], version = 2, exportSchema = true)
 @TypeConverters(UuidConverters::class)
@@ -183,12 +209,13 @@ abstract class HarkenDatabase : RoomDatabase() {
     companion object {
         @Volatile private var instance: HarkenDatabase? = null
 
-        fun get(context: android.content.Context): HarkenDatabase = instance ?: synchronized(this) {
-            instance ?: androidx.room.Room
-                .databaseBuilder(context.applicationContext, HarkenDatabase::class.java, "harken-local.db")
-                .addMigrations(MIGRATION_1_2)
-                .build()
-                .also { instance = it }
-        }
+        fun get(context: android.content.Context): HarkenDatabase =
+            instance ?: synchronized(this) {
+                instance ?: androidx.room.Room
+                    .databaseBuilder(context.applicationContext, HarkenDatabase::class.java, "harken-local.db")
+                    .addMigrations(MIGRATION_1_2)
+                    .build()
+                    .also { instance = it }
+            }
     }
 }

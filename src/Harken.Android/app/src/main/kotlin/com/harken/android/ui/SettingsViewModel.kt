@@ -6,10 +6,10 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import com.harken.android.container
 import com.harken.android.data.AppSettings
 import com.harken.android.device.DeviceCapability
@@ -53,14 +53,14 @@ class SettingsViewModel(
     private val settings: AppSettings,
     private val modelDownloadManager: ModelDownloadManager,
 ) : AndroidViewModel(application) {
-
-    private val _uiState = MutableStateFlow(
-        SettingsUiState(
-            modelDownloadState = if (modelDownloadManager.isModelPresent()) ModelDownloadState.Ready else ModelDownloadState.NotStarted,
-            modelPresent = modelDownloadManager.isModelPresent(),
-            device = DeviceCapability.of(application),
-        ),
-    )
+    private val _uiState =
+        MutableStateFlow(
+            SettingsUiState(
+                modelDownloadState = if (modelDownloadManager.isModelPresent()) ModelDownloadState.Ready else ModelDownloadState.NotStarted,
+                modelPresent = modelDownloadManager.isModelPresent(),
+                device = DeviceCapability.of(application),
+            ),
+        )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
@@ -94,12 +94,13 @@ class SettingsViewModel(
      */
     fun startExport(treeUri: Uri) {
         val app = getApplication<Application>()
-        val taken = runCatching {
-            app.contentResolver.takePersistableUriPermission(
-                treeUri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-            )
-        }.onFailure { Log.w(TAG, "Could not persist the export folder grant", it) }
+        val taken =
+            runCatching {
+                app.contentResolver.takePersistableUriPermission(
+                    treeUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            }.onFailure { Log.w(TAG, "Could not persist the export folder grant", it) }
         // Not fatal on its own: the grant this process already holds may well outlast the
         // copy. Starting is worth more than refusing on a permission that is probably fine.
         if (taken.isFailure) Log.w(TAG, "Exporting on the transient grant")
@@ -131,19 +132,21 @@ class SettingsViewModel(
         viewModelScope.launch {
             modelDownloadManager.downloadProgress(replaceExisting = true)
                 .catch { e ->
-                    _uiState.value = _uiState.value.copy(
-                        modelDownloadState = ModelDownloadState.Failed,
-                        modelDownloadError = ModelDownloadFailure.of(e),
-                        modelPresent = modelDownloadManager.isModelPresent(),
-                    )
+                    _uiState.value =
+                        _uiState.value.copy(
+                            modelDownloadState = ModelDownloadState.Failed,
+                            modelDownloadError = ModelDownloadFailure.of(e),
+                            modelPresent = modelDownloadManager.isModelPresent(),
+                        )
                 }
                 .onCompletion { failure ->
                     if (failure == null && _uiState.value.modelDownloadState != ModelDownloadState.Failed) {
-                        _uiState.value = _uiState.value.copy(
-                            modelDownloadState = ModelDownloadState.Ready,
-                            modelDownloadProgress = 100,
-                            modelPresent = true,
-                        )
+                        _uiState.value =
+                            _uiState.value.copy(
+                                modelDownloadState = ModelDownloadState.Ready,
+                                modelDownloadProgress = 100,
+                                modelPresent = true,
+                            )
                     }
                 }
                 .collect { percent ->
@@ -153,14 +156,15 @@ class SettingsViewModel(
     }
 
     companion object {
-        val Factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                SettingsViewModel(
-                    application = checkNotNull(this[APPLICATION_KEY]),
-                    settings = container.settings,
-                    modelDownloadManager = container.modelDownloadManager,
-                )
+        val Factory: ViewModelProvider.Factory =
+            viewModelFactory {
+                initializer {
+                    SettingsViewModel(
+                        application = checkNotNull(this[APPLICATION_KEY]),
+                        settings = container.settings,
+                        modelDownloadManager = container.modelDownloadManager,
+                    )
+                }
             }
-        }
     }
 }

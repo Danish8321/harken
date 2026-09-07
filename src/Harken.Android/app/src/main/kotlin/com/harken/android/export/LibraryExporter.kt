@@ -7,10 +7,10 @@ import android.util.Log
 import com.harken.android.data.ExportItem
 import com.harken.android.data.ExportNaming
 import com.harken.android.data.TranscriptText
-import java.io.File
-import java.util.Locale
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import java.io.File
+import java.util.Locale
 
 private const val TAG = "LibraryExporter"
 
@@ -31,7 +31,6 @@ private const val TAG = "LibraryExporter"
  * the counting testable without a device.
  */
 class LibraryExporter(private val resolver: ContentResolver) {
-
     data class Progress(val done: Int, val total: Int)
 
     data class Report(
@@ -52,11 +51,16 @@ class LibraryExporter(private val resolver: ContentResolver) {
      * is honoured between files and inside a copy, so stopping a multi-gigabyte export
      * does not mean waiting for the current one to finish.
      */
-    suspend fun export(treeUri: Uri, items: List<ExportItem>, onProgress: (Progress) -> Unit): Report {
-        val parent = DocumentsContract.buildDocumentUriUsingTree(
-            treeUri,
-            DocumentsContract.getTreeDocumentId(treeUri),
-        )
+    suspend fun export(
+        treeUri: Uri,
+        items: List<ExportItem>,
+        onProgress: (Progress) -> Unit,
+    ): Report {
+        val parent =
+            DocumentsContract.buildDocumentUriUsingTree(
+                treeUri,
+                DocumentsContract.getTreeDocumentId(treeUri),
+            )
         val taken = mutableSetOf<String>()
         var audioFiles = 0
         var transcripts = 0
@@ -72,16 +76,23 @@ class LibraryExporter(private val resolver: ContentResolver) {
             if (audio == null) {
                 missingAudio++
             } else {
-                val written = runCatching { copy(parent, audio, "$name.wav") }
-                    .onFailure { Log.w(TAG, "Could not export audio for item $index", it) }
-                    .getOrNull()
-                if (written == null) failed++ else { audioFiles++; bytes += written }
+                val written =
+                    runCatching { copy(parent, audio, "$name.wav") }
+                        .onFailure { Log.w(TAG, "Could not export audio for item $index", it) }
+                        .getOrNull()
+                if (written == null) {
+                    failed++
+                } else {
+                    audioFiles++
+                    bytes += written
+                }
             }
 
             val text = TranscriptText.file(item.title, item.startedAt, item.lines)
-            val ok = runCatching { write(parent, "$name.txt", "text/plain", text.toByteArray()) }
-                .onFailure { Log.w(TAG, "Could not export transcript for item $index", it) }
-                .isSuccess
+            val ok =
+                runCatching { write(parent, "$name.txt", "text/plain", text.toByteArray()) }
+                    .onFailure { Log.w(TAG, "Could not export transcript for item $index", it) }
+                    .isSuccess
             if (ok) {
                 transcripts++
                 bytes += text.length.toLong()
@@ -95,14 +106,18 @@ class LibraryExporter(private val resolver: ContentResolver) {
         return Report(items.size, audioFiles, transcripts, missingAudio, failed, bytes)
     }
 
-    private suspend fun copy(parent: Uri, source: File, displayName: String): Long {
+    private suspend fun copy(
+        parent: Uri,
+        source: File,
+        displayName: String,
+    ): Long {
         val target = create(parent, "audio/x-wav", displayName)
         var copied = 0L
         // Hand-rolled rather than copyTo, so a cancelled export stops inside a
         // three-hour recording instead of after it.
         source.inputStream().use { input ->
             resolver.openOutputStream(target)?.use { output ->
-                val buffer = ByteArray(BufferBytes)
+                val buffer = ByteArray(BUFFER_BYTES)
                 while (true) {
                     currentCoroutineContext().ensureActive()
                     val read = input.read(buffer)
@@ -115,17 +130,26 @@ class LibraryExporter(private val resolver: ContentResolver) {
         return copied
     }
 
-    private fun write(parent: Uri, displayName: String, mimeType: String, content: ByteArray) {
+    private fun write(
+        parent: Uri,
+        displayName: String,
+        mimeType: String,
+        content: ByteArray,
+    ) {
         val target = create(parent, mimeType, displayName)
         resolver.openOutputStream(target)?.use { it.write(content) } ?: error("No output stream for $displayName")
     }
 
-    private fun create(parent: Uri, mimeType: String, displayName: String): Uri =
+    private fun create(
+        parent: Uri,
+        mimeType: String,
+        displayName: String,
+    ): Uri =
         DocumentsContract.createDocument(resolver, parent, mimeType, displayName)
             ?: error("The chosen folder would not accept $displayName")
 
     companion object {
-        private const val BufferBytes = 64 * 1024
+        private const val BUFFER_BYTES = 64 * 1024
 
         /** "2.1 GB" — for the line that tells the user how much they just backed up. */
         fun formatBytes(bytes: Long): String {

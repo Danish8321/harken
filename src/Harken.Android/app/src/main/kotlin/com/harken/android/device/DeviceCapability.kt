@@ -25,7 +25,7 @@ value class DeviceCapability(val totalMemBytes: Long) {
      * this replaces, which at least never misled anyone.
      */
     val isBelowMinimum: Boolean
-        get() = totalMemBytes in 1 until MinimumTotalMemBytes
+        get() = totalMemBytes in 1 until MINIMUM_TOTAL_MEM_BYTES
 
     /**
      * For telemetry, where a magnitude is the whole point and GB is too coarse. This is the
@@ -38,10 +38,10 @@ value class DeviceCapability(val totalMemBytes: Long) {
         get() = totalMemBytes / (1024L * 1024L)
 
     companion object {
-        const val BytesPerGb = 1024L * 1024L * 1024L
+        const val BYTES_PER_GB = 1024L * 1024L * 1024L
 
         /** The bar ADR-0014 sets, as the user's phone box states it. */
-        const val MinimumNominalGb = 6
+        const val MINIMUM_NOMINAL_GB = 6
 
         /**
          * The bar as `totalMem` actually reports it.
@@ -53,7 +53,7 @@ value class DeviceCapability(val totalMemBytes: Long) {
          * on the market. The bar sits midway between those two, where the gap is 1.7 GB
          * wide and no real device lands.
          */
-        const val MinimumTotalMemBytes = 4_500L * 1024L * 1024L
+        const val MINIMUM_TOTAL_MEM_BYTES = 4_500L * 1024L * 1024L
 
         /**
          * Reads the device's memory once. [ActivityManager.getMemoryInfo] fills a struct
@@ -61,8 +61,9 @@ value class DeviceCapability(val totalMemBytes: Long) {
          * so there is nothing to observe over time.
          */
         fun of(context: Context): DeviceCapability {
-            val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
-                ?: return DeviceCapability(0)
+            val manager =
+                context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+                    ?: return DeviceCapability(0)
             val info = ActivityManager.MemoryInfo()
             manager.getMemoryInfo(info)
             return DeviceCapability(info.totalMem)

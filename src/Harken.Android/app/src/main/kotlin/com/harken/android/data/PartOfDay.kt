@@ -23,26 +23,30 @@ enum class PartOfDay {
     ;
 
     companion object {
-        fun of(startedAtIso: String, zone: ZoneId = ZoneId.systemDefault()): PartOfDay {
+        fun of(
+            startedAtIso: String,
+            zone: ZoneId = ZoneId.systemDefault(),
+        ): PartOfDay {
             // Parsed into the reader's zone, not read off the string: startedAt is stored
             // as UTC, so a 1:41 pm capture in UTC+5:30 carried the hour "08" and was
             // titled "Morning recording" while the card beside it read "1:41 pm".
-            val hour = runCatching { Instant.parse(startedAtIso).atZone(zone).hour }
-                .getOrElse { startedAtIso.substringAfter('T', "").take(2).toIntOrNull() }
-                ?: return Unknown
+            val hour =
+                runCatching { Instant.parse(startedAtIso).atZone(zone).hour }
+                    .getOrElse { startedAtIso.substringAfter('T', "").take(2).toIntOrNull() }
+                    ?: return Unknown
             return ofHour(hour)
         }
 
         /** What a recording starting now will be called, for the surfaces that need a
          * name before there is a saved row to read one off. */
-        fun now(zone: ZoneId = ZoneId.systemDefault()): PartOfDay =
-            ofHour(ZonedDateTime.now(zone).hour)
+        fun now(zone: ZoneId = ZoneId.systemDefault()): PartOfDay = ofHour(ZonedDateTime.now(zone).hour)
 
-        private fun ofHour(hour: Int): PartOfDay = when (hour) {
-            in 5..11 -> Morning
-            in 12..16 -> Afternoon
-            in 17..21 -> Evening
-            else -> LateNight
-        }
+        private fun ofHour(hour: Int): PartOfDay =
+            when (hour) {
+                in 5..11 -> Morning
+                in 12..16 -> Afternoon
+                in 17..21 -> Evening
+                else -> LateNight
+            }
     }
 }

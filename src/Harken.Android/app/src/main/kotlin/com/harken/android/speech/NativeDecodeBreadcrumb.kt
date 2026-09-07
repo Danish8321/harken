@@ -20,11 +20,14 @@ import java.io.File
  * would not otherwise be (ADR-0011).
  */
 class NativeDecodeBreadcrumb(filesDir: File) {
-
-    private val file = File(filesDir, FileName)
+    private val file = File(filesDir, FILE_NAME)
 
     /** Notes that a decode is starting. Overwrites any previous note. */
-    fun enter(spanIndex: Int, startSecond: Int, spanSeconds: Int) {
+    fun enter(
+        spanIndex: Int,
+        startSecond: Int,
+        spanSeconds: Int,
+    ) {
         runCatching { file.writeText("$spanIndex,$startSecond,$spanSeconds") }
     }
 
@@ -57,6 +60,6 @@ class NativeDecodeBreadcrumb(filesDir: File) {
     }
 
     companion object {
-        const val FileName = "decode-in-flight"
+        const val FILE_NAME = "decode-in-flight"
     }
 }

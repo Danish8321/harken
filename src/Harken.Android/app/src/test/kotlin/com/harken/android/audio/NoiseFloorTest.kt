@@ -9,11 +9,9 @@ import org.junit.Test
  * did not change a single answer.
  */
 class NoiseFloorTest {
-
     private val bytes = 5120
 
-    private fun floorOver(levels: List<Int>): NoiseFloor =
-        NoiseFloor().apply { levels.forEach { observe(it, bytes) } }
+    private fun floorOver(levels: List<Int>): NoiseFloor = NoiseFloor().apply { levels.forEach { observe(it, bytes) } }
 
     @Test
     fun `reading twice without observing gives the same answer`() {
@@ -55,6 +53,6 @@ class NoiseFloorTest {
         val floor = NoiseFloor()
 
         assertEquals(0, floor.estimate)
-        assertEquals(NoiseFloor.MinSpeechThreshold, floor.speechThreshold)
+        assertEquals(NoiseFloor.MIN_SPEECH_THRESHOLD, floor.speechThreshold)
     }
 }

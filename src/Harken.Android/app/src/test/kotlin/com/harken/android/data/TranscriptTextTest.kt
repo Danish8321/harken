@@ -1,12 +1,11 @@
 package com.harken.android.data
 
-import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.ZoneId
 
 class TranscriptTextTest {
-
     private val utc = ZoneId.of("UTC")
 
     @Test
@@ -32,12 +31,13 @@ class TranscriptTextTest {
 
     @Test
     fun `each line carries its timestamp`() {
-        val body = TranscriptText.body(
-            listOf(
-                TranscriptText.Line(0, "Morning."),
-                TranscriptText.Line(742, "Let us start with the budget."),
-            ),
-        )
+        val body =
+            TranscriptText.body(
+                listOf(
+                    TranscriptText.Line(0, "Morning."),
+                    TranscriptText.Line(742, "Let us start with the budget."),
+                ),
+            )
 
         assertEquals("[0:00] Morning.\n[12:22] Let us start with the budget.", body)
     }
@@ -49,12 +49,13 @@ class TranscriptTextTest {
 
     @Test
     fun `the file names the recording and when it was made`() {
-        val text = TranscriptText.file(
-            title = "Budget review",
-            startedAtIso = "2026-09-05T13:41:00Z",
-            lines = listOf(TranscriptText.Line(5, "Hello.")),
-            zone = utc,
-        )
+        val text =
+            TranscriptText.file(
+                title = "Budget review",
+                startedAtIso = "2026-09-05T13:41:00Z",
+                lines = listOf(TranscriptText.Line(5, "Hello.")),
+                zone = utc,
+            )
 
         val lines = text.lines()
         assertEquals("Budget review", lines[0])

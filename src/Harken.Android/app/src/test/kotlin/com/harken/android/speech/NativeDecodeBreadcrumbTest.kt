@@ -8,13 +8,12 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 
 class NativeDecodeBreadcrumbTest {
-
     @get:Rule
     val temp = TemporaryFolder()
 
     private fun breadcrumb() = NativeDecodeBreadcrumb(temp.root)
 
-    private val note: File get() = File(temp.root, NativeDecodeBreadcrumb.FileName)
+    private val note: File get() = File(temp.root, NativeDecodeBreadcrumb.FILE_NAME)
 
     @Test
     fun `a decode that returns leaves nothing behind`() {

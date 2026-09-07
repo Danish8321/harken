@@ -17,13 +17,13 @@ import com.harken.android.data.SessionRepository
 import com.harken.android.recording.LiveUpdateNotification
 import com.harken.android.telemetry.Telemetry
 import com.harken.android.ui.messageRes
-import java.util.UUID
-import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.util.UUID
+import kotlin.math.roundToInt
 
 private const val TAG = "TranscriptionService"
 
@@ -52,7 +52,6 @@ private const val TAG = "TranscriptionService"
  * order of magnitude under that.
  */
 class TranscriptionService : Service() {
-
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private lateinit var repository: SessionRepository
@@ -73,8 +72,12 @@ class TranscriptionService : Service() {
         onDeviceTranscriber = container.transcriber
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ActionCancel) {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
+        if (intent?.action == ACTION_CANCEL) {
             TranscriptionCoordinator.cancel()
             // Not stopSelf() here: the coordinator's own finally clears activeSessionId,
             // and the observer below stops the service off that. One exit path, whether
@@ -82,9 +85,9 @@ class TranscriptionService : Service() {
             return START_NOT_STICKY
         }
 
-        val sessionId = intent?.getStringExtra(ExtraSessionId)?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-        val filePath = intent?.getStringExtra(ExtraFilePath)
-        val title = intent?.getStringExtra(ExtraTitle).orEmpty()
+        val sessionId = intent?.getStringExtra(EXTRA_SESSION_ID)?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+        val filePath = intent?.getStringExtra(EXTRA_FILE_PATH)
+        val title = intent?.getStringExtra(EXTRA_TITLE).orEmpty()
         if (sessionId == null || filePath == null) {
             // A null intent arrives when the system recreates a service it killed. There
             // is nothing to resume — the decode's memory went with the process — and
@@ -100,21 +103,23 @@ class TranscriptionService : Service() {
         createChannelIfNeeded()
         // Indeterminate to begin with: the decode only learns its own size after scanning
         // the WAV for speech, and a bar pinned at 0% reads as stalled, not starting.
-        startForeground(NotificationId, notification(percent = -1))
+        startForeground(NOTIFICATION_ID, notification(percent = -1))
 
-        val started = TranscriptionCoordinator.transcribe(
-            repository = repository,
-            modelDownloadManager = modelDownloadManager,
-            onDeviceTranscriber = onDeviceTranscriber,
-            sessionId = sessionId,
-            filePath = filePath,
-            messages = TranscriptionMessages(
-                cancelled = getString(R.string.error_transcription_cancelled),
-                failed = getString(R.string.error_transcription_failed),
-                modelUnavailable = { getString(it.messageRes()) },
-            ),
-            onProgress = ::publishProgress,
-        )
+        val started =
+            TranscriptionCoordinator.transcribe(
+                repository = repository,
+                modelDownloadManager = modelDownloadManager,
+                onDeviceTranscriber = onDeviceTranscriber,
+                sessionId = sessionId,
+                filePath = filePath,
+                messages =
+                    TranscriptionMessages(
+                        cancelled = getString(R.string.error_transcription_cancelled),
+                        failed = getString(R.string.error_transcription_failed),
+                        modelUnavailable = { getString(it.messageRes()) },
+                    ),
+                onProgress = ::publishProgress,
+            )
         Telemetry.event(
             "transcribe_service_started",
             "session" to Telemetry.shortId(sessionId),
@@ -156,28 +161,31 @@ class TranscriptionService : Service() {
      */
     private fun publishProgress(fraction: Float) {
         val percent = (fraction * 100).roundToInt().coerceIn(0, 100)
-        getSystemService(NotificationManager::class.java)?.notify(NotificationId, notification(percent))
+        getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, notification(percent))
     }
 
-    private fun notification(percent: Int): Notification = LiveUpdateNotification.transcribing(
-        context = this,
-        channelId = ChannelId,
-        title = notificationTitle,
-        percent = percent,
-        etaMinutes = etaMinutes(percent),
-        cancelIntent = PendingIntent.getService(
-            this,
-            0,
-            Intent(this, TranscriptionService::class.java).setAction(ActionCancel),
-            PendingIntent.FLAG_IMMUTABLE,
-        ),
-        contentIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE,
-        ),
-    )
+    private fun notification(percent: Int): Notification =
+        LiveUpdateNotification.transcribing(
+            context = this,
+            channelId = CHANNEL_ID,
+            title = notificationTitle,
+            percent = percent,
+            etaMinutes = etaMinutes(percent),
+            cancelIntent =
+                PendingIntent.getService(
+                    this,
+                    0,
+                    Intent(this, TranscriptionService::class.java).setAction(ACTION_CANCEL),
+                    PendingIntent.FLAG_IMMUTABLE,
+                ),
+            contentIntent =
+                PendingIntent.getActivity(
+                    this,
+                    0,
+                    Intent(this, MainActivity::class.java),
+                    PendingIntent.FLAG_IMMUTABLE,
+                ),
+        )
 
     /**
      * Remaining minutes, extrapolated from how long the finished fraction took.
@@ -196,10 +204,10 @@ class TranscriptionService : Service() {
 
     private fun createChannelIfNeeded() {
         val manager = getSystemService(NotificationManager::class.java) ?: return
-        if (manager.getNotificationChannel(ChannelId) != null) return
+        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         manager.createNotificationChannel(
             NotificationChannel(
-                ChannelId,
+                CHANNEL_ID,
                 getString(R.string.notification_transcribing_channel),
                 NotificationManager.IMPORTANCE_LOW,
             ),
@@ -207,23 +215,29 @@ class TranscriptionService : Service() {
     }
 
     companion object {
-        const val ChannelId = "transcribing"
-        const val NotificationId = 1002
-        const val ActionCancel = "com.harken.android.action.CANCEL_TRANSCRIPTION"
+        const val CHANNEL_ID = "transcribing"
+        const val NOTIFICATION_ID = 1002
+        const val ACTION_CANCEL = "com.harken.android.action.CANCEL_TRANSCRIPTION"
 
-        private const val ExtraSessionId = "sessionId"
-        private const val ExtraFilePath = "filePath"
-        private const val ExtraTitle = "title"
+        private const val EXTRA_SESSION_ID = "sessionId"
+        private const val EXTRA_FILE_PATH = "filePath"
+        private const val EXTRA_TITLE = "title"
 
         /**
          * Starts a transcription. [title] is what the notification calls the recording, so
          * it is the display title the Library row shows rather than the session id.
          */
-        fun start(context: Context, sessionId: UUID, filePath: String, title: String) {
-            val intent = Intent(context, TranscriptionService::class.java)
-                .putExtra(ExtraSessionId, sessionId.toString())
-                .putExtra(ExtraFilePath, filePath)
-                .putExtra(ExtraTitle, title)
+        fun start(
+            context: Context,
+            sessionId: UUID,
+            filePath: String,
+            title: String,
+        ) {
+            val intent =
+                Intent(context, TranscriptionService::class.java)
+                    .putExtra(EXTRA_SESSION_ID, sessionId.toString())
+                    .putExtra(EXTRA_FILE_PATH, filePath)
+                    .putExtra(EXTRA_TITLE, title)
             context.startForegroundService(intent)
         }
     }

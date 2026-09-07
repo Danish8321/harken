@@ -22,7 +22,6 @@ import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicInteger
 
 class ModelDownloadManagerTest {
-
     @get:Rule
     val temp = TemporaryFolder()
 
@@ -30,20 +29,20 @@ class ModelDownloadManagerTest {
 
     private fun partial(bytes: Int): File {
         val models = File(temp.root, "models").apply { mkdirs() }
-        return File(models, "${ModelDownloadManager.ModelFileName}.tmp").apply {
+        return File(models, "${ModelDownloadManager.MODEL_FILE_NAME}.tmp").apply {
             writeBytes(ByteArray(bytes))
         }
     }
 
     private fun model(): File {
         val models = File(temp.root, "models").apply { mkdirs() }
-        return File(models, ModelDownloadManager.ModelFileName).apply { writeBytes(ByteArray(8)) }
+        return File(models, ModelDownloadManager.MODEL_FILE_NAME).apply { writeBytes(ByteArray(8)) }
     }
 
     @Test
     fun `a stale partial download is discarded`() {
         val tmp = partial(bytes = 2048)
-        tmp.setLastModified(NOW - ModelDownloadManager.StalePartialAgeMs - 1)
+        tmp.setLastModified(NOW - ModelDownloadManager.STALE_PARTIAL_AGE_MS - 1)
 
         val freed = manager().discardPartialDownload(now = NOW)
 
@@ -70,7 +69,7 @@ class ModelDownloadManagerTest {
     @Test
     fun `discarding never touches the real model`() {
         val model = model()
-        partial(bytes = 16).setLastModified(NOW - ModelDownloadManager.StalePartialAgeMs - 1)
+        partial(bytes = 16).setLastModified(NOW - ModelDownloadManager.STALE_PARTIAL_AGE_MS - 1)
 
         manager().discardPartialDownload(now = NOW)
 
@@ -125,55 +124,60 @@ class ModelDownloadManagerTest {
      * web server because the point is what the manager does with the response, and a real
      * socket adds nothing to that.
      */
-    private fun clientServing(bytes: ByteArray, requests: AtomicInteger = AtomicInteger(0), delayMs: Long = 0) =
-        OkHttpClient.Builder()
-            .addInterceptor { chain ->
-                requests.incrementAndGet()
-                if (delayMs > 0) Thread.sleep(delayMs)
-                Response.Builder()
-                    .request(chain.request())
-                    .protocol(Protocol.HTTP_1_1)
-                    .code(200)
-                    .message("OK")
-                    .body(bytes.toResponseBody("application/octet-stream".toMediaType()))
-                    .build()
-            }
-            .build()
+    private fun clientServing(
+        bytes: ByteArray,
+        requests: AtomicInteger = AtomicInteger(0),
+        delayMs: Long = 0,
+    ) = OkHttpClient.Builder()
+        .addInterceptor { chain ->
+            requests.incrementAndGet()
+            if (delayMs > 0) Thread.sleep(delayMs)
+            Response.Builder()
+                .request(chain.request())
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .body(bytes.toResponseBody("application/octet-stream".toMediaType()))
+                .build()
+        }
+        .build()
 
     private fun sha256Of(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     @Test
-    fun `a download of the right length but the wrong bytes is rejected`() = runBlocking {
-        val served = ByteArray(4096) { it.toByte() }
-        val result = ModelDownloadManager(temp.root, clientServing(served)).ensureModel()
+    fun `a download of the right length but the wrong bytes is rejected`() =
+        runBlocking {
+            val served = ByteArray(4096) { it.toByte() }
+            val result = ModelDownloadManager(temp.root, clientServing(served)).ensureModel()
 
-        assertTrue("a file that is not the model must not install", result.isFailure)
-        assertTrue(
-            "expected an integrity failure, got ${result.exceptionOrNull()}",
-            result.exceptionOrNull() is ModelIntegrityException,
-        )
-        assertFalse(
-            "the model path must not hold unverified bytes",
-            File(File(temp.root, "models"), ModelDownloadManager.ModelFileName).exists(),
-        )
-        assertFalse(
-            "bytes known to be wrong must not be left as a resume point",
-            File(File(temp.root, "models"), "${ModelDownloadManager.ModelFileName}.tmp").exists(),
-        )
-    }
+            assertTrue("a file that is not the model must not install", result.isFailure)
+            assertTrue(
+                "expected an integrity failure, got ${result.exceptionOrNull()}",
+                result.exceptionOrNull() is ModelIntegrityException,
+            )
+            assertFalse(
+                "the model path must not hold unverified bytes",
+                File(File(temp.root, "models"), ModelDownloadManager.MODEL_FILE_NAME).exists(),
+            )
+            assertFalse(
+                "bytes known to be wrong must not be left as a resume point",
+                File(File(temp.root, "models"), "${ModelDownloadManager.MODEL_FILE_NAME}.tmp").exists(),
+            )
+        }
 
     @Test
-    fun `a download whose hash matches is installed`() = runBlocking {
-        val served = ByteArray(4096) { it.toByte() }
-        val manager = ModelDownloadManager(temp.root, clientServing(served), sha256Of(served))
+    fun `a download whose hash matches is installed`() =
+        runBlocking {
+            val served = ByteArray(4096) { it.toByte() }
+            val manager = ModelDownloadManager(temp.root, clientServing(served), sha256Of(served))
 
-        val result = manager.ensureModel()
+            val result = manager.ensureModel()
 
-        assertTrue(result.isSuccess)
-        assertTrue(manager.isModelPresent())
-        assertEquals(4096, File(result.getOrThrow()).length().toInt())
-    }
+            assertTrue(result.isSuccess)
+            assertTrue(manager.isModelPresent())
+            assertEquals(4096, File(result.getOrThrow()).length().toInt())
+        }
 
     @Test
     fun `a corrupt model is reported as corrupt, not as a broken server`() {
@@ -184,24 +188,26 @@ class ModelDownloadManagerTest {
     }
 
     @Test
-    fun `two callers share one download instead of interleaving into one file`() = runBlocking {
-        val served = ByteArray(4096) { it.toByte() }
-        val requests = AtomicInteger(0)
-        // Two managers, as Onboarding and Settings really are (ARC-014); the delay makes the
-        // second caller arrive while the first is still streaming.
-        val client = clientServing(served, requests, delayMs = 200)
-        val first = ModelDownloadManager(temp.root, client, sha256Of(served))
-        val second = ModelDownloadManager(temp.root, client, sha256Of(served))
+    fun `two callers share one download instead of interleaving into one file`() =
+        runBlocking {
+            val served = ByteArray(4096) { it.toByte() }
+            val requests = AtomicInteger(0)
+            // Two managers, as Onboarding and Settings really are (ARC-014); the delay makes the
+            // second caller arrive while the first is still streaming.
+            val client = clientServing(served, requests, delayMs = 200)
+            val first = ModelDownloadManager(temp.root, client, sha256Of(served))
+            val second = ModelDownloadManager(temp.root, client, sha256Of(served))
 
-        val results = listOf(
-            async(Dispatchers.Default) { first.ensureModel() },
-            async(Dispatchers.Default) { second.ensureModel() },
-        ).map { it.await() }
+            val results =
+                listOf(
+                    async(Dispatchers.Default) { first.ensureModel() },
+                    async(Dispatchers.Default) { second.ensureModel() },
+                ).map { it.await() }
 
-        assertTrue("both callers must get the model", results.all { it.isSuccess })
-        assertEquals("the second caller started its own download", 1, requests.get())
-        assertEquals(4096, File(results.first().getOrThrow()).length().toInt())
-    }
+            assertTrue("both callers must get the model", results.all { it.isSuccess })
+            assertEquals("the second caller started its own download", 1, requests.get())
+            assertEquals(4096, File(results.first().getOrThrow()).length().toInt())
+        }
 }
 
 private const val NOW = 1_756_900_000_000L

@@ -11,7 +11,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.coroutines.CoroutineContext
 
 private const val TAG = "AudioRecordCapture"
 
@@ -39,26 +38,28 @@ class AudioRecordCapture(
 
     @SuppressLint("MissingPermission")
     fun start() {
-        val minBufferSize = AudioRecord.getMinBufferSize(
-            WavFormat.SampleRate,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-        )
-        val bufferSize = minBufferSize * 4
-
-        val record = try {
-            AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                WavFormat.SampleRate,
+        val minBufferSize =
+            AudioRecord.getMinBufferSize(
+                WavFormat.SAMPLE_RATE,
                 AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,
-                bufferSize,
             )
-        } catch (e: Exception) {
-            Log.e(TAG, "AudioRecord construction failed", e)
-            onError(CaptureFailure.MicrophoneUnavailable, e.message)
-            return
-        }
+        val bufferSize = minBufferSize * 4
+
+        val record =
+            try {
+                AudioRecord(
+                    MediaRecorder.AudioSource.MIC,
+                    WavFormat.SAMPLE_RATE,
+                    AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    bufferSize,
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "AudioRecord construction failed", e)
+                onError(CaptureFailure.MicrophoneUnavailable, e.message)
+                return
+            }
 
         if (record.state != AudioRecord.STATE_INITIALIZED) {
             Log.e(TAG, "AudioRecord failed to initialize, state=${record.state}")
@@ -82,7 +83,10 @@ class AudioRecordCapture(
         captureJob = scope.launch { captureLoop(record, bufferSize) }
     }
 
-    private suspend fun captureLoop(record: AudioRecord, bufferSize: Int) {
+    private suspend fun captureLoop(
+        record: AudioRecord,
+        bufferSize: Int,
+    ) {
         val buffer = ByteArray(bufferSize)
         while (isRunning) {
             val bytesRead = record.read(buffer, 0, buffer.size)
@@ -114,7 +118,7 @@ class AudioRecordCapture(
             Log.w(TAG, "AudioRecord.stop on an already-stopped record", e)
         }
 
-        val joined = job == null || withTimeoutOrNull(JoinTimeoutMs) { job.join() } != null
+        val joined = job == null || withTimeoutOrNull(JOIN_TIMEOUT_MS) { job.join() } != null
         if (joined) {
             record.release()
             return
@@ -125,8 +129,8 @@ class AudioRecordCapture(
         // The buffer is a few hundred kilobytes and the process is about to be a candidate
         // for death anyway; leaking it is the cheaper wrong outcome, and it gets reported
         // rather than hidden.
-        Log.e(TAG, "Capture loop still running after ${JoinTimeoutMs}ms; leaking AudioRecord rather than freeing it under a live reader")
-        Telemetry.event("capture_stop_join_timeout", "timeoutMs" to JoinTimeoutMs)
+        Log.e(TAG, "Capture loop still running after ${JOIN_TIMEOUT_MS}ms; leaking AudioRecord rather than freeing it under a live reader")
+        Telemetry.event("capture_stop_join_timeout", "timeoutMs" to JOIN_TIMEOUT_MS)
     }
 
     private companion object {
@@ -135,6 +139,6 @@ class AudioRecordCapture(
          * stopped first: a read that has already been unblocked returns in milliseconds, so
          * reaching this bound means something is wrong rather than merely slow.
          */
-        const val JoinTimeoutMs = 2000L
+        const val JOIN_TIMEOUT_MS = 2000L
     }
 }

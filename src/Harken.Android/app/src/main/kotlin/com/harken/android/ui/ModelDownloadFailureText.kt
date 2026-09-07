@@ -10,10 +10,11 @@ import com.harken.android.speech.ModelDownloadFailure
  * connection abort"* reached the screen.
  */
 @StringRes
-fun ModelDownloadFailure.messageRes(): Int = when (this) {
-    ModelDownloadFailure.NoConnection -> R.string.model_download_failed_no_connection
-    ModelDownloadFailure.ServerUnavailable -> R.string.model_download_failed_server
-    ModelDownloadFailure.OutOfSpace -> R.string.model_download_failed_no_space
-    ModelDownloadFailure.Corrupt -> R.string.model_download_failed_corrupt
-    ModelDownloadFailure.Unknown -> R.string.settings_model_download_failed
-}
+fun ModelDownloadFailure.messageRes(): Int =
+    when (this) {
+        ModelDownloadFailure.NoConnection -> R.string.model_download_failed_no_connection
+        ModelDownloadFailure.ServerUnavailable -> R.string.model_download_failed_server
+        ModelDownloadFailure.OutOfSpace -> R.string.model_download_failed_no_space
+        ModelDownloadFailure.Corrupt -> R.string.model_download_failed_corrupt
+        ModelDownloadFailure.Unknown -> R.string.settings_model_download_failed
+    }

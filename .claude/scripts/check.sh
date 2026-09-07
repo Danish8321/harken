@@ -6,6 +6,13 @@ set -euo pipefail
 # shellcheck source=_gradle.sh
 . "$(dirname "$0")/_gradle.sh"
 cd "$(dirname "$0")/../.."
+# Formatting first: it is the fastest task here and the one most likely to fail, so a
+# badly-formatted change is rejected in seconds rather than after a native build. ktlint's
+# official Kotlin style, with two settings stated in src/Harken.Android/.editorconfig and
+# the reasons beside them (ARC-037). `gradlew ktlintFormat` is the fix.
+echo "== check: gradle ktlintCheck (Harken.Android) =="
+(cd src/Harken.Android && "$GRADLEW" ktlintCheck)
+
 echo "== check: gradle assembleDebug (Harken.Android) =="
 (cd src/Harken.Android && "$GRADLEW" assembleDebug)
 

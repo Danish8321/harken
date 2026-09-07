@@ -4,21 +4,21 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import com.harken.android.audio.RecordingStopReason
 import com.harken.android.container
 import com.harken.android.data.SessionRepository
 import com.harken.android.recording.RecordingCompleted
 import com.harken.android.recording.RecordingController
 import com.harken.android.recording.RecordingState
-import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.Instant
 
 // No Uploading state: saveLocal() below is a synchronous Room write, never a network
 // call (ADR-0011) — there is nothing between "idle" and "done" to show a spinner for.
@@ -79,11 +79,12 @@ class CaptureViewModel(
         // a recording that had already been saved. A Failed card stays, because it is the
         // only way back to a recording whose audio is on disk with no row to open.
         if (_uiState.value.saveStatus == SaveStatus.Succeeded) {
-            _uiState.value = _uiState.value.copy(
-                saveStatus = SaveStatus.Idle,
-                lastSessionId = null,
-                stopReason = RecordingStopReason.None,
-            )
+            _uiState.value =
+                _uiState.value.copy(
+                    saveStatus = SaveStatus.Idle,
+                    lastSessionId = null,
+                    stopReason = RecordingStopReason.None,
+                )
         }
         RecordingController.startRecording(getApplication())
     }
@@ -115,11 +116,12 @@ class CaptureViewModel(
                     filePath = filePath,
                     durationSeconds = lastDurationSeconds,
                 )
-                _uiState.value = _uiState.value.copy(
-                    saveStatus = SaveStatus.Succeeded,
-                    lastSessionId = recordingId,
-                    lastError = null,
-                )
+                _uiState.value =
+                    _uiState.value.copy(
+                        saveStatus = SaveStatus.Succeeded,
+                        lastSessionId = recordingId,
+                        lastError = null,
+                    )
             } catch (e: Exception) {
                 Log.e(TAG, "Failed saving local session $recordingId", e)
                 _uiState.value = _uiState.value.copy(saveStatus = SaveStatus.Failed, lastError = e.message)
@@ -132,23 +134,25 @@ class CaptureViewModel(
         lastFilePath = completed.filePath
         lastDurationSeconds = completed.durationSeconds
         lastStopReason = completed.stopReason
-        _uiState.value = _uiState.value.copy(
-            stopReason = completed.stopReason,
-            lastError = completed.saveError,
-            saveStatus = if (completed.saveError == null) SaveStatus.Succeeded else SaveStatus.Failed,
-            lastSessionId = completed.recordingId.takeIf { completed.saveError == null },
-        )
+        _uiState.value =
+            _uiState.value.copy(
+                stopReason = completed.stopReason,
+                lastError = completed.saveError,
+                saveStatus = if (completed.saveError == null) SaveStatus.Succeeded else SaveStatus.Failed,
+                lastSessionId = completed.recordingId.takeIf { completed.saveError == null },
+            )
     }
 
     companion object {
-        val Factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                CaptureViewModel(
-                    application = checkNotNull(this[APPLICATION_KEY]),
-                    repository = container.repository,
-                )
+        val Factory: ViewModelProvider.Factory =
+            viewModelFactory {
+                initializer {
+                    CaptureViewModel(
+                        application = checkNotNull(this[APPLICATION_KEY]),
+                        repository = container.repository,
+                    )
+                }
             }
-        }
     }
 }
 

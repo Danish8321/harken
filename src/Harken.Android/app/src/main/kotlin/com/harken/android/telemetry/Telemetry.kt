@@ -30,19 +30,22 @@ import android.util.Log
  * carry no speech.
  */
 object Telemetry {
-    const val Tag = "HarkenTelemetry"
+    const val TAG = "HarkenTelemetry"
 
     /**
      * Emits [name] with [fields] as `key=value` pairs. Values are rendered with
      * `toString()`; whitespace inside one is collapsed to `_` so a line stays parseable by
      * splitting on spaces.
      */
-    fun event(name: String, vararg fields: Pair<String, Any?>) {
+    fun event(
+        name: String,
+        vararg fields: Pair<String, Any?>,
+    ) {
         val line = StringBuilder("event=").append(name)
         for ((key, value) in fields) {
             line.append(' ').append(key).append('=').append(render(value))
         }
-        Log.i(Tag, line.toString())
+        Log.i(TAG, line.toString())
     }
 
     /**
@@ -72,8 +75,7 @@ object Telemetry {
      */
     fun elapsedMsSince(startNanos: Long): Long = (System.nanoTime() - startNanos) / 1_000_000L
 
-    private fun render(value: Any?): String =
-        value?.toString()?.replace(WHITESPACE, "_") ?: "null"
+    private fun render(value: Any?): String = value?.toString()?.replace(WHITESPACE, "_") ?: "null"
 
     private val WHITESPACE = Regex("\\s+")
 }

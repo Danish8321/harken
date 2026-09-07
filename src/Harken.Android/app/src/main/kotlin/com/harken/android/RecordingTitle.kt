@@ -19,18 +19,20 @@ import com.harken.android.data.SessionRepository
  * a name and neither is a screen.
  */
 @StringRes
-fun PartOfDay.titleRes(): Int = when (this) {
-    PartOfDay.Morning -> R.string.recording_title_morning
-    PartOfDay.Afternoon -> R.string.recording_title_afternoon
-    PartOfDay.Evening -> R.string.recording_title_evening
-    PartOfDay.LateNight -> R.string.recording_title_late_night
-    PartOfDay.Unknown -> R.string.recording_title_unknown
-}
+fun PartOfDay.titleRes(): Int =
+    when (this) {
+        PartOfDay.Morning -> R.string.recording_title_morning
+        PartOfDay.Afternoon -> R.string.recording_title_afternoon
+        PartOfDay.Evening -> R.string.recording_title_evening
+        PartOfDay.LateNight -> R.string.recording_title_late_night
+        PartOfDay.Unknown -> R.string.recording_title_unknown
+    }
 
 /** For the surfaces with a Context but no composition: the notification, the export. */
-fun Context.recordingTitle(localTitle: String?, partOfDay: PartOfDay): String =
-    localTitle ?: getString(partOfDay.titleRes())
+fun Context.recordingTitle(
+    localTitle: String?,
+    partOfDay: PartOfDay,
+): String = localTitle ?: getString(partOfDay.titleRes())
 
 @Composable
-fun SessionRepository.SessionView.displayTitle(): String =
-    localTitle ?: stringResource(partOfDay.titleRes())
+fun SessionRepository.SessionView.displayTitle(): String = localTitle ?: stringResource(partOfDay.titleRes())

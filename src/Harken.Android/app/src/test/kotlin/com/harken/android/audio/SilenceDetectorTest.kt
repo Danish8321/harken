@@ -5,11 +5,13 @@ import org.junit.Test
 import java.util.concurrent.TimeUnit
 
 class SilenceDetectorTest {
-
     private fun silentChunk(bytes: Int) = ByteArray(bytes)
 
     /** A chunk of constant [amplitude] — room tone, a hum, a fan: sound, but not speech. */
-    private fun toneChunk(bytes: Int, amplitude: Int): ByteArray {
+    private fun toneChunk(
+        bytes: Int,
+        amplitude: Int,
+    ): ByteArray {
         val chunk = ByteArray(bytes)
         var i = 0
         while (i + 1 < bytes) {
@@ -21,7 +23,11 @@ class SilenceDetectorTest {
     }
 
     /** [seconds] of audio at [amplitude], fed a second at a time. */
-    private fun feed(detector: SilenceDetector, seconds: Int, amplitude: Int): RecordingStopReason {
+    private fun feed(
+        detector: SilenceDetector,
+        seconds: Int,
+        amplitude: Int,
+    ): RecordingStopReason {
         var last = RecordingStopReason.None
         val chunk = if (amplitude == 0) silentChunk(32000) else toneChunk(32000, amplitude)
         repeat(seconds) { last = detector.add(chunk, 0, chunk.size) }
@@ -146,7 +152,7 @@ class SilenceDetectorTest {
 
         assertEquals(
             RecordingStopReason.None,
-            feed(detector, seconds = 1, amplitude = NoiseFloor.MaxSpeechThreshold),
+            feed(detector, seconds = 1, amplitude = NoiseFloor.MAX_SPEECH_THRESHOLD),
         )
     }
 
@@ -157,11 +163,11 @@ class SilenceDetectorTest {
         // never rises above it and the timeout never fires again.
         val detector = SilenceDetector(silenceTimeoutMs = 300_000, sessionCapMs = 3_600_000)
 
-        feed(detector, seconds = NoiseFloor.WindowSeconds, amplitude = 20)
-        assertEquals(20 * NoiseFloor.SpeechFactor, detector.speechThreshold)
+        feed(detector, seconds = NoiseFloor.WINDOW_SECONDS, amplitude = 20)
+        assertEquals(20 * NoiseFloor.SPEECH_FACTOR, detector.speechThreshold)
 
-        feed(detector, seconds = NoiseFloor.WindowSeconds, amplitude = 300)
-        assertEquals(NoiseFloor.MaxSpeechThreshold, detector.speechThreshold)
+        feed(detector, seconds = NoiseFloor.WINDOW_SECONDS, amplitude = 300)
+        assertEquals(NoiseFloor.MAX_SPEECH_THRESHOLD, detector.speechThreshold)
     }
 
     @Test
@@ -184,11 +190,12 @@ class SilenceDetectorTest {
     fun noStopIsPossibleBeforeTheFloorHasAFullWindow() {
         // Why no warm-up rule is needed: the shipped timeout is five minutes and the window
         // is one, so the floor has been full for four minutes before a stop can happen.
-        val detector = SilenceDetector(
-            silenceTimeoutMs = TimeUnit.MINUTES.toMillis(5),
-            sessionCapMs = TimeUnit.HOURS.toMillis(3),
-        )
+        val detector =
+            SilenceDetector(
+                silenceTimeoutMs = TimeUnit.MINUTES.toMillis(5),
+                sessionCapMs = TimeUnit.HOURS.toMillis(3),
+            )
 
-        assertEquals(RecordingStopReason.None, feed(detector, NoiseFloor.WindowSeconds, amplitude = 0))
+        assertEquals(RecordingStopReason.None, feed(detector, NoiseFloor.WINDOW_SECONDS, amplitude = 0))
     }
 }

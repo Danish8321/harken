@@ -6,7 +6,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SearchQueryTest {
-
     @Test
     fun `a percent in the term is escaped, not treated as a wildcard`() {
         assertEquals("50\\%", SearchQuery.likePattern("50%"))

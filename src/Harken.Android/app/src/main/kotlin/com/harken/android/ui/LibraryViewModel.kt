@@ -4,27 +4,27 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import com.harken.android.R
 import com.harken.android.container
-import com.harken.android.recordingTitle
 import com.harken.android.data.SearchQuery
 import com.harken.android.data.SessionRepository
+import com.harken.android.recordingTitle
 import com.harken.android.speech.TranscriptionCoordinator
 import com.harken.android.speech.TranscriptionService
-import java.util.UUID
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 private const val TAG = "LibraryViewModel"
 
@@ -51,7 +51,7 @@ data class LibrarySearchState(
     val isSearching: Boolean = false,
 ) {
     /** True once the term is long enough to have been run — an empty list then means "no matches". */
-    val isActive: Boolean get() = query.trim().length >= SearchQuery.MinLength
+    val isActive: Boolean get() = query.trim().length >= SearchQuery.MIN_LENGTH
 }
 
 /** Reads sessions straight from Room — recordings are transcribed entirely on-device. */
@@ -59,12 +59,11 @@ class LibraryViewModel(
     application: Application,
     private val repository: SessionRepository,
 ) : AndroidViewModel(application) {
-
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
 
-    private val _search = MutableStateFlow(LibrarySearchState())
-    val searchState: StateFlow<LibrarySearchState> = _search.asStateFlow()
+    private val _searchState = MutableStateFlow(LibrarySearchState())
+    val searchState: StateFlow<LibrarySearchState> = _searchState.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -85,28 +84,29 @@ class LibraryViewModel(
         // collectLatest, so a keystroke cancels both the debounce and any query already
         // running for the term before it — the last thing typed is the only thing queried.
         viewModelScope.launch {
-            _search.map { it.query }.distinctUntilChanged().collectLatest { query ->
-                if (query.trim().length < SearchQuery.MinLength) {
-                    _search.value = _search.value.copy(results = emptyList(), isSearching = false)
+            _searchState.map { it.query }.distinctUntilChanged().collectLatest { query ->
+                if (query.trim().length < SearchQuery.MIN_LENGTH) {
+                    _searchState.value = _searchState.value.copy(results = emptyList(), isSearching = false)
                     return@collectLatest
                 }
-                delay(SearchDebounceMs)
-                _search.value = _search.value.copy(isSearching = true)
-                val hits = runCatching { repository.search(query) }
-                    .onFailure { Log.e(TAG, "Search failed", it) }
-                    .getOrDefault(emptyList())
-                _search.value = _search.value.copy(results = hits, isSearching = false)
+                delay(SEARCH_DEBOUNCE_MS)
+                _searchState.value = _searchState.value.copy(isSearching = true)
+                val hits =
+                    runCatching { repository.search(query) }
+                        .onFailure { Log.e(TAG, "Search failed", it) }
+                        .getOrDefault(emptyList())
+                _searchState.value = _searchState.value.copy(results = hits, isSearching = false)
             }
         }
     }
 
-    /** Typing. The query is run [SearchDebounceMs] after the last keystroke, not on each one. */
+    /** Typing. The query is run [SEARCH_DEBOUNCE_MS] after the last keystroke, not on each one. */
     fun onSearchQueryChange(query: String) {
-        _search.value = _search.value.copy(query = query)
+        _searchState.value = _searchState.value.copy(query = query)
     }
 
     fun clearSearch() {
-        _search.value = LibrarySearchState()
+        _searchState.value = LibrarySearchState()
     }
 
     /**
@@ -134,7 +134,10 @@ class LibraryViewModel(
      * list, and reading "4 recordings" over an empty Field filter made the filter look
      * broken rather than empty.
      */
-    fun subtitle(state: LibraryUiState, visible: List<SessionRepository.SessionView> = state.sessions): String {
+    fun subtitle(
+        state: LibraryUiState,
+        visible: List<SessionRepository.SessionView> = state.sessions,
+    ): String {
         // "Recorded" sessions are waiting on the user, not actively transcribing — not
         // counted here.
         val transcribing = visible.count { it.status == "Pending" || it.status == "Running" }
@@ -149,15 +152,16 @@ class LibraryViewModel(
 
     companion object {
         /** Long enough that a typed word runs one query, short enough to feel immediate. */
-        private const val SearchDebounceMs = 180L
+        private const val SEARCH_DEBOUNCE_MS = 180L
 
-        val Factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                LibraryViewModel(
-                    application = checkNotNull(this[APPLICATION_KEY]),
-                    repository = container.repository,
-                )
+        val Factory: ViewModelProvider.Factory =
+            viewModelFactory {
+                initializer {
+                    LibraryViewModel(
+                        application = checkNotNull(this[APPLICATION_KEY]),
+                        repository = container.repository,
+                    )
+                }
             }
-        }
     }
 }

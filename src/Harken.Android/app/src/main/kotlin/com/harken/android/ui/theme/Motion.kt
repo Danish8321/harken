@@ -3,9 +3,9 @@ package com.harken.android.ui.theme
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.IntOffset
 // cannot be expressed as a spec — infinite loops, enter/exit transitions — read
 // LocalReducedMotion themselves.
 object HarkenMotion {
-
     /** Small controls: icons, chips, FAB shape, toggle knobs. */
     @Composable
     @ReadOnlyComposable
@@ -59,19 +58,43 @@ object HarkenMotion {
     @Composable
     @ReadOnlyComposable
     fun <T> effectsFast(): FiniteAnimationSpec<T> =
-        if (LocalReducedMotion.current) snap() else spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 1600f, visibilityThreshold = null)
+        if (LocalReducedMotion.current) {
+            snap()
+        } else {
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = 1600f,
+                visibilityThreshold = null,
+            )
+        }
 
     /** Colour and alpha, the default. */
     @Composable
     @ReadOnlyComposable
     fun <T> effectsDefault(): FiniteAnimationSpec<T> =
-        if (LocalReducedMotion.current) snap() else spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 800f, visibilityThreshold = null)
+        if (LocalReducedMotion.current) {
+            snap()
+        } else {
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = 800f,
+                visibilityThreshold = null,
+            )
+        }
 
     /** Scrims and other full-screen fades. */
     @Composable
     @ReadOnlyComposable
     fun <T> effectsSlow(): FiniteAnimationSpec<T> =
-        if (LocalReducedMotion.current) snap() else spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 200f, visibilityThreshold = null)
+        if (LocalReducedMotion.current) {
+            snap()
+        } else {
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = 200f,
+                visibilityThreshold = null,
+            )
+        }
 }
 
 /**

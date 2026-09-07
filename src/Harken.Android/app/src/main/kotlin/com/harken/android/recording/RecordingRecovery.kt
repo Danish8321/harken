@@ -4,11 +4,11 @@ import android.util.Log
 import com.harken.android.audio.WavFormat
 import com.harken.android.audio.WavWriter
 import com.harken.android.data.SessionRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
 import java.util.UUID
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 private const val TAG = "RecordingRecovery"
 
@@ -29,31 +29,33 @@ class RecordingRecovery(
     private val repository: SessionRepository,
     private val knownIds: suspend () -> List<UUID>,
 ) {
-    suspend fun recover(): List<UUID> = withContext(Dispatchers.IO) {
-        val known = runCatching { knownIds().toSet() }.getOrElse {
-            Log.e(TAG, "Could not read known session ids; skipping recovery", it)
-            return@withContext emptyList()
-        }
-        val orphans = orphanRecordings(filesDir.listFiles()?.toList().orEmpty(), known)
+    suspend fun recover(): List<UUID> =
+        withContext(Dispatchers.IO) {
+            val known =
+                runCatching { knownIds().toSet() }.getOrElse {
+                    Log.e(TAG, "Could not read known session ids; skipping recovery", it)
+                    return@withContext emptyList()
+                }
+            val orphans = orphanRecordings(filesDir.listFiles()?.toList().orEmpty(), known)
 
-        orphans.mapNotNull { orphan ->
-            runCatching {
-                val repaired = WavWriter.repairHeader(orphan.file.path)
-                repository.createLocalSession(
-                    id = orphan.id,
-                    startedAt = orphan.startedAt.toString(),
-                    endedAt = orphan.endedAt.toString(),
-                    filePath = orphan.file.path,
-                    durationSeconds = orphan.durationSeconds,
-                )
-                Log.i(TAG, "Recovered ${orphan.id} (${orphan.durationSeconds}s, header repaired=$repaired)")
-                orphan.id
-            }.getOrElse {
-                Log.e(TAG, "Could not recover ${orphan.file.name}", it)
-                null
+            orphans.mapNotNull { orphan ->
+                runCatching {
+                    val repaired = WavWriter.repairHeader(orphan.file.path)
+                    repository.createLocalSession(
+                        id = orphan.id,
+                        startedAt = orphan.startedAt.toString(),
+                        endedAt = orphan.endedAt.toString(),
+                        filePath = orphan.file.path,
+                        durationSeconds = orphan.durationSeconds,
+                    )
+                    Log.i(TAG, "Recovered ${orphan.id} (${orphan.durationSeconds}s, header repaired=$repaired)")
+                    orphan.id
+                }.getOrElse {
+                    Log.e(TAG, "Could not recover ${orphan.file.name}", it)
+                    null
+                }
             }
         }
-    }
 
     data class Orphan(
         val id: UUID,
@@ -74,27 +76,31 @@ class RecordingRecovery(
          * The clock is the file's own mtime, which is when the last chunk was written, so
          * the capture is dated to when it happened rather than to when the app next opened.
          */
-        fun orphanRecordings(files: List<File>, knownIds: Set<UUID>): List<Orphan> = files
-            .filter { it.isFile && it.extension.equals("wav", ignoreCase = true) }
-            .mapNotNull { file ->
-                val id = runCatching { UUID.fromString(file.nameWithoutExtension) }.getOrNull() ?: return@mapNotNull null
-                if (id in knownIds) return@mapNotNull null
+        fun orphanRecordings(
+            files: List<File>,
+            knownIds: Set<UUID>,
+        ): List<Orphan> =
+            files
+                .filter { it.isFile && it.extension.equals("wav", ignoreCase = true) }
+                .mapNotNull { file ->
+                    val id = runCatching { UUID.fromString(file.nameWithoutExtension) }.getOrNull() ?: return@mapNotNull null
+                    if (id in knownIds) return@mapNotNull null
 
-                // Header-only files are a start that captured nothing. Left on disk rather
-                // than deleted — recovery's job is to lose nothing, not to tidy up.
-                val audioBytes = file.length() - WavFormat.HeaderLength
-                if (audioBytes <= 0) return@mapNotNull null
+                    // Header-only files are a start that captured nothing. Left on disk rather
+                    // than deleted — recovery's job is to lose nothing, not to tidy up.
+                    val audioBytes = file.length() - WavFormat.HEADER_LENGTH
+                    if (audioBytes <= 0) return@mapNotNull null
 
-                val duration = WavFormat.durationSeconds(file)
-                val endedAt = Instant.ofEpochMilli(file.lastModified())
-                Orphan(
-                    id = id,
-                    file = file,
-                    durationSeconds = duration,
-                    startedAt = endedAt.minusSeconds(duration.toLong()),
-                    endedAt = endedAt,
-                )
-            }
-            .sortedByDescending { it.endedAt }
+                    val duration = WavFormat.durationSeconds(file)
+                    val endedAt = Instant.ofEpochMilli(file.lastModified())
+                    Orphan(
+                        id = id,
+                        file = file,
+                        durationSeconds = duration,
+                        startedAt = endedAt.minusSeconds(duration.toLong()),
+                        endedAt = endedAt,
+                    )
+                }
+                .sortedByDescending { it.endedAt }
     }
 }

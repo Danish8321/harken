@@ -25,7 +25,7 @@ object HarkenWaveform {
      * Bar count sets the visual density, because bars are laid out with `SpaceBetween`
      * across the full width — at 18 they read as scattered ticks rather than a trace.
      */
-    const val BarCount = 34
+    const val BAR_COUNT = 34
 
     val BarWidth = 3.5.dp
     val BarShape = RoundedCornerShape(2.dp)
@@ -39,18 +39,21 @@ object HarkenWaveform {
     /** Maps a normalized 0..1 level onto the same trough-to-crest range the decorative trace uses. */
     fun levelHeight(normalized: Float): Dp = BarMinHeight + BarTravelHeight * normalized.coerceIn(0f, 1f)
 
-    /** How fast the crest travels. Paired with [PhaseStep]; changing one alone re-tunes the look. */
-    private const val TravelSpeed = 1.6154f
+    /** How fast the crest travels. Paired with [PHASE_STEP]; changing one alone re-tunes the look. */
+    private const val TRAVEL_SPEED = 1.6154f
 
     /**
      * Phase offset per bar — this is what makes the crest travel instead of every bar
-     * breathing in place. It scales inversely with [BarCount]: raising the density
+     * breathing in place. It scales inversely with [BAR_COUNT]: raising the density
      * without dropping this bunches the wave up into a much shorter wavelength.
      */
-    private const val PhaseStep = 0.4f
+    private const val PHASE_STEP = 0.4f
 
     /** 0..1 position of bar [i] in its cycle at phase [t] (radians). */
-    fun travel(t: Float, i: Int): Float = sin(t * TravelSpeed - i * PhaseStep) * 0.5f + 0.5f
+    fun travel(
+        t: Float,
+        i: Int,
+    ): Float = sin(t * TRAVEL_SPEED - i * PHASE_STEP) * 0.5f + 0.5f
 
     /**
      * Height of bar [i] at phase [t].
@@ -58,6 +61,9 @@ object HarkenWaveform {
      * @param moving false holds every bar at the trough — the reduced-motion rendering,
      * which keeps the shape on screen but stops it animating.
      */
-    fun barHeight(t: Float, i: Int, moving: Boolean = true): Dp =
-        if (!moving) BarMinHeight else BarMinHeight + BarTravelHeight * travel(t, i)
+    fun barHeight(
+        t: Float,
+        i: Int,
+        moving: Boolean = true,
+    ): Dp = if (!moving) BarMinHeight else BarMinHeight + BarTravelHeight * travel(t, i)
 }

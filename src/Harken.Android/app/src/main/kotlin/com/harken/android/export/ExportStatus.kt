@@ -6,7 +6,6 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /** Where an export has got to, as the Settings screen needs to say it. */
 sealed interface ExportState {
-
     /** No export has run since the app started, or the user dismissed the last result. */
     data object Idle : ExportState
 

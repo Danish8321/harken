@@ -22,7 +22,7 @@ package com.harken.android.audio
  * Byte-driven like the [SilenceDetector] that owns it, so the window is 60 seconds of
  * audio whether chunks arrive on schedule or late.
  */
-class NoiseFloor(private val windowBytes: Int = WindowBytes) {
+class NoiseFloor(private val windowBytes: Int = WINDOW_BYTES) {
     init {
         require(windowBytes > 0) { "windowBytes must be positive" }
     }
@@ -45,7 +45,10 @@ class NoiseFloor(private val windowBytes: Int = WindowBytes) {
     private var cachedFloor = -1
 
     /** Records one chunk's RMS [chunkRms], which stood for [bytes] of audio. */
-    fun observe(chunkRms: Int, bytes: Int) {
+    fun observe(
+        chunkRms: Int,
+        bytes: Int,
+    ) {
         if (bytes <= 0) return
         levels.addLast(chunkRms)
         sizes.addLast(bytes)
@@ -70,7 +73,7 @@ class NoiseFloor(private val windowBytes: Int = WindowBytes) {
         if (levels.isEmpty()) return 0
         val ordered = levels.toIntArray()
         ordered.sort()
-        val index = (ordered.size * SpeechSpans.NoiseFloorPercentile / 100).coerceAtMost(ordered.lastIndex)
+        val index = (ordered.size * SpeechSpans.NOISE_FLOOR_PERCENTILE / 100).coerceAtMost(ordered.lastIndex)
         cachedFloor = ordered[index]
         return cachedFloor
     }
@@ -86,7 +89,7 @@ class NoiseFloor(private val windowBytes: Int = WindowBytes) {
      * bag never times out.
      */
     val speechThreshold: Int
-        get() = (floor() * SpeechFactor).coerceIn(MinSpeechThreshold, MaxSpeechThreshold)
+        get() = (floor() * SPEECH_FACTOR).coerceIn(MIN_SPEECH_THRESHOLD, MAX_SPEECH_THRESHOLD)
 
     /** The current estimate of the floor itself, for telemetry. */
     val estimate: Int get() = floor()
@@ -104,9 +107,9 @@ class NoiseFloor(private val windowBytes: Int = WindowBytes) {
          * silence between a meeting's words pins the floor near zero for hours afterwards,
          * so the room never rises above it and the timeout never fires again.
          */
-        const val WindowSeconds = 60
-        const val WindowBytes =
-            WavFormat.SampleRate * WavFormat.Channels * (WavFormat.BitsPerSample / 8) * WindowSeconds
+        const val WINDOW_SECONDS = 60
+        const val WINDOW_BYTES =
+            WavFormat.SAMPLE_RATE * WavFormat.CHANNELS * (WavFormat.BITS_PER_SAMPLE / 8) * WINDOW_SECONDS
 
         /**
          * How far above its own floor a chunk has to sit to be speech.
@@ -115,17 +118,17 @@ class NoiseFloor(private val windowBytes: Int = WindowBytes) {
          * 8 through 20 both hold; below 8 the empty room takes too long to time out. 12 is
          * the middle of what passed.
          */
-        const val SpeechFactor = 12
+        const val SPEECH_FACTOR = 12
 
         /**
          * A chunk this loud is speech whatever the floor says, and nothing quieter than
-         * [MinSpeechThreshold] is speech however quiet the room.
+         * [MIN_SPEECH_THRESHOLD] is speech however quiet the room.
          *
          * The ceiling is the tightest value that still lets an empty room time out: at 500
          * — the level this detector used to compare against directly — enough of an
          * ordinary room clears the bar that the timeout never fires at all.
          */
-        const val MaxSpeechThreshold = 1000
-        const val MinSpeechThreshold = SpeechSpans.MinAmplitudeThreshold
+        const val MAX_SPEECH_THRESHOLD = 1000
+        const val MIN_SPEECH_THRESHOLD = SpeechSpans.MIN_AMPLITUDE_THRESHOLD
     }
 }

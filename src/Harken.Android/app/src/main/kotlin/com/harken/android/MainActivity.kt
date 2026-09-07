@@ -12,10 +12,10 @@ import androidx.lifecycle.lifecycleScope
 import com.harken.android.device.DeviceCapability
 import com.harken.android.recording.RecordingRecovery
 import com.harken.android.telemetry.Telemetry
-import kotlinx.coroutines.launch
 import com.harken.android.ui.AppNav
 import com.harken.android.ui.ThemeMode
 import com.harken.android.ui.theme.HarkenTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,11 +47,12 @@ class MainActivity : ComponentActivity() {
             val settings = remember { application.container.settings }
             val themeMode by settings.themeMode.collectAsState(initial = ThemeMode.System)
             val dynamicColor by settings.dynamicColor.collectAsState(initial = false)
-            val darkTheme = when (themeMode) {
-                ThemeMode.System -> isSystemInDarkTheme()
-                ThemeMode.Light -> false
-                ThemeMode.Dark -> true
-            }
+            val darkTheme =
+                when (themeMode) {
+                    ThemeMode.System -> isSystemInDarkTheme()
+                    ThemeMode.Light -> false
+                    ThemeMode.Dark -> true
+                }
             HarkenTheme(darkTheme = darkTheme, dynamicColor = dynamicColor) {
                 AppNav()
             }

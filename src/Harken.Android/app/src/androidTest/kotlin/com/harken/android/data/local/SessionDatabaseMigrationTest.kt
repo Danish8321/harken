@@ -22,18 +22,18 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class SessionDatabaseMigrationTest {
-
     @get:Rule
-    val helper = MigrationTestHelper(
-        InstrumentationRegistry.getInstrumentation(),
-        HarkenDatabase::class.java,
-    )
+    val helper =
+        MigrationTestHelper(
+            InstrumentationRegistry.getInstrumentation(),
+            HarkenDatabase::class.java,
+        )
 
     @Test
     fun migration1To2AddsIsLocalOnlyColumnAndPreservesExistingRows() {
         val existingId = "11111111-1111-1111-1111-111111111111"
 
-        helper.createDatabase(DbName, 1).use { db ->
+        helper.createDatabase(DB_NAME, 1).use { db ->
             db.execSQL(
                 """
                 INSERT INTO sessions (
@@ -48,7 +48,7 @@ class SessionDatabaseMigrationTest {
 
         // validateDroppedTables = true: a migration that quietly loses a table is the
         // failure this whole tier exists to catch.
-        val migrated = helper.runMigrationsAndValidate(DbName, 2, true, MIGRATION_1_2)
+        val migrated = helper.runMigrationsAndValidate(DB_NAME, 2, true, MIGRATION_1_2)
 
         migrated.query(
             "SELECT segmentCount, localTitle, localTags, isLocalOnly FROM sessions WHERE id = ?",
@@ -66,6 +66,6 @@ class SessionDatabaseMigrationTest {
     }
 
     private companion object {
-        const val DbName = "harken-migration-test.db"
+        const val DB_NAME = "harken-migration-test.db"
     }
 }

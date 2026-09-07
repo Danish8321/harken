@@ -5,7 +5,6 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class PlaybackCursorTest {
-
     private val offsets = listOf(0, 4, 9, 30)
 
     @Test

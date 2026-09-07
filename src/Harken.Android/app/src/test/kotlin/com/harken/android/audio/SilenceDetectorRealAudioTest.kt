@@ -18,18 +18,21 @@ import java.util.concurrent.TimeUnit
  * (ES2002a), CC BY 4.0 — see ATTRIBUTION.md beside it.
  */
 class SilenceDetectorRealAudioTest {
-
     /** The PCM payload of the excerpt, past WavWriter's canonical 44-byte header. */
     private fun meetingAudio(): ByteArray {
-        val wav = checkNotNull(javaClass.getResourceAsStream("/ami-es2002a-0-90s.wav")) {
-            "ami-es2002a-0-90s.wav is missing from the test resources"
-        }.use { it.readBytes() }
-        return wav.copyOfRange(WavFormat.HeaderLength, wav.size)
+        val wav =
+            checkNotNull(javaClass.getResourceAsStream("/ami-es2002a-0-90s.wav")) {
+                "ami-es2002a-0-90s.wav is missing from the test resources"
+            }.use { it.readBytes() }
+        return wav.copyOfRange(WavFormat.HEADER_LENGTH, wav.size)
     }
 
     /** Feeds the audio in the 160 ms chunks AudioRecordCapture delivers. */
-    private fun play(detector: SilenceDetector, pcm: ByteArray): RecordingStopReason {
-        val chunk = WavFormat.SampleRate * WavFormat.Channels * (WavFormat.BitsPerSample / 8) * 160 / 1000
+    private fun play(
+        detector: SilenceDetector,
+        pcm: ByteArray,
+    ): RecordingStopReason {
+        val chunk = WavFormat.SAMPLE_RATE * WavFormat.CHANNELS * (WavFormat.BITS_PER_SAMPLE / 8) * 160 / 1000
         var offset = 0
         while (offset < pcm.size) {
             val length = minOf(chunk, pcm.size - offset)
@@ -45,10 +48,11 @@ class SilenceDetectorRealAudioTest {
         // Four people talking for 90 seconds, with the pauses that are in any conversation.
         // The run reaches 9.1 s here; on the shipped rule it reached 65.3 s over the same
         // audio, which is the whole defect in one number.
-        val detector = SilenceDetector(
-            silenceTimeoutMs = TimeUnit.SECONDS.toMillis(30),
-            sessionCapMs = TimeUnit.HOURS.toMillis(3),
-        )
+        val detector =
+            SilenceDetector(
+                silenceTimeoutMs = TimeUnit.SECONDS.toMillis(30),
+                sessionCapMs = TimeUnit.HOURS.toMillis(3),
+            )
 
         assertEquals(RecordingStopReason.None, play(detector, meetingAudio()))
         assertTrue(
@@ -62,15 +66,16 @@ class SilenceDetectorRealAudioTest {
         // Not asserted for its own sake: it is the number reported on recording_stopped, and
         // a field report of "it stopped in the middle of my meeting" is read against it.
         // A headset mix sits far below the old fixed 500 — that is why the meeting failed.
-        val detector = SilenceDetector(
-            silenceTimeoutMs = TimeUnit.SECONDS.toMillis(30),
-            sessionCapMs = TimeUnit.HOURS.toMillis(3),
-        )
+        val detector =
+            SilenceDetector(
+                silenceTimeoutMs = TimeUnit.SECONDS.toMillis(30),
+                sessionCapMs = TimeUnit.HOURS.toMillis(3),
+            )
         play(detector, meetingAudio())
 
         assertTrue(
             "floor ${detector.noiseFloorEstimate}, speech at ${detector.speechThreshold}",
-            detector.speechThreshold in NoiseFloor.MinSpeechThreshold until SpeechSpans.MaxAmplitudeThreshold,
+            detector.speechThreshold in NoiseFloor.MIN_SPEECH_THRESHOLD until SpeechSpans.MAX_AMPLITUDE_THRESHOLD,
         )
     }
 }

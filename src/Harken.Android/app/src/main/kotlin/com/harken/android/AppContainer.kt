@@ -2,8 +2,8 @@ package com.harken.android
 
 import android.app.Application
 import android.content.Context
-import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import androidx.lifecycle.viewmodel.CreationExtras
 import com.harken.android.data.AppSettings
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.local.HarkenDatabase
@@ -26,7 +26,6 @@ import com.harken.android.speech.OnDeviceTranscriber
  * with it `System.loadLibrary`, only when a decode is about to run.
  */
 class AppContainer(context: Context) {
-
     private val appContext = context.applicationContext
 
     val database: HarkenDatabase by lazy { HarkenDatabase.get(appContext) }

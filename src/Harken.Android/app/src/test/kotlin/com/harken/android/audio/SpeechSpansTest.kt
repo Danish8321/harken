@@ -5,8 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SpeechSpansTest {
-
-    private val rate = WavFormat.SampleRate
+    private val rate = WavFormat.SAMPLE_RATE
 
     /** Builds PCM from alternating (seconds, amplitude) pairs. */
     private fun audio(vararg parts: Pair<Int, Int>): ShortArray {
@@ -27,12 +26,13 @@ class SpeechSpansTest {
      * below are about what the windows add up to, not about where they came from.
      */
     private fun spansOf(samples: ShortArray): List<SpeechSpan> {
-        val windowSamples = rate * SpeechSpans.WindowSeconds
+        val windowSamples = rate * SpeechSpans.WINDOW_SECONDS
         val windowCount = (samples.size + windowSamples - 1) / windowSamples
-        val levels = IntArray(windowCount) { window ->
-            val from = window * windowSamples
-            SpeechSpans.windowRms(samples, from, minOf(from + windowSamples, samples.size))
-        }
+        val levels =
+            IntArray(windowCount) { window ->
+                val from = window * windowSamples
+                SpeechSpans.windowRms(samples, from, minOf(from + windowSamples, samples.size))
+            }
         return SpeechSpans.assemble(levels, samples.size)
     }
 
@@ -62,7 +62,7 @@ class SpeechSpansTest {
         assertEquals(2, spans.size)
         // Each speaker's five seconds is grown to a whisper window it was going to pay for
         // anyway, and the grown spans stay clear of each other.
-        assertEquals(SpeechSpans.MinSpanSeconds * rate, spans[0].sampleCount)
+        assertEquals(SpeechSpans.MIN_SPAN_SECONDS * rate, spans[0].sampleCount)
         assertEquals(0, spans[0].startSample)
         assertTrue(spans[1].startSample >= spans[0].endSampleExclusive)
         assertEquals(70 * rate, spans[1].endSampleExclusive)
@@ -83,7 +83,7 @@ class SpeechSpansTest {
 
         assertEquals(1, spans.size)
         // Centred on the speech at 30-35 s, widened to whisper's window.
-        assertEquals(SpeechSpans.MinSpanSeconds * rate, spans[0].sampleCount)
+        assertEquals(SpeechSpans.MIN_SPAN_SECONDS * rate, spans[0].sampleCount)
         assertTrue(spans[0].startSample <= 29 * rate)
         assertTrue(spans[0].endSampleExclusive >= 36 * rate)
     }
@@ -118,16 +118,16 @@ class SpeechSpansTest {
 
     @Test
     fun `unbroken speech is cut into spans that fit in memory`() {
-        val seconds = SpeechSpans.MaxSpanSeconds + 100
+        val seconds = SpeechSpans.MAX_SPAN_SECONDS + 100
         val spans = spansOf(audio(seconds to 4000))
 
         // Nothing is dropped and nothing is decoded twice: the cut is a cut, not a window.
         assertEquals(2, spans.size)
         assertEquals(0, spans[0].startSample)
-        assertEquals(SpeechSpans.MaxSpanSeconds * rate, spans[0].endSampleExclusive)
-        assertEquals(SpeechSpans.MaxSpanSeconds * rate, spans[1].startSample)
+        assertEquals(SpeechSpans.MAX_SPAN_SECONDS * rate, spans[0].endSampleExclusive)
+        assertEquals(SpeechSpans.MAX_SPAN_SECONDS * rate, spans[1].startSample)
         assertEquals(seconds * rate, spans[1].endSampleExclusive)
-        spans.forEach { assertTrue(it.sampleCount <= SpeechSpans.MaxSpanSeconds * rate) }
+        spans.forEach { assertTrue(it.sampleCount <= SpeechSpans.MAX_SPAN_SECONDS * rate) }
     }
 
     @Test
@@ -161,9 +161,9 @@ class SpeechSpansTest {
         val loud = IntArray(100) { 9000 }
         val ordinary = IntArray(100) { if (it < 20) 50 else 900 }
 
-        assertEquals(SpeechSpans.MinAmplitudeThreshold, SpeechSpans.amplitudeThreshold(quiet))
-        assertEquals(SpeechSpans.MaxAmplitudeThreshold, SpeechSpans.amplitudeThreshold(loud))
-        assertEquals(50 * SpeechSpans.NoiseFloorFactor, SpeechSpans.amplitudeThreshold(ordinary))
+        assertEquals(SpeechSpans.MIN_AMPLITUDE_THRESHOLD, SpeechSpans.amplitudeThreshold(quiet))
+        assertEquals(SpeechSpans.MAX_AMPLITUDE_THRESHOLD, SpeechSpans.amplitudeThreshold(loud))
+        assertEquals(50 * SpeechSpans.NOISE_FLOOR_FACTOR, SpeechSpans.amplitudeThreshold(ordinary))
     }
 
     @Test
@@ -176,7 +176,7 @@ class SpeechSpansTest {
         spans.forEach {
             assertTrue(
                 "span of ${it.sampleCount} samples",
-                it.sampleCount >= SpeechSpans.MinSpanSeconds * rate,
+                it.sampleCount >= SpeechSpans.MIN_SPAN_SECONDS * rate,
             )
         }
     }

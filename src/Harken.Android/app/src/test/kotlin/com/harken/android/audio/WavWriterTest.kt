@@ -1,16 +1,15 @@
 package com.harken.android.audio
 
-import java.io.RandomAccessFile
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.RandomAccessFile
 
 // Mirrors tests/Harken.Core.UnitTests/Audio/WavWriterTests.cs — header patch-on-close
 // and the orphaned-header repair from commit 503fed7.
 class WavWriterTest {
-
     @Test
     fun closePatchesRiffAndDataLengths() {
         val file = kotlin.io.path.createTempFile().toFile()
@@ -74,7 +73,7 @@ class WavWriterTest {
         }
 
         val raf = RandomAccessFile(file, "r")
-        raf.seek(WavFormat.HeaderLength.toLong())
+        raf.seek(WavFormat.HEADER_LENGTH.toLong())
         val data = ByteArray(12)
         raf.readFully(data)
         assertArrayEquals(byteArrayOf(1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3), data)

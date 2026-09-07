@@ -2,6 +2,7 @@ package com.harken.android.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -13,8 +14,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -50,7 +51,6 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -64,7 +64,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import android.os.Build
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -84,21 +83,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
 import com.harken.android.audio.RecordingStopReason
-import com.harken.android.data.AppSettings
 import com.harken.android.recording.RecordingError
 import com.harken.android.recording.RecordingState
+import com.harken.android.ui.components.HarkenErrorDialog
 import com.harken.android.ui.theme.HarkenMotion
+import com.harken.android.ui.theme.HarkenWaveform
+import com.harken.android.ui.theme.LocalProtoColors
 import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
-import com.harken.android.ui.theme.HarkenWaveform
 import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.ProtoMonoFont
-import com.harken.android.ui.theme.LocalProtoColors
 import com.harken.android.ui.theme.rememberRecordShape
-import com.harken.android.ui.components.HarkenErrorDialog
-import java.util.UUID
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 // Prototype visuals (Claude Design .dc.html port), wired to the real CaptureViewModel:
 // real mic permission flow, real RecordingController start/stop, real elapsed timer keyed
@@ -138,6 +136,7 @@ fun RecordScreen(
     // Only the recording notification depends on this (Android 13+) — a denial doesn't
     // block recording itself, so there's no launcher callback branch to react to here.
     val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     fun ensureNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -145,14 +144,15 @@ fun RecordScreen(
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        hasMicPermission = granted
-        if (granted) {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            ensureNotificationPermission()
-            viewModel.startRecording()
+    val permissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            hasMicPermission = granted
+            if (granted) {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                ensureNotificationPermission()
+                viewModel.startRecording()
+            }
         }
-    }
 
     var recordingError by remember { mutableStateOf<RecordingError?>(null) }
     LaunchedEffect(Unit) {
@@ -218,7 +218,13 @@ fun RecordScreen(
             if (!recording) {
                 Column {
                     Spacer(Modifier.height(18.dp))
-                    Text(stringResource(R.string.record_idle_headline), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 32.sp, lineHeight = 37.sp)
+                    Text(
+                        stringResource(R.string.record_idle_headline),
+                        color = c.text,
+                        fontFamily = ProtoHeadingFont,
+                        fontSize = 32.sp,
+                        lineHeight = 37.sp,
+                    )
                     Spacer(Modifier.height(10.dp))
                     Text(stringResource(R.string.record_format_line), color = c.textSecondary, fontFamily = ProtoMonoFont, fontSize = 14.sp)
                     Spacer(Modifier.height(22.dp))
@@ -233,11 +239,19 @@ fun RecordScreen(
                         Column {
                             Spacer(Modifier.height(14.dp))
                             Row(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(24.dp)).padding(16.dp)) {
-                                Icon(Icons.Filled.Warning, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(16.dp))
+                                Icon(
+                                    Icons.Filled.Warning,
+                                    contentDescription = null,
+                                    tint = c.textSecondary,
+                                    modifier = Modifier.size(16.dp),
+                                )
                                 Spacer(Modifier.width(10.dp))
                                 Text(
                                     stringResource(R.string.record_cap_warning),
-                                    color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 12.sp, lineHeight = 18.sp,
+                                    color = c.textSecondary,
+                                    fontFamily = ProtoBodyFont,
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp,
                                 )
                             }
                         }
@@ -329,8 +343,12 @@ private fun IdleMeter(c: ProtoColors) {
     ) {
         // Same wave shape as the splash and live meters, held at a single fixed phase — no
         // input to visualize yet, so nothing here should look like it's listening.
-        Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            for (i in 0 until HarkenWaveform.BarCount) {
+        Row(
+            Modifier.fillMaxWidth().height(40.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            for (i in 0 until HarkenWaveform.BAR_COUNT) {
                 val h = HarkenWaveform.barHeight(0f, i, moving = false)
                 Box(
                     Modifier
@@ -395,16 +413,17 @@ private fun MeterCard(
 private fun LiveDot(c: ProtoColors) {
     val reduced = LocalReducedMotion.current
     val transition = rememberInfiniteTransition(label = "liveDot")
-    val alpha = if (reduced) {
-        1f
-    } else {
-        transition.animateFloat(
-            initialValue = 0.35f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(700, easing = LinearEasing), RepeatMode.Reverse),
-            label = "liveDotAlpha",
-        ).value
-    }
+    val alpha =
+        if (reduced) {
+            1f
+        } else {
+            transition.animateFloat(
+                initialValue = 0.35f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(tween(700, easing = LinearEasing), RepeatMode.Reverse),
+                label = "liveDotAlpha",
+            ).value
+        }
     Box(Modifier.size(7.dp).background(c.accent.copy(alpha = alpha), CircleShape))
 }
 
@@ -480,8 +499,20 @@ private fun SaveStatusCard(
             },
         ) { s ->
             when (s) {
-                SaveStatus.Succeeded -> Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = c.success, modifier = Modifier.size(20.dp))
-                SaveStatus.Failed -> Icon(Icons.Filled.Warning, contentDescription = null, tint = c.stateErrorFg, modifier = Modifier.size(20.dp))
+                SaveStatus.Succeeded ->
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = c.success,
+                        modifier = Modifier.size(20.dp),
+                    )
+                SaveStatus.Failed ->
+                    Icon(
+                        Icons.Filled.Warning,
+                        contentDescription = null,
+                        tint = c.stateErrorFg,
+                        modifier = Modifier.size(20.dp),
+                    )
                 SaveStatus.Idle -> Unit
             }
         }
@@ -493,30 +524,48 @@ private fun SaveStatusCard(
                 SaveStatus.Succeeded -> {
                     // A recording that ended itself leads with why. Tapping Stop needs no
                     // explanation; coming back to a phone that stopped on its own does.
-                    val title = when (stopReason) {
-                        RecordingStopReason.SilenceTimeout -> R.string.record_saved_silence_title
-                        RecordingStopReason.SessionCap -> R.string.record_saved_cap_title
-                        RecordingStopReason.None -> R.string.record_saved_local_title
-                    }
-                    val body = if (stopReason == RecordingStopReason.None) {
-                        R.string.record_saved_local_body
-                    } else {
-                        R.string.record_saved_auto_body
-                    }
+                    val title =
+                        when (stopReason) {
+                            RecordingStopReason.SilenceTimeout -> R.string.record_saved_silence_title
+                            RecordingStopReason.SessionCap -> R.string.record_saved_cap_title
+                            RecordingStopReason.None -> R.string.record_saved_local_title
+                        }
+                    val body =
+                        if (stopReason == RecordingStopReason.None) {
+                            R.string.record_saved_local_body
+                        } else {
+                            R.string.record_saved_auto_body
+                        }
                     Text(
                         stringResource(title),
-                        color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                        color = titleColor,
+                        fontFamily = ProtoBodyFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
                     )
                     Text(
                         stringResource(body),
-                        color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp,
+                        color = bodyColor,
+                        fontFamily = ProtoBodyFont,
+                        fontSize = 12.sp,
                     )
                 }
                 SaveStatus.Failed -> {
-                    Text(stringResource(R.string.record_save_failed_title), color = titleColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Text(
-                        stringResource(R.string.record_save_failed_body, lastError ?: stringResource(R.string.record_save_failed_reason_unknown)),
-                        color = bodyColor, fontFamily = ProtoBodyFont, fontSize = 12.sp,
+                        stringResource(R.string.record_save_failed_title),
+                        color = titleColor,
+                        fontFamily = ProtoBodyFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                    )
+                    Text(
+                        stringResource(
+                            R.string.record_save_failed_body,
+                            lastError ?: stringResource(R.string.record_save_failed_reason_unknown),
+                        ),
+                        color = bodyColor,
+                        fontFamily = ProtoBodyFont,
+                        fontSize = 12.sp,
                     )
                 }
                 SaveStatus.Idle -> Unit
@@ -541,10 +590,14 @@ private fun amplitudeToBarHeight(amplitude: Float): Float {
 
 /** Real amplitude off RecordingState.amplitude — the bars go flat the instant audio stops. */
 @Composable
-private fun LiveMeter(c: ProtoColors, elapsed: String, paused: Boolean) {
+private fun LiveMeter(
+    c: ProtoColors,
+    elapsed: String,
+    paused: Boolean,
+) {
     // Same bar count/width/shape as the idle and splash waves — this is a live-driven
     // instance of the same trace, not a different widget, so it must read as the same object.
-    val bars = remember { mutableStateListOf<Float>().apply { repeat(HarkenWaveform.BarCount) { add(0f) } } }
+    val bars = remember { mutableStateListOf<Float>().apply { repeat(HarkenWaveform.BAR_COUNT) { add(0f) } } }
     val amplitude by RecordingState.amplitude.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
@@ -569,7 +622,11 @@ private fun LiveMeter(c: ProtoColors, elapsed: String, paused: Boolean) {
         live = true,
     ) {
         Text(elapsed, color = c.text, fontFamily = ProtoMonoFont, fontWeight = FontWeight.Medium, fontSize = 36.sp)
-        Row(Modifier.fillMaxWidth().height(72.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth().height(72.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             bars.forEach { level ->
                 // Each shift moves every bar to its neighbour's old height — animating the
                 // jump instead of snapping it is what makes the crest look like it travels
@@ -591,7 +648,10 @@ private fun LiveMeter(c: ProtoColors, elapsed: String, paused: Boolean) {
  * of the two, and the one that must not be reached for by accident.
  */
 @Composable
-private fun PauseButton(paused: Boolean, onTap: () -> Unit) {
+private fun PauseButton(
+    paused: Boolean,
+    onTap: () -> Unit,
+) {
     val c = LocalProtoColors.current
     Box(
         Modifier
@@ -610,7 +670,10 @@ private fun PauseButton(paused: Boolean, onTap: () -> Unit) {
 }
 
 @Composable
-private fun RecordButton(recording: Boolean, onTap: () -> Unit) {
+private fun RecordButton(
+    recording: Boolean,
+    onTap: () -> Unit,
+) {
     val c = LocalProtoColors.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -639,11 +702,12 @@ private fun RecordButton(recording: Boolean, onTap: () -> Unit) {
     // ANR'd on the way *out* of recording — the concave tessellation cost is owed by the
     // shape on screen, not by the state the button thinks it is in.
     val recordShape = rememberRecordShape(recording)
-    val elevation = if (recordShape.isResting) {
-        FloatingActionButtonDefaults.elevation(defaultElevation = 10.dp, pressedElevation = 4.dp)
-    } else {
-        FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
-    }
+    val elevation =
+        if (recordShape.isResting) {
+            FloatingActionButtonDefaults.elevation(defaultElevation = 10.dp, pressedElevation = 4.dp)
+        } else {
+            FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
+        }
     FloatingActionButton(
         onClick = onTap,
         modifier = Modifier.size(88.dp).scale(scale),

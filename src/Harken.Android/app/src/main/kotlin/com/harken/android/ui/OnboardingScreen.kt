@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
@@ -29,24 +28,23 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import com.harken.android.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.harken.android.R
 import com.harken.android.container
 import com.harken.android.data.AppSettings
 import com.harken.android.speech.ModelDownloadFailure
@@ -83,12 +81,12 @@ class OnboardingViewModel(
     private val settings: AppSettings,
     private val modelDownloadManager: ModelDownloadManager,
 ) : AndroidViewModel(application) {
-
-    private val _uiState = MutableStateFlow(
-        OnboardingUiState(
-            modelDownloadState = if (modelDownloadManager.isModelPresent()) ModelDownloadState.Ready else ModelDownloadState.NotStarted,
-        ),
-    )
+    private val _uiState =
+        MutableStateFlow(
+            OnboardingUiState(
+                modelDownloadState = if (modelDownloadManager.isModelPresent()) ModelDownloadState.Ready else ModelDownloadState.NotStarted,
+            ),
+        )
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
     fun downloadModel() {
@@ -97,10 +95,11 @@ class OnboardingViewModel(
         viewModelScope.launch {
             modelDownloadManager.downloadProgress()
                 .catch { e ->
-                    _uiState.value = _uiState.value.copy(
-                        modelDownloadState = ModelDownloadState.Failed,
-                        modelDownloadError = ModelDownloadFailure.of(e),
-                    )
+                    _uiState.value =
+                        _uiState.value.copy(
+                            modelDownloadState = ModelDownloadState.Failed,
+                            modelDownloadError = ModelDownloadFailure.of(e),
+                        )
                 }
                 .onCompletion { failure ->
                     if (failure == null && _uiState.value.modelDownloadState != ModelDownloadState.Failed) {
@@ -129,20 +128,24 @@ class OnboardingViewModel(
     }
 
     companion object {
-        val Factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                OnboardingViewModel(
-                    application = checkNotNull(this[APPLICATION_KEY]),
-                    settings = container.settings,
-                    modelDownloadManager = container.modelDownloadManager,
-                )
+        val Factory: ViewModelProvider.Factory =
+            viewModelFactory {
+                initializer {
+                    OnboardingViewModel(
+                        application = checkNotNull(this[APPLICATION_KEY]),
+                        settings = container.settings,
+                        modelDownloadManager = container.modelDownloadManager,
+                    )
+                }
             }
-        }
     }
 }
 
 @Composable
-fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = viewModel(factory = OnboardingViewModel.Factory)) {
+fun OnboardingScreen(
+    onFinished: () -> Unit,
+    viewModel: OnboardingViewModel = viewModel(factory = OnboardingViewModel.Factory),
+) {
     val c = LocalProtoColors.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -187,103 +190,109 @@ fun OnboardingScreen(onFinished: () -> Unit, viewModel: OnboardingViewModel = vi
             // the same fixed distance from the top so the headline doesn't jump around.
             Column(Modifier.fillMaxSize().padding(top = 64.dp)) {
                 when (step) {
-                    1 -> Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                        Box(
-                            Modifier.size(88.dp).background(c.accent, androidx.compose.foundation.shape.CircleShape),
-                            contentAlignment = androidx.compose.ui.Alignment.Center,
-                        ) {
-                            Icon(Icons.Filled.Mic, contentDescription = null, tint = c.onAccent, modifier = Modifier.size(32.dp))
+                    1 ->
+                        Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                            Box(
+                                Modifier.size(88.dp).background(c.accent, androidx.compose.foundation.shape.CircleShape),
+                                contentAlignment = androidx.compose.ui.Alignment.Center,
+                            ) {
+                                Icon(Icons.Filled.Mic, contentDescription = null, tint = c.onAccent, modifier = Modifier.size(32.dp))
+                            }
+                            Text(
+                                stringResource(R.string.onboarding2_step1_title),
+                                color = c.text,
+                                fontFamily = ProtoHeadingFont,
+                                fontSize = 28.sp,
+                                modifier = Modifier.padding(top = 20.dp),
+                            )
+                            Text(
+                                stringResource(R.string.onboarding2_step1_body),
+                                color = c.textSecondary,
+                                fontFamily = ProtoBodyFont,
+                                fontSize = 14.5f.sp,
+                                lineHeight = 22.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.padding(top = 10.dp),
+                            )
                         }
-                        Text(
-                            stringResource(R.string.onboarding2_step1_title),
-                            color = c.text,
-                            fontFamily = ProtoHeadingFont,
-                            fontSize = 28.sp,
-                            modifier = Modifier.padding(top = 20.dp),
-                        )
-                        Text(
-                            stringResource(R.string.onboarding2_step1_body),
-                            color = c.textSecondary,
-                            fontFamily = ProtoBodyFont,
-                            fontSize = 14.5f.sp,
-                            lineHeight = 22.sp,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            modifier = Modifier.padding(top = 10.dp),
-                        )
-                    }
 
-                    2 -> Column {
-                        Icon(Icons.Filled.CloudDownload, contentDescription = null, tint = c.accent, modifier = Modifier.size(40.dp))
-                        Text(
-                            stringResource(R.string.onboarding2_step4_title),
-                            color = c.text,
-                            fontFamily = ProtoHeadingFont,
-                            fontSize = 28.sp,
-                        )
-                        Text(
-                            stringResource(R.string.onboarding2_step4_body),
-                            color = c.textSecondary,
-                            fontFamily = ProtoBodyFont,
-                            fontSize = 14.5f.sp,
-                            modifier = Modifier.padding(top = 10.dp),
-                        )
-                        HarkenCard(Modifier.fillMaxWidth().padding(top = 20.dp)) {
-                            when (state.modelDownloadState) {
-                                ModelDownloadState.NotStarted -> Button(
-                                    onClick = viewModel::downloadModel,
-                                    shape = PillShape,
-                                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                                ) { Text(stringResource(R.string.onboarding2_download_model)) }
+                    2 ->
+                        Column {
+                            Icon(Icons.Filled.CloudDownload, contentDescription = null, tint = c.accent, modifier = Modifier.size(40.dp))
+                            Text(
+                                stringResource(R.string.onboarding2_step4_title),
+                                color = c.text,
+                                fontFamily = ProtoHeadingFont,
+                                fontSize = 28.sp,
+                            )
+                            Text(
+                                stringResource(R.string.onboarding2_step4_body),
+                                color = c.textSecondary,
+                                fontFamily = ProtoBodyFont,
+                                fontSize = 14.5f.sp,
+                                modifier = Modifier.padding(top = 10.dp),
+                            )
+                            HarkenCard(Modifier.fillMaxWidth().padding(top = 20.dp)) {
+                                when (state.modelDownloadState) {
+                                    ModelDownloadState.NotStarted ->
+                                        Button(
+                                            onClick = viewModel::downloadModel,
+                                            shape = PillShape,
+                                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        ) { Text(stringResource(R.string.onboarding2_download_model)) }
 
-                                ModelDownloadState.Downloading -> Column {
-                                    LinearProgressIndicator(
-                                        progress = { state.modelDownloadProgress / 100f },
-                                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(PillShape),
-                                        color = c.accent,
-                                        trackColor = c.cardBorder,
-                                    )
-                                    Text(
-                                        stringResource(R.string.onboarding2_downloading, state.modelDownloadProgress),
-                                        color = c.textSecondary,
-                                        fontFamily = ProtoBodyFont,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(top = 8.dp),
-                                    )
-                                }
+                                    ModelDownloadState.Downloading ->
+                                        Column {
+                                            LinearProgressIndicator(
+                                                progress = { state.modelDownloadProgress / 100f },
+                                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(PillShape),
+                                                color = c.accent,
+                                                trackColor = c.cardBorder,
+                                            )
+                                            Text(
+                                                stringResource(R.string.onboarding2_downloading, state.modelDownloadProgress),
+                                                color = c.textSecondary,
+                                                fontFamily = ProtoBodyFont,
+                                                fontSize = 12.sp,
+                                                modifier = Modifier.padding(top = 8.dp),
+                                            )
+                                        }
 
-                                ModelDownloadState.Ready -> StatusChip(
-                                    label = stringResource(R.string.onboarding2_model_ready),
-                                    container = c.stateDone,
-                                    content = c.stateDoneFg,
-                                    leading = {
-                                        Icon(
-                                            Icons.Filled.CheckCircle,
-                                            contentDescription = null,
-                                            tint = c.stateDoneFg,
-                                            modifier = Modifier.size(16.dp),
+                                    ModelDownloadState.Ready ->
+                                        StatusChip(
+                                            label = stringResource(R.string.onboarding2_model_ready),
+                                            container = c.stateDone,
+                                            content = c.stateDoneFg,
+                                            leading = {
+                                                Icon(
+                                                    Icons.Filled.CheckCircle,
+                                                    contentDescription = null,
+                                                    tint = c.stateDoneFg,
+                                                    modifier = Modifier.size(16.dp),
+                                                )
+                                            },
                                         )
-                                    },
-                                )
 
-                                ModelDownloadState.Failed -> Column {
-                                    Text(
-                                        stringResource(
-                                            state.modelDownloadError?.messageRes()
-                                                ?: R.string.settings_model_download_failed,
-                                        ),
-                                        color = c.stateError,
-                                        fontFamily = ProtoBodyFont,
-                                        fontSize = 12.sp,
-                                    )
-                                    OutlinedButton(
-                                        onClick = viewModel::downloadModel,
-                                        shape = PillShape,
-                                        modifier = Modifier.padding(top = 8.dp),
-                                    ) { Text(stringResource(R.string.onboarding2_retry)) }
+                                    ModelDownloadState.Failed ->
+                                        Column {
+                                            Text(
+                                                stringResource(
+                                                    state.modelDownloadError?.messageRes()
+                                                        ?: R.string.settings_model_download_failed,
+                                                ),
+                                                color = c.stateError,
+                                                fontFamily = ProtoBodyFont,
+                                                fontSize = 12.sp,
+                                            )
+                                            OutlinedButton(
+                                                onClick = viewModel::downloadModel,
+                                                shape = PillShape,
+                                                modifier = Modifier.padding(top = 8.dp),
+                                            ) { Text(stringResource(R.string.onboarding2_retry)) }
+                                        }
                                 }
                             }
                         }
-                    }
                 }
             }
         }

@@ -2,6 +2,9 @@ package com.harken.android.ui
 
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -15,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -41,15 +43,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -60,15 +59,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -148,170 +147,200 @@ fun SessionSheet(
         containerColor = MaterialTheme.colorScheme.background,
     ) {
         Box(Modifier.fillMaxWidth().fillMaxHeight(0.95f)) {
-        Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = { confirmDelete = true }, modifier = Modifier.size(48.dp)) {
-                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.session_delete))
-                }
-            }
-
-            val revealedSegmentIds = remember { androidx.compose.runtime.mutableStateSetOf<java.util.UUID>() }
-            val reducedMotion = com.harken.android.ui.theme.LocalReducedMotion.current
-            // Stretch overscroll at the transcript's scroll boundaries fights the
-            // ModalBottomSheet's own nested-scroll drag handling: hitting the end of the
-            // list forwards leftover drag to the sheet, which briefly reads as the sheet
-            // expanding past its fixed 0.95f height before springing back. Disabling
-            // overscroll here removes the extra delta this sheet has no use for.
-            Box(Modifier.weight(1f)) {
-            @Suppress("DEPRECATION")
-            CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
-            LazyColumn(
-                state = transcriptState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, bottom = 118.dp),
-            ) {
-                item {
-                    // Rename is inline and local — no dialog, and no round trip, because
-                    // the backend has no title field yet (see ADR-0010).
-                    if (editingTitle) {
-                        // Opened by a deliberate tap on the title, so it takes the caret
-                        // and the keyboard itself — it used to appear unfocused, needing a
-                        // second tap before anything could be typed.
-                        LaunchedEffect(Unit) { titleFocus.requestFocus() }
-                        OutlinedTextField(
-                            value = titleDraft,
-                            onValueChange = { titleDraft = it },
-                            modifier = Modifier.fillMaxWidth().focusRequester(titleFocus),
-                            singleLine = true,
-                            shape = PillShape,
-                            label = { Text(stringResource(R.string.session_name_label)) },
-                            placeholder = { Text(state.title) },
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = {
-                                editingTitle = false
-                                titleDraft = if (state.hasLocalTitle) state.title else ""
-                            }) { Text(stringResource(R.string.session_cancel)) }
-                            Button(
-                                onClick = { viewModel.rename(sessionId, titleDraft); editingTitle = false },
-                                shape = PillShape,
-                            ) { Text(stringResource(R.string.session_save_name)) }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier.pointerInput(Unit) { detectTapGestures { editingTitle = true } },
-                            verticalAlignment = Alignment.Top,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(state.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                            Icon(
-                                Icons.Filled.Edit,
-                                contentDescription = stringResource(R.string.session_rename),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp).padding(top = 8.dp),
-                            )
-                        }
-                    }
-                    Text(
-                        state.meta,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    TagRow(
-                        tags = state.tags,
-                        onAdd = { viewModel.addTag(sessionId, it) },
-                        onRemove = { viewModel.removeTag(sessionId, it) },
-                        modifier = Modifier.padding(top = 14.dp),
-                    )
-                    PlaybackCard(
-                        audioPath = state.audioPath,
-                        isPlaying = state.isPlaying,
-                        positionMs = state.positionMs,
-                        durationMs = state.playbackDurationMs,
-                        onToggle = viewModel::togglePlayback,
-                        onSeek = viewModel::seekTo,
-                        modifier = Modifier.padding(top = 18.dp),
-                    )
-                    Row(
-                        Modifier.fillMaxWidth().padding(top = 26.dp, bottom = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Text(stringResource(R.string.session_transcript_header), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Box(Modifier.weight(1f).height(1.dp).clip(CircleShape)) {
-                            Surface(color = MaterialTheme.colorScheme.outlineVariant) { Box(Modifier.fillMaxWidth().height(1.dp)) }
-                        }
-                        Text(state.transcriptMeta, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                    }
-                }
-
-                // A transcribed recording with no segments is a real outcome now that pure
-                // silence is skipped instead of decoded: say so, rather than showing the
-                // transcript header over nothing at all.
-                if (state.status == "Succeeded" && state.segments.isEmpty()) {
-                    item {
-                        Text(
-                            stringResource(R.string.session_transcript_silent),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = 8.dp),
-                        )
-                    }
-                }
-
-                val activeSegment = PlaybackCursor.activeSegment(
-                    state.segments.map { it.offsetSeconds },
-                    state.positionMs,
-                )
-
-                itemsIndexed(state.segments, key = { _, it -> it.id }) { index, segment ->
-                    val shown = com.harken.android.ui.components.rememberStaggerShown(
-                        segment.id, index, revealedSegmentIds, reducedMotion, TRANSCRIPT_STAGGER_CAP, TRANSCRIPT_STAGGER_STEP_MS,
-                    )
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = shown,
-                        enter = fadeIn(com.harken.android.ui.theme.HarkenMotion.effectsFast()) +
-                            slideInVertically(com.harken.android.ui.theme.HarkenMotion.spatialFast()) { it / 8 },
-                    ) {
-                        TranscriptRow(
-                            segment = segment,
-                            showVoice = state.voiceCount > 1,
-                            isFocused = segment.id == focusSegmentId,
-                            isPlaying = state.isPlaying && activeSegment == index,
-                            onPlayFromHere = {
-                                viewModel.seekToSegment(segment.offsetSeconds)
-                                if (!state.isPlaying) viewModel.togglePlayback()
-                            },
-                        )
-                    }
-                }
-            }
-            }
-            }
-
-            Surface(color = MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = {
-                        clipboard.setText(AnnotatedString(state.plainText))
-                        viewModel.confirm(R.string.session_toast_copied)
-                    }) { Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.session_copy_transcript)) }
-                    IconButton(onClick = viewModel::shareTranscript) {
-                        Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.session_share_transcript))
-                    }
-                    // The recording itself, not just what was said in it. Disabled rather
-                    // than hidden when the WAV is gone, so the action does not appear and
-                    // disappear between two recordings that otherwise look the same.
-                    IconButton(onClick = viewModel::shareAudio, enabled = state.audioPath != null) {
-                        Icon(Icons.Filled.AudioFile, contentDescription = stringResource(R.string.session_share_audio))
-                    }
+            Column(Modifier.fillMaxSize()) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                     Spacer(Modifier.weight(1f))
+                    IconButton(onClick = { confirmDelete = true }, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.session_delete))
+                    }
+                }
+
+                val revealedSegmentIds = remember { androidx.compose.runtime.mutableStateSetOf<java.util.UUID>() }
+                val reducedMotion = com.harken.android.ui.theme.LocalReducedMotion.current
+                // Stretch overscroll at the transcript's scroll boundaries fights the
+                // ModalBottomSheet's own nested-scroll drag handling: hitting the end of the
+                // list forwards leftover drag to the sheet, which briefly reads as the sheet
+                // expanding past its fixed 0.95f height before springing back. Disabling
+                // overscroll here removes the extra delta this sheet has no use for.
+                Box(Modifier.weight(1f)) {
+                    @Suppress("DEPRECATION")
+                    CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
+                        LazyColumn(
+                            state = transcriptState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, bottom = 118.dp),
+                        ) {
+                            item {
+                                // Rename is inline and local — no dialog, and no round trip, because
+                                // the backend has no title field yet (see ADR-0010).
+                                if (editingTitle) {
+                                    // Opened by a deliberate tap on the title, so it takes the caret
+                                    // and the keyboard itself — it used to appear unfocused, needing a
+                                    // second tap before anything could be typed.
+                                    LaunchedEffect(Unit) { titleFocus.requestFocus() }
+                                    OutlinedTextField(
+                                        value = titleDraft,
+                                        onValueChange = { titleDraft = it },
+                                        modifier = Modifier.fillMaxWidth().focusRequester(titleFocus),
+                                        singleLine = true,
+                                        shape = PillShape,
+                                        label = { Text(stringResource(R.string.session_name_label)) },
+                                        placeholder = { Text(state.title) },
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        TextButton(onClick = {
+                                            editingTitle = false
+                                            titleDraft = if (state.hasLocalTitle) state.title else ""
+                                        }) { Text(stringResource(R.string.session_cancel)) }
+                                        Button(
+                                            onClick = {
+                                                viewModel.rename(sessionId, titleDraft)
+                                                editingTitle = false
+                                            },
+                                            shape = PillShape,
+                                        ) { Text(stringResource(R.string.session_save_name)) }
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier.pointerInput(Unit) { detectTapGestures { editingTitle = true } },
+                                        verticalAlignment = Alignment.Top,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Text(state.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                                        Icon(
+                                            Icons.Filled.Edit,
+                                            contentDescription = stringResource(R.string.session_rename),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp).padding(top = 8.dp),
+                                        )
+                                    }
+                                }
+                                Text(
+                                    state.meta,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                                TagRow(
+                                    tags = state.tags,
+                                    onAdd = { viewModel.addTag(sessionId, it) },
+                                    onRemove = { viewModel.removeTag(sessionId, it) },
+                                    modifier = Modifier.padding(top = 14.dp),
+                                )
+                                PlaybackCard(
+                                    audioPath = state.audioPath,
+                                    isPlaying = state.isPlaying,
+                                    positionMs = state.positionMs,
+                                    durationMs = state.playbackDurationMs,
+                                    onToggle = viewModel::togglePlayback,
+                                    onSeek = viewModel::seekTo,
+                                    modifier = Modifier.padding(top = 18.dp),
+                                )
+                                Row(
+                                    Modifier.fillMaxWidth().padding(top = 26.dp, bottom = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    Text(
+                                        stringResource(R.string.session_transcript_header),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Box(Modifier.weight(1f).height(1.dp).clip(CircleShape)) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.outlineVariant,
+                                        ) { Box(Modifier.fillMaxWidth().height(1.dp)) }
+                                    }
+                                    Text(
+                                        state.transcriptMeta,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
+
+                            // A transcribed recording with no segments is a real outcome now that pure
+                            // silence is skipped instead of decoded: say so, rather than showing the
+                            // transcript header over nothing at all.
+                            if (state.status == "Succeeded" && state.segments.isEmpty()) {
+                                item {
+                                    Text(
+                                        stringResource(R.string.session_transcript_silent),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(vertical = 8.dp),
+                                    )
+                                }
+                            }
+
+                            val activeSegment =
+                                PlaybackCursor.activeSegment(
+                                    state.segments.map { it.offsetSeconds },
+                                    state.positionMs,
+                                )
+
+                            itemsIndexed(state.segments, key = { _, it -> it.id }) { index, segment ->
+                                val shown =
+                                    com.harken.android.ui.components.rememberStaggerShown(
+                                        segment.id,
+                                        index,
+                                        revealedSegmentIds,
+                                        reducedMotion,
+                                        TRANSCRIPT_STAGGER_CAP,
+                                        TRANSCRIPT_STAGGER_STEP_MS,
+                                    )
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = shown,
+                                    enter =
+                                        fadeIn(com.harken.android.ui.theme.HarkenMotion.effectsFast()) +
+                                            slideInVertically(com.harken.android.ui.theme.HarkenMotion.spatialFast()) { it / 8 },
+                                ) {
+                                    TranscriptRow(
+                                        segment = segment,
+                                        showVoice = state.voiceCount > 1,
+                                        isFocused = segment.id == focusSegmentId,
+                                        isPlaying = state.isPlaying && activeSegment == index,
+                                        onPlayFromHere = {
+                                            viewModel.seekToSegment(segment.offsetSeconds)
+                                            if (!state.isPlaying) viewModel.togglePlayback()
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = MaterialTheme.shapes.extraLarge,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                ) {
+                    Row(
+                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        IconButton(onClick = {
+                            clipboard.setText(AnnotatedString(state.plainText))
+                            viewModel.confirm(R.string.session_toast_copied)
+                        }) { Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.session_copy_transcript)) }
+                        IconButton(onClick = viewModel::shareTranscript) {
+                            Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.session_share_transcript))
+                        }
+                        // The recording itself, not just what was said in it. Disabled rather
+                        // than hidden when the WAV is gone, so the action does not appear and
+                        // disappear between two recordings that otherwise look the same.
+                        IconButton(onClick = viewModel::shareAudio, enabled = state.audioPath != null) {
+                            Icon(Icons.Filled.AudioFile, contentDescription = stringResource(R.string.session_share_audio))
+                        }
+                        Spacer(Modifier.weight(1f))
+                    }
                 }
             }
-        }
 
-        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
+            SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
         }
     }
 
@@ -325,7 +354,11 @@ fun SessionSheet(
             },
             confirmButton = {
                 Button(
-                    onClick = { confirmDelete = false; viewModel.purge(sessionId); onDismiss() },
+                    onClick = {
+                        confirmDelete = false
+                        viewModel.purge(sessionId)
+                        onDismiss()
+                    },
                     shape = PillShape,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                 ) { Text(stringResource(R.string.session_delete_confirm)) }
@@ -488,8 +521,18 @@ private fun TranscriptRow(
                 if (showVoice) {
                     StatusChip(
                         label = "${segment.voiceIndex + 1}",
-                        container = if (segment.voiceIndex == 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
-                        content = if (segment.voiceIndex == 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+                        container =
+                            if (segment.voiceIndex == 0) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            },
+                        content =
+                            if (segment.voiceIndex == 0) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            },
                     )
                 }
                 Text(
@@ -512,11 +555,12 @@ private fun TranscriptRow(
                         // white and showed as a ghost behind the segment text (UI-036).
                         // The chip above keeps its container/content pair: that one really
                         // is text on the accent.
-                        color = if (segment.voiceIndex == 0) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSecondaryContainer
-                        },
+                        color =
+                            if (segment.voiceIndex == 0) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            },
                     )
                 }
                 Text(segment.text, style = MaterialTheme.typography.bodyLarge)

@@ -1,15 +1,15 @@
 package com.harken.android.recording
 
-import androidx.annotation.StringRes
 import android.os.SystemClock
+import androidx.annotation.StringRes
 import androidx.annotation.VisibleForTesting
 import com.harken.android.audio.RecordingStopReason
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 
 data class RecordingCompleted(
     val recordingId: UUID,
@@ -27,11 +27,14 @@ data class RecordingCompleted(
 )
 
 /**
-  * A recording failed to start or was aborted mid-capture by something the user has no
-  * lever over. The sentence is a string resource so it is read in the user's language;
-  * `detail` is the platform's own text, which is not translated and may be absent.
-  */
-data class RecordingError(@StringRes val messageRes: Int, val detail: String?)
+ * A recording failed to start or was aborted mid-capture by something the user has no
+ * lever over. The sentence is a string resource so it is read in the user's language;
+ * `detail` is the platform's own text, which is not translated and may be absent.
+ */
+data class RecordingError(
+    @StringRes val messageRes: Int,
+    val detail: String?,
+)
 
 private data class InProgress(
     val recordingId: UUID,
@@ -56,7 +59,10 @@ object RecordingState {
     private val _error = MutableSharedFlow<RecordingError>(extraBufferCapacity = 1)
     val error = _error.asSharedFlow()
 
-    fun publishError(@StringRes messageRes: Int, detail: String? = null) {
+    fun publishError(
+        @StringRes messageRes: Int,
+        detail: String? = null,
+    ) {
         _error.tryEmit(RecordingError(messageRes, detail))
     }
 
@@ -100,7 +106,10 @@ object RecordingState {
         return until - progress.startedAtElapsedMs - progress.pausedTotalMs
     }
 
-    fun markStarted(recordingId: UUID, filePath: String) {
+    fun markStarted(
+        recordingId: UUID,
+        filePath: String,
+    ) {
         current.set(InProgress(recordingId, filePath, elapsedRealtime()))
         _isPaused.value = false
         _isRecording.value = true
@@ -109,20 +118,25 @@ object RecordingState {
     /** No-op if there is no recording, or if it is already paused. */
     fun markPaused() {
         val now = elapsedRealtime()
-        val updated = current.updateAndGet { progress ->
-            if (progress == null || progress.pausedAtElapsedMs != null) progress
-            else progress.copy(pausedAtElapsedMs = now)
-        }
+        val updated =
+            current.updateAndGet { progress ->
+                if (progress == null || progress.pausedAtElapsedMs != null) {
+                    progress
+                } else {
+                    progress.copy(pausedAtElapsedMs = now)
+                }
+            }
         _isPaused.value = updated?.pausedAtElapsedMs != null
     }
 
     /** No-op if there is no recording, or if it is not paused. */
     fun markResumed() {
         val now = elapsedRealtime()
-        val updated = current.updateAndGet { progress ->
-            val since = progress?.pausedAtElapsedMs ?: return@updateAndGet progress
-            progress.copy(pausedTotalMs = progress.pausedTotalMs + (now - since), pausedAtElapsedMs = null)
-        }
+        val updated =
+            current.updateAndGet { progress ->
+                val since = progress?.pausedAtElapsedMs ?: return@updateAndGet progress
+                progress.copy(pausedTotalMs = progress.pausedTotalMs + (now - since), pausedAtElapsedMs = null)
+            }
         _isPaused.value = updated?.pausedAtElapsedMs != null
     }
 

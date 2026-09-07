@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -102,7 +101,10 @@ fun ErrorState(
                     onClick = onRetry,
                     shape = PillShape,
                     modifier = Modifier.heightIn(min = 48.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                    colors =
+                        androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant),
                 ) { Text(stringResource(R.string.state_retry), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
             }
@@ -124,7 +126,11 @@ fun ErrorState(
  * user cannot retry from here, they just need to know the operation didn't happen.
  */
 @Composable
-fun HarkenErrorDialog(title: String, body: String, onDismiss: () -> Unit) {
+fun HarkenErrorDialog(
+    title: String,
+    body: String,
+    onDismiss: () -> Unit,
+) {
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
@@ -161,7 +167,10 @@ fun SkeletonRow(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Bar(fraction: Float, height: androidx.compose.ui.unit.Dp) {
+private fun Bar(
+    fraction: Float,
+    height: androidx.compose.ui.unit.Dp,
+) {
     Box(
         Modifier
             .fillMaxWidth(fraction)

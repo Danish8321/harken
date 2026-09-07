@@ -13,8 +13,8 @@ import android.util.Log
 import com.harken.android.MainActivity
 import com.harken.android.R
 import com.harken.android.container
-import com.harken.android.recordingTitle
 import com.harken.android.recording.LiveUpdateNotification
+import com.harken.android.recordingTitle
 import com.harken.android.telemetry.Telemetry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -41,7 +41,6 @@ private const val TAG = "ExportService"
  * is minutes.
  */
 class ExportService : Service() {
-
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var job: Job? = null
 
@@ -50,13 +49,17 @@ class ExportService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ActionCancel) {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
+        if (intent?.action == ACTION_CANCEL) {
             job?.cancel()
             return START_NOT_STICKY
         }
 
-        val tree = intent?.getStringExtra(ExtraTreeUri)?.let(Uri::parse)
+        val tree = intent?.getStringExtra(EXTRA_TREE_URI)?.let(Uri::parse)
         if (tree == null) {
             // A null intent is the system recreating a service it killed. Nothing can be
             // resumed — the destination was a one-time grant — and half a backup is not
@@ -74,64 +77,67 @@ class ExportService : Service() {
 
         createChannelIfNeeded()
         ExportStatus.set(ExportState.Preparing)
-        startForeground(NotificationId, notification(done = 0, total = 0))
+        startForeground(NOTIFICATION_ID, notification(done = 0, total = 0))
 
-        job = scope.launch {
-            val startNanos = System.nanoTime()
-            val repository = application.container.repository
-            try {
-                val items = withContext(Dispatchers.IO) {
-                    // The Service is the Context this resolves the names against.
-                    repository.exportItems { localTitle, partOfDay ->
-                        recordingTitle(localTitle, partOfDay)
-                    }
-                }
-                ExportStatus.set(ExportState.Running(done = 0, total = items.size))
-                publish(done = 0, total = items.size)
+        job =
+            scope.launch {
+                val startNanos = System.nanoTime()
+                val repository = application.container.repository
+                try {
+                    val items =
+                        withContext(Dispatchers.IO) {
+                            // The Service is the Context this resolves the names against.
+                            repository.exportItems { localTitle, partOfDay ->
+                                recordingTitle(localTitle, partOfDay)
+                            }
+                        }
+                    ExportStatus.set(ExportState.Running(done = 0, total = items.size))
+                    publish(done = 0, total = items.size)
 
-                val report = withContext(Dispatchers.IO) {
-                    LibraryExporter(contentResolver).export(tree, items) { progress ->
-                        ExportStatus.set(ExportState.Running(progress.done, progress.total))
-                        publish(progress.done, progress.total)
-                    }
-                }
-                ExportStatus.set(ExportState.Finished(report))
-                Telemetry.event(
-                    "export_finished",
-                    "recordings" to report.recordings,
-                    "audioFiles" to report.audioFiles,
-                    "transcripts" to report.transcripts,
-                    "missingAudio" to report.missingAudio,
-                    "failed" to report.failed,
-                    "bytes" to report.bytes,
-                    "elapsedMs" to Telemetry.elapsedMsSince(startNanos),
-                )
-            } catch (e: CancellationException) {
-                ExportStatus.set(ExportState.Cancelled)
-                Telemetry.event("export_cancelled", "elapsedMs" to Telemetry.elapsedMsSince(startNanos))
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Export failed", e)
-                ExportStatus.set(ExportState.Failed(e.message))
-                Telemetry.event(
-                    "export_failed",
-                    "reason" to Telemetry.describe(e),
-                    "elapsedMs" to Telemetry.elapsedMsSince(startNanos),
-                )
-            } finally {
-                // The grant was taken so this service could outlive the picker; it has no
-                // reason to survive the copy, and a backup destination the app can still
-                // write to a week later is not what the user agreed to.
-                runCatching {
-                    contentResolver.releasePersistableUriPermission(
-                        tree,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                    val report =
+                        withContext(Dispatchers.IO) {
+                            LibraryExporter(contentResolver).export(tree, items) { progress ->
+                                ExportStatus.set(ExportState.Running(progress.done, progress.total))
+                                publish(progress.done, progress.total)
+                            }
+                        }
+                    ExportStatus.set(ExportState.Finished(report))
+                    Telemetry.event(
+                        "export_finished",
+                        "recordings" to report.recordings,
+                        "audioFiles" to report.audioFiles,
+                        "transcripts" to report.transcripts,
+                        "missingAudio" to report.missingAudio,
+                        "failed" to report.failed,
+                        "bytes" to report.bytes,
+                        "elapsedMs" to Telemetry.elapsedMsSince(startNanos),
                     )
+                } catch (e: CancellationException) {
+                    ExportStatus.set(ExportState.Cancelled)
+                    Telemetry.event("export_cancelled", "elapsedMs" to Telemetry.elapsedMsSince(startNanos))
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Export failed", e)
+                    ExportStatus.set(ExportState.Failed(e.message))
+                    Telemetry.event(
+                        "export_failed",
+                        "reason" to Telemetry.describe(e),
+                        "elapsedMs" to Telemetry.elapsedMsSince(startNanos),
+                    )
+                } finally {
+                    // The grant was taken so this service could outlive the picker; it has no
+                    // reason to survive the copy, and a backup destination the app can still
+                    // write to a week later is not what the user agreed to.
+                    runCatching {
+                        contentResolver.releasePersistableUriPermission(
+                            tree,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                        )
+                    }
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
                 }
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
             }
-        }
         return START_NOT_STICKY
     }
 
@@ -147,38 +153,46 @@ class ExportService : Service() {
      * app that posts faster than that — the bar then stops moving, which reads as a stall.
      * The last file is always posted, so the notification never ends mid-count.
      */
-    private fun publish(done: Int, total: Int) {
+    private fun publish(
+        done: Int,
+        total: Int,
+    ) {
         val now = SystemClock.elapsedRealtime()
-        if (done < total && now - lastPublishedAtMs < MinNotificationGapMs) return
+        if (done < total && now - lastPublishedAtMs < MIN_NOTIFICATION_GAP_MS) return
         lastPublishedAtMs = now
-        getSystemService(NotificationManager::class.java)?.notify(NotificationId, notification(done, total))
+        getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, notification(done, total))
     }
 
-    private fun notification(done: Int, total: Int) = LiveUpdateNotification.exporting(
+    private fun notification(
+        done: Int,
+        total: Int,
+    ) = LiveUpdateNotification.exporting(
         context = this,
-        channelId = ChannelId,
+        channelId = CHANNEL_ID,
         done = done,
         total = total,
-        cancelIntent = PendingIntent.getService(
-            this,
-            0,
-            Intent(this, ExportService::class.java).setAction(ActionCancel),
-            PendingIntent.FLAG_IMMUTABLE,
-        ),
-        contentIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE,
-        ),
+        cancelIntent =
+            PendingIntent.getService(
+                this,
+                0,
+                Intent(this, ExportService::class.java).setAction(ACTION_CANCEL),
+                PendingIntent.FLAG_IMMUTABLE,
+            ),
+        contentIntent =
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, MainActivity::class.java),
+                PendingIntent.FLAG_IMMUTABLE,
+            ),
     )
 
     private fun createChannelIfNeeded() {
         val manager = getSystemService(NotificationManager::class.java) ?: return
-        if (manager.getNotificationChannel(ChannelId) != null) return
+        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         manager.createNotificationChannel(
             NotificationChannel(
-                ChannelId,
+                CHANNEL_ID,
                 getString(R.string.notification_exporting_channel),
                 NotificationManager.IMPORTANCE_LOW,
             ),
@@ -186,12 +200,12 @@ class ExportService : Service() {
     }
 
     companion object {
-        const val ChannelId = "exporting"
-        const val NotificationId = 1003
-        const val ActionCancel = "com.harken.android.action.CANCEL_EXPORT"
+        const val CHANNEL_ID = "exporting"
+        const val NOTIFICATION_ID = 1003
+        const val ACTION_CANCEL = "com.harken.android.action.CANCEL_EXPORT"
 
-        private const val ExtraTreeUri = "treeUri"
-        private const val MinNotificationGapMs = 1_000L
+        private const val EXTRA_TREE_URI = "treeUri"
+        private const val MIN_NOTIFICATION_GAP_MS = 1_000L
 
         /**
          * Starts an export into [treeUri], a directory the user has just picked.
@@ -199,14 +213,18 @@ class ExportService : Service() {
          * The caller must have taken a persistable grant on it: the picker hands the
          * permission to the activity, and this outlives the activity.
          */
-        fun start(context: Context, treeUri: Uri) {
-            val intent = Intent(context, ExportService::class.java)
-                .putExtra(ExtraTreeUri, treeUri.toString())
+        fun start(
+            context: Context,
+            treeUri: Uri,
+        ) {
+            val intent =
+                Intent(context, ExportService::class.java)
+                    .putExtra(EXTRA_TREE_URI, treeUri.toString())
             context.startForegroundService(intent)
         }
 
         fun cancel(context: Context) {
-            context.startService(Intent(context, ExportService::class.java).setAction(ActionCancel))
+            context.startService(Intent(context, ExportService::class.java).setAction(ACTION_CANCEL))
         }
     }
 }

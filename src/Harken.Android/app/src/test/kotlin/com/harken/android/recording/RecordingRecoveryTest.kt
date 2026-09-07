@@ -1,22 +1,26 @@
 package com.harken.android.recording
 
 import com.harken.android.audio.WavFormat
-import java.io.File
-import java.util.UUID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.File
+import java.util.UUID
 
 class RecordingRecoveryTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    private fun wav(id: UUID, seconds: Int, modifiedAtMs: Long = 1_757_000_000_000L): File {
-        val bytesPerSecond = WavFormat.SampleRate * WavFormat.Channels * (WavFormat.BitsPerSample / 8)
+    private fun wav(
+        id: UUID,
+        seconds: Int,
+        modifiedAtMs: Long = 1_757_000_000_000L,
+    ): File {
+        val bytesPerSecond = WavFormat.SAMPLE_RATE * WavFormat.CHANNELS * (WavFormat.BITS_PER_SAMPLE / 8)
         val file = folder.newFile("$id.wav")
-        file.writeBytes(ByteArray(WavFormat.HeaderLength + seconds * bytesPerSecond))
+        file.writeBytes(ByteArray(WavFormat.HEADER_LENGTH + seconds * bytesPerSecond))
         file.setLastModified(modifiedAtMs)
         return file
     }

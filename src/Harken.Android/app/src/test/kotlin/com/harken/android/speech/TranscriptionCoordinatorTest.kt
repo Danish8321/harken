@@ -1,11 +1,6 @@
 package com.harken.android.speech
 
 import com.harken.android.data.TranscriptionSink
-import java.net.UnknownHostException
-import java.util.UUID
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -13,6 +8,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.UnknownHostException
+import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 private class FakeSink : TranscriptionSink {
     val started = mutableListOf<UUID>()
@@ -23,11 +23,18 @@ private class FakeSink : TranscriptionSink {
         started += id
     }
 
-    override suspend fun completeLocal(id: UUID, segments: List<LocalTranscribedSegment>, durationSeconds: Int) {
+    override suspend fun completeLocal(
+        id: UUID,
+        segments: List<LocalTranscribedSegment>,
+        durationSeconds: Int,
+    ) {
         completed += id
     }
 
-    override suspend fun failLocal(id: UUID, reason: String) {
+    override suspend fun failLocal(
+        id: UUID,
+        reason: String,
+    ) {
         failed += id to reason
     }
 }
@@ -73,13 +80,16 @@ private class FakeTranscriber(
 private fun tempWavPath(): String = kotlin.io.path.createTempFile(suffix = ".wav").toFile().apply { deleteOnExit() }.absolutePath
 
 class TranscriptionCoordinatorTest {
-
     @Test
     fun `progress is reported to the caller`() {
         val seen = java.util.concurrent.CopyOnWriteArrayList<Float>()
 
         TranscriptionCoordinator.transcribe(
-            FakeSink(), FakeModelProvider(), FakeTranscriber(), UUID.randomUUID(), tempWavPath(),
+            FakeSink(),
+            FakeModelProvider(),
+            FakeTranscriber(),
+            UUID.randomUUID(),
+            tempWavPath(),
             onProgress = { seen += it },
         )
         waitForIdle()
@@ -94,7 +104,11 @@ class TranscriptionCoordinatorTest {
         val sessionId = UUID.randomUUID()
 
         TranscriptionCoordinator.transcribe(
-            sink, FakeModelProvider(), transcriber, sessionId, tempWavPath(),
+            sink,
+            FakeModelProvider(),
+            transcriber,
+            sessionId,
+            tempWavPath(),
             messages = TranscriptionMessages(cancelled = "you stopped it"),
         )
         assertTrue("decode never reached the cancellation point", transcriber.started.await(2, TimeUnit.SECONDS))
@@ -154,7 +168,11 @@ class TranscriptionCoordinatorTest {
         val sessionId = UUID.randomUUID()
 
         TranscriptionCoordinator.transcribe(
-            sink, FakeModelProvider(), transcriber, sessionId, tempWavPath(),
+            sink,
+            FakeModelProvider(),
+            transcriber,
+            sessionId,
+            tempWavPath(),
             messages = TranscriptionMessages(failed = "couldn't transcribe"),
         )
 
@@ -177,10 +195,11 @@ class TranscriptionCoordinatorTest {
             transcriber,
             sessionId,
             tempWavPath(),
-            messages = TranscriptionMessages(
-                failed = "couldn't transcribe",
-                modelUnavailable = { "no model: $it" },
-            ),
+            messages =
+                TranscriptionMessages(
+                    failed = "couldn't transcribe",
+                    modelUnavailable = { "no model: $it" },
+                ),
         )
 
         waitForIdle()
@@ -230,10 +249,11 @@ class TranscriptionCoordinatorTest {
     // TranscriptionCoordinator's own scope is a real background CoroutineScope (deliberately
     // outside any test/ViewModel scope, see its class doc), so tests poll rather than
     // control a TestDispatcher.
-    private fun waitForIdle() = runBlocking {
-        val deadline = System.currentTimeMillis() + 2000
-        while (TranscriptionCoordinator.activeSessionId.value != null && System.currentTimeMillis() < deadline) {
-            delay(20)
+    private fun waitForIdle() =
+        runBlocking {
+            val deadline = System.currentTimeMillis() + 2000
+            while (TranscriptionCoordinator.activeSessionId.value != null && System.currentTimeMillis() < deadline) {
+                delay(20)
+            }
         }
-    }
 }

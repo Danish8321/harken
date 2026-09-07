@@ -1,13 +1,12 @@
 package com.harken.android.data
 
-import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.ZoneId
 
 class ExportNamingTest {
-
     private val utc = ZoneId.of("UTC")
 
     @Test
@@ -50,7 +49,7 @@ class ExportNamingTest {
     fun `a long title is cut to something a path will hold`() {
         val name = ExportNaming.sanitize("x".repeat(200))
 
-        assertEquals(ExportNaming.MaxTitleChars, name.length)
+        assertEquals(ExportNaming.MAX_TITLE_CHARS, name.length)
     }
 
     @Test

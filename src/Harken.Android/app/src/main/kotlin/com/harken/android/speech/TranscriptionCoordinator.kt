@@ -4,9 +4,6 @@ import android.util.Log
 import com.harken.android.audio.WavFormat
 import com.harken.android.data.TranscriptionSink
 import com.harken.android.telemetry.Telemetry
-import java.io.File
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +15,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 
 private const val TAG = "TranscriptionCoordinator"
 
@@ -75,81 +75,84 @@ object TranscriptionCoordinator {
     ): Boolean {
         if (!active.compareAndSet(null, sessionId)) return false
         _activeSessionId.value = sessionId
-        running = scope.launch {
-            val startNs = System.nanoTime()
-            val audioSeconds = wavDurationSeconds(filePath)
-            Telemetry.event(
-                "transcribe_started",
-                "session" to Telemetry.shortId(sessionId),
-                "audioSeconds" to audioSeconds,
-            )
-            try {
-                repository.startLocalTranscription(sessionId)
-                // Wrapped rather than rethrown bare, so the catch below can tell "we
-                // never got a model" — which the user can act on — from "the decode
-                // failed", which they cannot. runCatchingDownload never puts a
-                // CancellationException in this Result, so the wrapper cannot swallow one.
-                val modelPath = modelDownloadManager.ensureModel()
-                    .getOrElse { throw ModelUnavailableException(it) }
-                val segments = onDeviceTranscriber.transcribe(filePath, modelPath, onProgress)
-                repository.completeLocal(sessionId, segments, audioSeconds)
-                // The event the whisper-on-silence defect needed and did not have: a
-                // successful transcription that reports its own magnitudes. Eleven segments
-                // for five minutes of silence is only obviously wrong if something says so.
+        running =
+            scope.launch {
+                val startNs = System.nanoTime()
+                val audioSeconds = wavDurationSeconds(filePath)
                 Telemetry.event(
-                    "transcribe_finished",
+                    "transcribe_started",
                     "session" to Telemetry.shortId(sessionId),
-                    "outcome" to "succeeded",
                     "audioSeconds" to audioSeconds,
-                    "segments" to segments.size,
-                    "elapsedMs" to Telemetry.elapsedMsSince(startNs),
                 )
-            } catch (e: CancellationException) {
-                // The user pressed Cancel on the notification. Not a failure of the
-                // decoder, so it does not report one: the row goes back to being a
-                // recording the user can transcribe again, with a message that says who
-                // stopped it. Rethrown after, because swallowing a cancellation leaves
-                // this coroutine looking successful to its own scope.
-                Telemetry.event(
-                    "transcribe_finished",
-                    "session" to Telemetry.shortId(sessionId),
-                    "outcome" to "cancelled",
-                    "audioSeconds" to audioSeconds,
-                    "elapsedMs" to Telemetry.elapsedMsSince(startNs),
-                )
-                // NonCancellable because this coroutine is already cancelled: a suspending
-                // write from inside it would be refused before it reached the database,
-                // and the row would sit at "Running" forever.
-                withContext(NonCancellable) { repository.failLocal(sessionId, messages.cancelled) }
-                throw e
-            } catch (e: Exception) {
-                // The wrapper carries no message of its own; every log and event names the
-                // failure that actually happened.
-                val cause = (e as? ModelUnavailableException)?.cause ?: e
-                Log.e(TAG, "On-device transcription failed for session $sessionId", cause)
-                Telemetry.event(
-                    "transcribe_finished",
-                    "session" to Telemetry.shortId(sessionId),
-                    "outcome" to "failed",
-                    "audioSeconds" to audioSeconds,
-                    "error" to Telemetry.describe(cause),
-                    "elapsedMs" to Telemetry.elapsedMsSince(startNs),
-                )
-                // Never e.message: it is the platform's untranslated text, the Library card
-                // renders it verbatim, and for a failed model load it is a path inside the
-                // app's private storage.
-                val reason = if (e is ModelUnavailableException) {
-                    messages.modelUnavailable(ModelDownloadFailure.of(cause))
-                } else {
-                    messages.failed
+                try {
+                    repository.startLocalTranscription(sessionId)
+                    // Wrapped rather than rethrown bare, so the catch below can tell "we
+                    // never got a model" — which the user can act on — from "the decode
+                    // failed", which they cannot. runCatchingDownload never puts a
+                    // CancellationException in this Result, so the wrapper cannot swallow one.
+                    val modelPath =
+                        modelDownloadManager.ensureModel()
+                            .getOrElse { throw ModelUnavailableException(it) }
+                    val segments = onDeviceTranscriber.transcribe(filePath, modelPath, onProgress)
+                    repository.completeLocal(sessionId, segments, audioSeconds)
+                    // The event the whisper-on-silence defect needed and did not have: a
+                    // successful transcription that reports its own magnitudes. Eleven segments
+                    // for five minutes of silence is only obviously wrong if something says so.
+                    Telemetry.event(
+                        "transcribe_finished",
+                        "session" to Telemetry.shortId(sessionId),
+                        "outcome" to "succeeded",
+                        "audioSeconds" to audioSeconds,
+                        "segments" to segments.size,
+                        "elapsedMs" to Telemetry.elapsedMsSince(startNs),
+                    )
+                } catch (e: CancellationException) {
+                    // The user pressed Cancel on the notification. Not a failure of the
+                    // decoder, so it does not report one: the row goes back to being a
+                    // recording the user can transcribe again, with a message that says who
+                    // stopped it. Rethrown after, because swallowing a cancellation leaves
+                    // this coroutine looking successful to its own scope.
+                    Telemetry.event(
+                        "transcribe_finished",
+                        "session" to Telemetry.shortId(sessionId),
+                        "outcome" to "cancelled",
+                        "audioSeconds" to audioSeconds,
+                        "elapsedMs" to Telemetry.elapsedMsSince(startNs),
+                    )
+                    // NonCancellable because this coroutine is already cancelled: a suspending
+                    // write from inside it would be refused before it reached the database,
+                    // and the row would sit at "Running" forever.
+                    withContext(NonCancellable) { repository.failLocal(sessionId, messages.cancelled) }
+                    throw e
+                } catch (e: Exception) {
+                    // The wrapper carries no message of its own; every log and event names the
+                    // failure that actually happened.
+                    val cause = (e as? ModelUnavailableException)?.cause ?: e
+                    Log.e(TAG, "On-device transcription failed for session $sessionId", cause)
+                    Telemetry.event(
+                        "transcribe_finished",
+                        "session" to Telemetry.shortId(sessionId),
+                        "outcome" to "failed",
+                        "audioSeconds" to audioSeconds,
+                        "error" to Telemetry.describe(cause),
+                        "elapsedMs" to Telemetry.elapsedMsSince(startNs),
+                    )
+                    // Never e.message: it is the platform's untranslated text, the Library card
+                    // renders it verbatim, and for a failed model load it is a path inside the
+                    // app's private storage.
+                    val reason =
+                        if (e is ModelUnavailableException) {
+                            messages.modelUnavailable(ModelDownloadFailure.of(cause))
+                        } else {
+                            messages.failed
+                        }
+                    repository.failLocal(sessionId, reason)
+                } finally {
+                    onDeviceTranscriber.release()
+                    active.set(null)
+                    _activeSessionId.value = null
                 }
-                repository.failLocal(sessionId, reason)
-            } finally {
-                onDeviceTranscriber.release()
-                active.set(null)
-                _activeSessionId.value = null
             }
-        }
         return true
     }
 

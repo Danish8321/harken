@@ -12,11 +12,13 @@ package com.harken.android.data
  * gains real diarization, this class is the single thing that gets deleted.
  */
 object SpeakerHeuristic {
-
     const val TURN_GAP_SECONDS = 2
 
     /** @return one voice index per segment, in the order given. */
-    fun assign(offsetsSeconds: List<Int>, turnGapSeconds: Int = TURN_GAP_SECONDS): List<Int> {
+    fun assign(
+        offsetsSeconds: List<Int>,
+        turnGapSeconds: Int = TURN_GAP_SECONDS,
+    ): List<Int> {
         if (offsetsSeconds.isEmpty()) return emptyList()
         val out = ArrayList<Int>(offsetsSeconds.size)
         var voice = 0

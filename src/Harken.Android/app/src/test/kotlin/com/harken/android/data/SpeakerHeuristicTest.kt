@@ -7,7 +7,6 @@ import org.junit.Test
 // one most likely to be mistaken for diarization, so it is tested on its own — no
 // Android, no backend, no Compose.
 class SpeakerHeuristicTest {
-
     @Test
     fun `empty transcript yields no voices`() {
         assertEquals(emptyList<Int>(), SpeakerHeuristic.assign(emptyList()))

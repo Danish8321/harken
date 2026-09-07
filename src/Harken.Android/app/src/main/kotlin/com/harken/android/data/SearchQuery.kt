@@ -10,17 +10,16 @@ package com.harken.android.data
  * reason for being in the results.
  */
 object SearchQuery {
-
     /**
      * The shortest term that is worth a query. One character matches most of a transcript,
      * which is a slow query whose result nobody can read.
      */
-    const val MinLength = 2
+    const val MIN_LENGTH = 2
 
     /** How many segment rows a single search reads, over every session on the device. */
-    const val SegmentMatchLimit = 400
+    const val SEGMENT_MATCH_LIMIT = 400
 
-    private const val Ellipsis = "\u2026"
+    private const val ELLIPSIS = "\u2026"
 
     /**
      * Escapes a user's term for `LIKE ... ESCAPE '\'`.
@@ -29,10 +28,11 @@ object SearchQuery {
      * segment containing "50". The backslash has to go first, or it escapes the escapes
      * this adds.
      */
-    fun likePattern(term: String): String = term
-        .replace("\\", "\\\\")
-        .replace("%", "\\%")
-        .replace("_", "\\_")
+    fun likePattern(term: String): String =
+        term
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
 
     /** A window of [text] around the first occurrence of [term], and where the match sits in it. */
     data class Snippet(val text: String, val matchStart: Int, val matchEnd: Int) {
@@ -45,17 +45,22 @@ object SearchQuery {
      * Segments run to a couple of hundred characters and the match can be anywhere in one;
      * showing the head of the segment often shows nothing of why it matched.
      */
-    fun snippet(text: String, term: String, before: Int = 32, after: Int = 120): Snippet {
+    fun snippet(
+        text: String,
+        term: String,
+        before: Int = 32,
+        after: Int = 120,
+    ): Snippet {
         val hit = if (term.isEmpty()) -1 else text.indexOf(term, ignoreCase = true)
         if (hit < 0) {
             val clipped = text.take(before + after)
-            val tail = if (clipped.length < text.length) Ellipsis else ""
+            val tail = if (clipped.length < text.length) ELLIPSIS else ""
             return Snippet(clipped.trimEnd() + tail, -1, -1)
         }
         val start = (hit - before).coerceAtLeast(0)
         val end = (hit + term.length + after).coerceAtMost(text.length)
-        val head = if (start > 0) Ellipsis else ""
-        val tail = if (end < text.length) Ellipsis else ""
+        val head = if (start > 0) ELLIPSIS else ""
+        val tail = if (end < text.length) ELLIPSIS else ""
         val matchStart = head.length + (hit - start)
         return Snippet(head + text.substring(start, end) + tail, matchStart, matchStart + term.length)
     }

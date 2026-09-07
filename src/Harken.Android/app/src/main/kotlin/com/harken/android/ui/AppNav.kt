@@ -3,18 +3,16 @@ package com.harken.android.ui
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,9 +21,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Mic
@@ -41,15 +39,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.harken.android.ui.theme.ProtoBodyFont
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -57,40 +55,46 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.harken.android.R
 import com.harken.android.HarkenApplication
+import com.harken.android.R
 import com.harken.android.recording.RecordingState
 import com.harken.android.ui.theme.HarkenMotion
+import com.harken.android.ui.theme.LocalProtoColors
 import com.harken.android.ui.theme.LocalReducedMotion
+import com.harken.android.ui.theme.ProtoBodyFont
+import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.sharedAxisEnter
 import com.harken.android.ui.theme.sharedAxisExit
-import com.harken.android.ui.theme.ProtoHeadingFont
-import com.harken.android.ui.theme.LocalProtoColors
 import java.util.UUID
 
 // Routes renamed with the screens: "capture" -> "record", "recordings" -> "library".
 // A tab labelled "Recordings" sitting next to a tab that records was the single most
 // confusing thing in the old navigation.
 object Routes {
-    const val Onboarding = "onboarding"
-    const val Record = "record"
-    const val Library = "library"
-    const val Settings = "settings"
+    const val ONBOARDING = "onboarding"
+    const val RECORD = "record"
+    const val LIBRARY = "library"
+    const val SETTINGS = "settings"
 }
 
-private data class Tab(val route: String, @StringRes val label: Int, val icon: ImageVector)
-
-private val tabs = listOf(
-    Tab(Routes.Record, R.string.nav_record, Icons.Filled.Mic),
-    Tab(Routes.Library, R.string.nav_library, Icons.Filled.LibraryMusic),
-    Tab(Routes.Settings, R.string.nav_settings, Icons.Filled.Tune),
+private data class Tab(
+    val route: String,
+    @StringRes val label: Int,
+    val icon: ImageVector,
 )
+
+private val tabs =
+    listOf(
+        Tab(Routes.RECORD, R.string.nav_record, Icons.Filled.Mic),
+        Tab(Routes.LIBRARY, R.string.nav_library, Icons.Filled.LibraryMusic),
+        Tab(Routes.SETTINGS, R.string.nav_settings, Icons.Filled.Tune),
+    )
 
 /**
  * Where a destination sits left-to-right, which is what decides the slide direction.
  *
- * Onboarding is not a tab and returns -1 deliberately: it sits before all three, so
- * finishing it slides forward into Record like any other rightward move.
+ * ONBOARDING is not a tab and returns -1 deliberately: it sits before all three, so
+ * finishing it slides forward into RECORD like any other rightward move.
  */
 private fun tabOrder(route: String?): Int = tabs.indexOfFirst { it.route == route }
 
@@ -101,7 +105,7 @@ fun AppNav() {
     val onboardingComplete by settings.onboardingComplete.collectAsStateWithLifecycle(initialValue = null)
 
     // Wait for the real DataStore value before picking a start destination — defaulting
-    // to Record would flash past onboarding for a first-time user on a slow read. Render
+    // to RECORD would flash past onboarding for a first-time user on a slow read. Render
     // a themed wordmark while waiting rather than nothing: returning early left the window
     // painting the bare themes.xml background, a white flash on a dark-theme device.
     if (onboardingComplete == null) {
@@ -135,29 +139,30 @@ fun AppNav() {
             val reduced = LocalReducedMotion.current
             val fade = HarkenMotion.effectsDefault<Float>()
             val slide = HarkenMotion.spatialDefault<androidx.compose.ui.unit.IntOffset>()
+
             fun AnimatedContentTransitionScope<NavBackStackEntry>.movingRight(): Boolean =
                 tabOrder(targetState.destination.route) > tabOrder(initialState.destination.route)
 
             NavHost(
                 navController = navController,
-                startDestination = if (onboardingComplete == true) Routes.Record else Routes.Onboarding,
+                startDestination = if (onboardingComplete == true) Routes.RECORD else Routes.ONBOARDING,
                 enterTransition = { sharedAxisEnter(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
                 exitTransition = { sharedAxisExit(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
                 popEnterTransition = { sharedAxisEnter(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
                 popExitTransition = { sharedAxisExit(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
             ) {
-                composable(Routes.Onboarding) {
+                composable(Routes.ONBOARDING) {
                     OnboardingScreen(onFinished = {
-                        navController.navigate(Routes.Record) { popUpTo(Routes.Onboarding) { inclusive = true } }
+                        navController.navigate(Routes.RECORD) { popUpTo(Routes.ONBOARDING) { inclusive = true } }
                     })
                 }
-                composable(Routes.Record) { MainHost(navController) { open -> RecordScreen(onOpenSession = { open(it, null) }) } }
-                composable(Routes.Library) {
+                composable(Routes.RECORD) { MainHost(navController) { open -> RecordScreen(onOpenSession = { open(it, null) }) } }
+                composable(Routes.LIBRARY) {
                     MainHost(navController) { open ->
-                        LibraryScreen(onOpenSession = open, onGoToRecord = { navController.navigate(Routes.Record) })
+                        LibraryScreen(onOpenSession = open, onGoToRecord = { navController.navigate(Routes.RECORD) })
                     }
                 }
-                composable(Routes.Settings) { MainHost(navController) { SettingsScreen() } }
+                composable(Routes.SETTINGS) { MainHost(navController) { SettingsScreen() } }
             }
         }
     }
@@ -227,7 +232,7 @@ private data class OpenSession(val sessionId: UUID, val focusSegmentId: UUID?)
 // the screen edges and elevated on the surface color, adapted from the floating-nav
 // pattern (Pinterest et al.) rather than copied: labels stay always-visible per tab
 // (dropped there, kept here) since three single-word labels cost little width and remove
-// any ambiguity the icon-only version would have on Library/Settings.
+// any ambiguity the icon-only version would have on LIBRARY/SETTINGS.
 @Composable
 private fun FloatingTabBar(
     c: com.harken.android.ui.theme.ProtoColors,
@@ -251,11 +256,11 @@ private fun FloatingTabBar(
         ) {
             tabs.forEach { tab ->
                 val selected = currentRoute == tab.route
-                // Live pill rides along on the Record tab's icon whenever a capture is
+                // Live pill rides along on the RECORD tab's icon whenever a capture is
                 // active and the user isn't already looking at the live view — the real
                 // record button subsumes it there, so a second live dot on top of the tab
                 // would be redundant rather than reassuring.
-                val showLiveDot = tab.route == Routes.Record && isRecording && !selected
+                val showLiveDot = tab.route == Routes.RECORD && isRecording && !selected
                 val itemBg by animateColorAsState(
                     if (selected) c.accent else androidx.compose.ui.graphics.Color.Transparent,
                     HarkenMotion.effectsFast(),
@@ -310,9 +315,10 @@ private fun FloatingTabBar(
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
                         lineHeight = 13.sp,
-                        style = androidx.compose.ui.text.TextStyle(
-                            platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
-                        ),
+                        style =
+                            androidx.compose.ui.text.TextStyle(
+                                platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+                            ),
                     )
                 }
             }

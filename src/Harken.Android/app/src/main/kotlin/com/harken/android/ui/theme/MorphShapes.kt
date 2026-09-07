@@ -1,10 +1,10 @@
 package com.harken.android.ui.theme
 
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
@@ -33,20 +33,22 @@ import androidx.graphics.shapes.toPath
 val ShapeCircle: RoundedPolygon = RoundedPolygon.circle(numVertices = 12)
 
 /** The cookie the record button blooms into while capturing. */
-val ShapeCookie: RoundedPolygon = RoundedPolygon.star(
-    numVerticesPerRadius = 12,
-    innerRadius = 0.86f,
-    rounding = CornerRounding(0.28f),
-    innerRounding = CornerRounding(0.28f),
-)
+val ShapeCookie: RoundedPolygon =
+    RoundedPolygon.star(
+        numVerticesPerRadius = 12,
+        innerRadius = 0.86f,
+        rounding = CornerRounding(0.28f),
+        innerRounding = CornerRounding(0.28f),
+    )
 
 /** Second beat of the loading sequence. */
-val ShapeClover: RoundedPolygon = RoundedPolygon.star(
-    numVerticesPerRadius = 4,
-    innerRadius = 0.42f,
-    rounding = CornerRounding(0.42f),
-    innerRounding = CornerRounding(0.42f),
-)
+val ShapeClover: RoundedPolygon =
+    RoundedPolygon.star(
+        numVerticesPerRadius = 4,
+        innerRadius = 0.42f,
+        rounding = CornerRounding(0.42f),
+        innerRounding = CornerRounding(0.42f),
+    )
 
 /**
  * A [Shape] that draws a [Morph] at [progress], optionally rotated.
@@ -59,7 +61,11 @@ class MorphShape(
     private val progress: Float,
     private val rotationDegrees: Float = 0f,
 ) : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
         val matrix = Matrix()
         matrix.scale(size.minDimension / 2f, size.minDimension / 2f)
         matrix.translate(1f, 1f)

@@ -22,7 +22,10 @@ object RecordingController {
      * Pauses or resumes the write side of the capture. The state itself is flipped by the
      * service, which owns the writer — this only asks.
      */
-    fun setPaused(context: Context, paused: Boolean) {
+    fun setPaused(
+        context: Context,
+        paused: Boolean,
+    ) {
         RecordingForegroundService.setPaused(context, paused)
     }
 

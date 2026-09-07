@@ -2,7 +2,6 @@ package com.harken.android.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -21,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Icon
@@ -35,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
@@ -44,11 +41,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.harken.android.R
 import com.harken.android.ui.theme.HarkenWaveform
+import com.harken.android.ui.theme.LocalProtoColors
 import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoEaseOut
 import com.harken.android.ui.theme.ProtoHeadingFont
-import com.harken.android.ui.theme.LocalProtoColors
 import kotlinx.coroutines.launch
 import kotlin.math.pow
 import kotlin.math.sin
@@ -74,7 +71,10 @@ private fun easeOutBack(t: Float): Float {
  * first-run destination the whole thing just fades out instead of morphing.
  */
 @Composable
-fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
+fun SplashScreen(
+    destinationIsRecord: Boolean,
+    onFinished: () -> Unit,
+) {
     val c = LocalProtoColors.current
     val reducedMotion = LocalReducedMotion.current
 
@@ -142,7 +142,7 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
         // row's vertical center (an oscilloscope trace, not a bar chart growing from a
         // floor) — each bar springing in with a slight overshoot rather than a flat rise.
         // A bare fading circle read as a static logo.
-        val barCount = HarkenWaveform.BarCount
+        val barCount = HarkenWaveform.BAR_COUNT
 
         // Truly centered on the screen — the earlier bottom padding was a hand-tuned
         // offset for the smaller pre-UI-020 block, but with the full-width waveform,
@@ -201,18 +201,20 @@ fun SplashScreen(destinationIsRecord: Boolean, onFinished: () -> Unit) {
                 color = c.text,
                 fontFamily = ProtoHeadingFont,
                 fontSize = 34.sp,
-                modifier = Modifier
-                    .padding(top = 14.dp)
-                    .graphicsLayer { alpha = enterT * (1f - fadeOutT) * (1f - morphT) },
+                modifier =
+                    Modifier
+                        .padding(top = 14.dp)
+                        .graphicsLayer { alpha = enterT * (1f - fadeOutT) * (1f - morphT) },
             )
             Text(
                 stringResource(R.string.splash_tagline),
                 color = c.textSecondary,
                 fontFamily = ProtoBodyFont,
                 fontSize = 13.5.sp,
-                modifier = Modifier
-                    .padding(top = 2.dp)
-                    .graphicsLayer { alpha = enterT * (1f - fadeOutT) * (1f - morphT) },
+                modifier =
+                    Modifier
+                        .padding(top = 2.dp)
+                        .graphicsLayer { alpha = enterT * (1f - fadeOutT) * (1f - morphT) },
             )
         }
 

@@ -1,0 +1,18 @@
+# ktlint reads this (ARC-037). Everything not stated here is ktlint's official Kotlin
+# style, which is the point of adopting it.
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+
+[*.{kt,kts}]
+# 140 rather than ktlint's 100. Compose call sites are deeply nested by construction, and
+# at 100 the formatter breaks argument lists that read better on one line.
+max_line_length = 140
+
+# Composables are PascalCase. That is Compose's own convention, not a deviation from
+# Kotlin's: a @Composable function is a declaration of UI, and the API guidelines say so.
+# This is the rule's own documented setting for exactly this case, not a disabled rule.
+ktlint_function_naming_ignore_when_annotated_with = Composable

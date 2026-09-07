@@ -13,14 +13,13 @@ import java.io.File
  * This test fails the build the next time someone re-palettes one side and forgets the other.
  */
 class WindowBackgroundConsistencyTest {
-
-    private fun hexOf(color: Color): String =
-        String.format("#%06X", color.toArgb() and 0xFFFFFF)
+    private fun hexOf(color: Color): String = String.format("#%06X", color.toArgb() and 0xFFFFFF)
 
     private fun windowBackgroundHex(resourceDir: String): String {
         val xml = File("src/main/res/$resourceDir/colors.xml").readText()
-        val match = Regex("""window_background">(#[0-9A-Fa-f]{6})<""").find(xml)
-            ?: error("window_background not found in $resourceDir/colors.xml")
+        val match =
+            Regex("""window_background">(#[0-9A-Fa-f]{6})<""").find(xml)
+                ?: error("window_background not found in $resourceDir/colors.xml")
         return match.groupValues[1].uppercase()
     }
 

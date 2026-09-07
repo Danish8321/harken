@@ -28,22 +28,26 @@ class SilenceDetector(
     private var peakSilentBytes: Long = 0
 
     private val bytesPerMs: Double =
-        (WavFormat.SampleRate * WavFormat.Channels * (WavFormat.BitsPerSample / 8)) / 1000.0
+        (WavFormat.SAMPLE_RATE * WavFormat.CHANNELS * (WavFormat.BITS_PER_SAMPLE / 8)) / 1000.0
 
     /**
      * Takes one chunk's level, not the chunk. The bytes are read once where they arrive
      * ([Pcm16.rms]) and the number is passed down — this detector used to compute it twice
      * more over the same bytes (ARC-010).
      */
-    fun add(chunkRms: Int, bytes: Int): RecordingStopReason {
+    fun add(
+        chunkRms: Int,
+        bytes: Int,
+    ): RecordingStopReason {
         totalBytes += bytes
         noiseFloor.observe(chunkRms, bytes)
 
-        silentBytes = if (isSilent(chunkRms)) {
-            silentBytes + bytes.toLong()
-        } else {
-            (silentBytes - bytes.toLong() * AudibleDecayFactor).coerceAtLeast(0L)
-        }
+        silentBytes =
+            if (isSilent(chunkRms)) {
+                silentBytes + bytes.toLong()
+            } else {
+                (silentBytes - bytes.toLong() * AUDIBLE_DECAY_FACTOR).coerceAtLeast(0L)
+            }
         if (silentBytes > peakSilentBytes) peakSilentBytes = silentBytes
 
         if (toDuration(totalBytes) >= sessionCapMs) return RecordingStopReason.SessionCap
@@ -104,6 +108,6 @@ class SilenceDetector(
          * is. A threshold that calls 83% of an empty room silent produces no timeout at
          * all, however long the room is left recording.
          */
-        const val AudibleDecayFactor = 10
+        const val AUDIBLE_DECAY_FACTOR = 10
     }
 }

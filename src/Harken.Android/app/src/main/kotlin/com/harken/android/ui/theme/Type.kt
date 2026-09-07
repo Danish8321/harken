@@ -13,32 +13,36 @@ import com.harken.android.R
 // of a font stack is the same failure as two copies of a hex: they agree until one is
 // edited. There is now one declaration, used by both.
 
-private val fontProvider = GoogleFont.Provider(
-    providerAuthority = "com.google.android.gms.fonts",
-    providerPackage = "com.google.android.gms",
-    certificates = R.array.com_google_android_gms_fonts_certs,
-)
+private val fontProvider =
+    GoogleFont.Provider(
+        providerAuthority = "com.google.android.gms.fonts",
+        providerPackage = "com.google.android.gms",
+        certificates = R.array.com_google_android_gms_fonts_certs,
+    )
 
 // Caprasimo (a rounded bubblegum slab) replaced with Space Grotesk (UI-010) — geometric
 // and technical, matching the palette's precision-instrument direction rather than
 // fighting it. Figtree stays for body copy; it was never the mismatch.
-val ProtoHeadingFont = FontFamily(
-    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = fontProvider, weight = FontWeight.Normal),
-    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = fontProvider, weight = FontWeight.Medium),
-    Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = fontProvider, weight = FontWeight.Bold),
-)
-val ProtoBodyFont = FontFamily(
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.Normal),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.Medium),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.SemiBold),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.Bold),
-    Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.ExtraBold),
-)
+val ProtoHeadingFont =
+    FontFamily(
+        Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = fontProvider, weight = FontWeight.Normal),
+        Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = fontProvider, weight = FontWeight.Medium),
+        Font(googleFont = GoogleFont("Space Grotesk"), fontProvider = fontProvider, weight = FontWeight.Bold),
+    )
+val ProtoBodyFont =
+    FontFamily(
+        Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.Normal),
+        Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.Medium),
+        Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.SemiBold),
+        Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.Bold),
+        Font(googleFont = GoogleFont("Figtree"), fontProvider = fontProvider, weight = FontWeight.ExtraBold),
+    )
 
 /** Numeric/technical readouts only — recording timer, meter labels, cap countdown. */
-val ProtoMonoFont = FontFamily(
-    Font(googleFont = GoogleFont("IBM Plex Mono"), fontProvider = fontProvider, weight = FontWeight.Normal),
-    Font(googleFont = GoogleFont("IBM Plex Mono"), fontProvider = fontProvider, weight = FontWeight.Medium),
-)
+val ProtoMonoFont =
+    FontFamily(
+        Font(googleFont = GoogleFont("IBM Plex Mono"), fontProvider = fontProvider, weight = FontWeight.Normal),
+        Font(googleFont = GoogleFont("IBM Plex Mono"), fontProvider = fontProvider, weight = FontWeight.Medium),
+    )
 
 val ProtoEaseOut = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)

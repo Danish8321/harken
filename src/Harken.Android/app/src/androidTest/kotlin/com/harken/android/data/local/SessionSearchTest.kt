@@ -3,13 +3,13 @@ package com.harken.android.data.local
 import androidx.room.Room
 import androidx.test.platform.app.InstrumentationRegistry
 import com.harken.android.data.SearchQuery
-import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.util.UUID
 
 /**
  * The search queries run against real SQLite, which is the only place LIKE's wildcards and
@@ -17,7 +17,6 @@ import org.junit.Test
  * (SearchQueryTest) but not how SQLite reads it.
  */
 class SessionSearchTest {
-
     private lateinit var db: HarkenDatabase
     private lateinit var dao: SessionDao
 
@@ -47,55 +46,65 @@ class SessionSearchTest {
     fun tearDown() = db.close()
 
     @Test
-    fun matchesAreCaseInsensitiveAndOrderedNewestSessionFirst() = runBlocking {
-        val matches = dao.searchSegments(SearchQuery.likePattern("budget"), 400)
+    fun matchesAreCaseInsensitiveAndOrderedNewestSessionFirst() =
+        runBlocking {
+            val matches = dao.searchSegments(SearchQuery.likePattern("budget"), 400)
 
-        assertEquals(2, matches.size)
-        // sessionB started a day later, so its match comes first.
-        assertEquals(sessionB, matches[0].sessionId)
-        assertEquals(30, matches[0].offsetSeconds)
-        assertEquals(sessionA, matches[1].sessionId)
-    }
-
-    @Test
-    fun aPercentInTheTermIsALiteralPercent() = runBlocking {
-        val literal = dao.searchSegments(SearchQuery.likePattern("50%"), 400)
-        assertEquals(1, literal.size)
-        assertTrue(literal[0].text.contains("50%"))
-
-        // Unescaped, "50%" would be the wildcard pattern "%50%%" and match the same row —
-        // the escape is only observable on a term that would otherwise match MORE. "e%r"
-        // is a wildcard match for "Revenue is up 50% on last year" and a literal match for
-        // nothing at all.
-        assertEquals(0, dao.searchSegments(SearchQuery.likePattern("e%r"), 400).size)
-    }
+            assertEquals(2, matches.size)
+            // sessionB started a day later, so its match comes first.
+            assertEquals(sessionB, matches[0].sessionId)
+            assertEquals(30, matches[0].offsetSeconds)
+            assertEquals(sessionA, matches[1].sessionId)
+        }
 
     @Test
-    fun anUnderscoreIsALiteralUnderscore() = runBlocking {
-        // "_udget" as a wildcard matches "budget"; escaped, it matches nothing.
-        assertEquals(0, dao.searchSegments(SearchQuery.likePattern("_udget"), 400).size)
-    }
+    fun aPercentInTheTermIsALiteralPercent() =
+        runBlocking {
+            val literal = dao.searchSegments(SearchQuery.likePattern("50%"), 400)
+            assertEquals(1, literal.size)
+            assertTrue(literal[0].text.contains("50%"))
+
+            // Unescaped, "50%" would be the wildcard pattern "%50%%" and match the same row —
+            // the escape is only observable on a term that would otherwise match MORE. "e%r"
+            // is a wildcard match for "Revenue is up 50% on last year" and a literal match for
+            // nothing at all.
+            assertEquals(0, dao.searchSegments(SearchQuery.likePattern("e%r"), 400).size)
+        }
 
     @Test
-    fun theLimitCapsWhatOneSearchReads() = runBlocking {
-        assertEquals(1, dao.searchSegments(SearchQuery.likePattern("budget"), 1).size)
-    }
+    fun anUnderscoreIsALiteralUnderscore() =
+        runBlocking {
+            // "_udget" as a wildcard matches "budget"; escaped, it matches nothing.
+            assertEquals(0, dao.searchSegments(SearchQuery.likePattern("_udget"), 400).size)
+        }
 
     @Test
-    fun onlyTypedTitlesAreSearched() = runBlocking {
-        val titles = dao.searchTitles(SearchQuery.likePattern("quarterly"), 50)
-        assertEquals(1, titles.size)
-        assertEquals(sessionA, titles[0].id)
-    }
+    fun theLimitCapsWhatOneSearchReads() =
+        runBlocking {
+            assertEquals(1, dao.searchSegments(SearchQuery.likePattern("budget"), 1).size)
+        }
 
     @Test
-    fun sessionsByIdsReturnsOnlyWhatWasAskedFor() = runBlocking {
-        val rows = dao.sessionsByIds(listOf(sessionB))
-        assertEquals(1, rows.size)
-        assertEquals(sessionB, rows[0].id)
-    }
+    fun onlyTypedTitlesAreSearched() =
+        runBlocking {
+            val titles = dao.searchTitles(SearchQuery.likePattern("quarterly"), 50)
+            assertEquals(1, titles.size)
+            assertEquals(sessionA, titles[0].id)
+        }
 
-    private fun session(id: UUID, startedAt: String, title: String?) = SessionRow(
+    @Test
+    fun sessionsByIdsReturnsOnlyWhatWasAskedFor() =
+        runBlocking {
+            val rows = dao.sessionsByIds(listOf(sessionB))
+            assertEquals(1, rows.size)
+            assertEquals(sessionB, rows[0].id)
+        }
+
+    private fun session(
+        id: UUID,
+        startedAt: String,
+        title: String?,
+    ) = SessionRow(
         id = id,
         startedAt = startedAt,
         endedAt = null,
@@ -109,7 +118,11 @@ class SessionSearchTest {
         isLocalOnly = true,
     )
 
-    private fun segment(sessionId: UUID, offsetSeconds: Int, text: String) = SegmentRow(
+    private fun segment(
+        sessionId: UUID,
+        offsetSeconds: Int,
+        text: String,
+    ) = SegmentRow(
         id = UUID.randomUUID(),
         sessionId = sessionId,
         offsetSeconds = offsetSeconds,

@@ -33,7 +33,10 @@ private val BodyFont = ProtoBodyFont
 // HarkenStates, HarkenSurfaces) on this scheme. Deriving the scheme from the same
 // ProtoColors instance means every Material component now inherits the Proto palette
 // instead of keeping its own copy in sync by hand.
-private fun protoColorScheme(c: ProtoColors, darkTheme: Boolean): ColorScheme {
+private fun protoColorScheme(
+    c: ProtoColors,
+    darkTheme: Boolean,
+): ColorScheme {
     val base = if (darkTheme) darkColorScheme() else lightColorScheme()
     return base.copy(
         primary = c.accent,
@@ -67,30 +70,32 @@ private fun protoColorScheme(c: ProtoColors, darkTheme: Boolean): ColorScheme {
 //
 // Material 3 Expressive's "emphasized" type variants are expressed here as the weight
 // step rather than a second family — 700 for titles and labels, 800 for eyebrows.
-private val HarkenTypography = Typography(
-    displaySmall = TextStyle(fontFamily = HeadingFont, fontSize = 38.sp, lineHeight = 40.sp),
-    headlineLarge = TextStyle(fontFamily = HeadingFont, fontSize = 34.sp, lineHeight = 36.sp),
-    headlineMedium = TextStyle(fontFamily = HeadingFont, fontSize = 32.sp, lineHeight = 34.sp),
-    headlineSmall = TextStyle(fontFamily = HeadingFont, fontSize = 24.sp, lineHeight = 27.sp),
-    titleLarge = TextStyle(fontFamily = HeadingFont, fontSize = 21.sp, lineHeight = 24.sp),
-    titleMedium = TextStyle(fontFamily = BodyFont, fontSize = 17.sp, fontWeight = FontWeight.Bold, lineHeight = 22.sp),
-    bodyLarge = TextStyle(fontFamily = BodyFont, fontSize = 16.sp, lineHeight = 24.sp),
-    bodyMedium = TextStyle(fontFamily = BodyFont, fontSize = 15.sp, lineHeight = 21.sp),
-    bodySmall = TextStyle(fontFamily = BodyFont, fontSize = 13.sp, lineHeight = 18.sp),
-    labelLarge = TextStyle(fontFamily = BodyFont, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp),
-    labelMedium = TextStyle(fontFamily = BodyFont, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp),
-    labelSmall = TextStyle(fontFamily = BodyFont, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.3.sp),
-)
+private val HarkenTypography =
+    Typography(
+        displaySmall = TextStyle(fontFamily = HeadingFont, fontSize = 38.sp, lineHeight = 40.sp),
+        headlineLarge = TextStyle(fontFamily = HeadingFont, fontSize = 34.sp, lineHeight = 36.sp),
+        headlineMedium = TextStyle(fontFamily = HeadingFont, fontSize = 32.sp, lineHeight = 34.sp),
+        headlineSmall = TextStyle(fontFamily = HeadingFont, fontSize = 24.sp, lineHeight = 27.sp),
+        titleLarge = TextStyle(fontFamily = HeadingFont, fontSize = 21.sp, lineHeight = 24.sp),
+        titleMedium = TextStyle(fontFamily = BodyFont, fontSize = 17.sp, fontWeight = FontWeight.Bold, lineHeight = 22.sp),
+        bodyLarge = TextStyle(fontFamily = BodyFont, fontSize = 16.sp, lineHeight = 24.sp),
+        bodyMedium = TextStyle(fontFamily = BodyFont, fontSize = 15.sp, lineHeight = 21.sp),
+        bodySmall = TextStyle(fontFamily = BodyFont, fontSize = 13.sp, lineHeight = 18.sp),
+        labelLarge = TextStyle(fontFamily = BodyFont, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp),
+        labelMedium = TextStyle(fontFamily = BodyFont, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp),
+        labelSmall = TextStyle(fontFamily = BodyFont, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.3.sp),
+    )
 
 // Expressive corner tokens. Containers are over-rounded per the Organic direction, and
 // the two largest steps carry the ink surfaces (capture stage, player).
-private val HarkenShapes = Shapes(
-    extraSmall = RoundedCornerShape(10.dp),
-    small = RoundedCornerShape(14.dp),
-    medium = RoundedCornerShape(20.dp),
-    large = RoundedCornerShape(26.dp),
-    extraLarge = RoundedCornerShape(30.dp),
-)
+private val HarkenShapes =
+    Shapes(
+        extraSmall = RoundedCornerShape(10.dp),
+        small = RoundedCornerShape(14.dp),
+        medium = RoundedCornerShape(20.dp),
+        large = RoundedCornerShape(26.dp),
+        extraLarge = RoundedCornerShape(30.dp),
+    )
 
 val PillShape = RoundedCornerShape(999.dp)
 
@@ -126,28 +131,30 @@ fun HarkenTheme(
 ) {
     val c = protoColors(light = !darkTheme)
     val base = protoColorScheme(c, darkTheme)
-    val scheme = if (!dynamicColor || !DynamicColorAvailable) {
-        base
-    } else {
-        val context = LocalContext.current
-        val wallpaper = if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        base.copy(
-            background = wallpaper.background,
-            onBackground = wallpaper.onBackground,
-            surface = wallpaper.surface,
-            onSurface = wallpaper.onSurface,
-            surfaceVariant = wallpaper.surfaceVariant,
-            onSurfaceVariant = wallpaper.onSurfaceVariant,
-            outline = wallpaper.outline,
-            outlineVariant = wallpaper.outlineVariant,
-        )
-    }
+    val scheme =
+        if (!dynamicColor || !DynamicColorAvailable) {
+            base
+        } else {
+            val context = LocalContext.current
+            val wallpaper = if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            base.copy(
+                background = wallpaper.background,
+                onBackground = wallpaper.onBackground,
+                surface = wallpaper.surface,
+                onSurface = wallpaper.onSurface,
+                surfaceVariant = wallpaper.surfaceVariant,
+                onSurfaceVariant = wallpaper.onSurfaceVariant,
+                outline = wallpaper.outline,
+                outlineVariant = wallpaper.outlineVariant,
+            )
+        }
 
-    val ink = if (darkTheme) {
-        InkColors(Organic.InkDark, Organic.OnInk, Organic.OnInk.copy(alpha = 0.6f))
-    } else {
-        InkColors(Organic.InkLight, Organic.OnInk, Organic.OnInk.copy(alpha = 0.6f))
-    }
+    val ink =
+        if (darkTheme) {
+            InkColors(Organic.InkDark, Organic.OnInk, Organic.OnInk.copy(alpha = 0.6f))
+        } else {
+            InkColors(Organic.InkLight, Organic.OnInk, Organic.OnInk.copy(alpha = 0.6f))
+        }
 
     CompositionLocalProvider(
         LocalInk provides ink,

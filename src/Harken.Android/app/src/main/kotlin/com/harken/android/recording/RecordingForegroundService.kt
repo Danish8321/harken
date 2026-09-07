@@ -7,8 +7,8 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.harken.android.audio.AudioRecordCapture
 import com.harken.android.R
+import com.harken.android.audio.AudioRecordCapture
 import com.harken.android.audio.CaptureFailure
 import com.harken.android.audio.Pcm16
 import com.harken.android.audio.RecordingStopReason
@@ -20,18 +20,17 @@ import com.harken.android.data.PartOfDay
 import com.harken.android.data.SessionRepository
 import com.harken.android.recordingTitle
 import com.harken.android.telemetry.Telemetry
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.RandomAccessFile
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 
 private const val TAG = "RecordingForegroundService"
 
@@ -40,11 +39,10 @@ private const val TAG = "RecordingForegroundService"
  * ten chunks a second, so anything near 100 ms means the writer is racing the microphone
  * and the internal buffer is the only thing preventing a gap in the recording.
  */
-private const val SlowChunkMs = 50L
+private const val SLOW_CHUNK_MS = 50L
 
 // A plain android.app.Service and NotificationCompat, with no wrapper layer.
 class RecordingForegroundService : Service() {
-
     private val writerGate = Any()
     private var writer: WavWriter? = null
     private var silenceDetector: SilenceDetector? = null
@@ -99,23 +97,27 @@ class RecordingForegroundService : Service() {
         repository = application.container.repository
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         when (intent?.action) {
-            ActionStop -> {
+            ACTION_STOP -> {
                 stopRecording(RecordingStopReason.None)
                 return START_NOT_STICKY
             }
-            ActionPause, ActionResume -> {
+            ACTION_PAUSE, ACTION_RESUME -> {
                 // Nothing to pause means this process was started only to deliver the
                 // action — most likely a notification button tapped after the recording
                 // already ended. Let go of it rather than sitting alive with no foreground.
-                if (activeRecordingId == null) stopSelf(startId) else setPaused(intent.action == ActionPause)
+                if (activeRecordingId == null) stopSelf(startId) else setPaused(intent.action == ACTION_PAUSE)
                 return START_NOT_STICKY
             }
         }
 
-        val recordingId = intent?.getStringExtra(RecordingIdExtra)?.let(UUID::fromString)
-        val filePath = intent?.getStringExtra(FilePathExtra)
+        val recordingId = intent?.getStringExtra(RECORDING_ID_EXTRA)?.let(UUID::fromString)
+        val filePath = intent?.getStringExtra(FILE_PATH_EXTRA)
 
         if (recordingId == null || filePath == null) {
             // A null intent is Android redelivering a start for a service it killed, not a
@@ -130,7 +132,7 @@ class RecordingForegroundService : Service() {
         createNotificationChannelIfNeeded()
         activeTitle = recordingTitle(localTitle = null, partOfDay = PartOfDay.now())
         try {
-            startForeground(NotificationId, buildNotification())
+            startForeground(NOTIFICATION_ID, buildNotification())
         } catch (e: Exception) {
             Log.e(TAG, "startForeground failed", e)
             RecordingState.publishError(R.string.error_recording_start_failed, e.message)
@@ -141,10 +143,11 @@ class RecordingForegroundService : Service() {
         try {
             synchronized(writerGate) {
                 writer = WavWriter(RandomAccessFile(filePath, "rw"))
-                silenceDetector = SilenceDetector(
-                    silenceTimeoutMs = TimeUnit.MINUTES.toMillis(5),
-                    sessionCapMs = TimeUnit.HOURS.toMillis(3),
-                )
+                silenceDetector =
+                    SilenceDetector(
+                        silenceTimeoutMs = TimeUnit.MINUTES.toMillis(5),
+                        sessionCapMs = TimeUnit.HOURS.toMillis(3),
+                    )
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to open recording file at $filePath", e)
@@ -181,7 +184,10 @@ class RecordingForegroundService : Service() {
      * [length] bytes of [chunk] are this chunk; the array is the capture buffer and is
      * only valid until this returns (ARC-013), so nothing here may keep a reference to it.
      */
-    private fun writeChunk(chunk: ByteArray, length: Int) {
+    private fun writeChunk(
+        chunk: ByteArray,
+        length: Int,
+    ) {
         if (paused.get()) {
             // Not written, not counted, and not shown to the silence detector — so the
             // five-minute auto-stop does not run down over a break, and the WAV contains
@@ -216,7 +222,7 @@ class RecordingForegroundService : Service() {
         chunkCount += 1
         byteCount += length
         if (writeMs > maxChunkWriteMs) maxChunkWriteMs = writeMs
-        if (writeMs > SlowChunkMs) slowChunks += 1
+        if (writeMs > SLOW_CHUNK_MS) slowChunks += 1
 
         RecordingState.publishAmplitude(Pcm16.normalized(level))
         if (stopReason != RecordingStopReason.None) {
@@ -248,15 +254,19 @@ class RecordingForegroundService : Service() {
     private fun refreshNotification() {
         if (activeRecordingId == null) return
         val manager = getSystemService(NotificationManager::class.java) ?: return
-        runCatching { manager.notify(NotificationId, buildNotification()) }
+        runCatching { manager.notify(NOTIFICATION_ID, buildNotification()) }
             .onFailure { Log.w(TAG, "Could not update the recording notification", it) }
     }
 
-    private fun onCaptureError(failure: CaptureFailure, detail: String?) {
-        val message = when (failure) {
-            CaptureFailure.MicrophoneUnavailable -> R.string.error_recording_mic_unavailable
-            CaptureFailure.MicrophoneStopped -> R.string.error_recording_mic_stopped
-        }
+    private fun onCaptureError(
+        failure: CaptureFailure,
+        detail: String?,
+    ) {
+        val message =
+            when (failure) {
+                CaptureFailure.MicrophoneUnavailable -> R.string.error_recording_mic_unavailable
+                CaptureFailure.MicrophoneStopped -> R.string.error_recording_mic_stopped
+            }
         RecordingState.publishError(message, detail)
         stopRecording(RecordingStopReason.None)
     }
@@ -267,42 +277,48 @@ class RecordingForegroundService : Service() {
      * The audio survives either way — [RecordingRecovery] adopts a WAV with no row at the
      * next launch — so a failure here costs the user a restart, not the recording.
      */
-    private suspend fun saveSession(recordingId: UUID, filePath: String, durationSeconds: Int): String? = try {
-        // "Now" is the end of the capture, not its start: stamping startedAt with it dated
-        // a 40-minute recording to when it finished, and handed DerivedTitle the wrong
-        // part of the day.
-        val endedAt = Instant.now()
-        repository.createLocalSession(
-            id = recordingId,
-            startedAt = endedAt.minusSeconds(durationSeconds.toLong()).toString(),
-            endedAt = endedAt.toString(),
-            filePath = filePath,
-            durationSeconds = durationSeconds,
-        )
-        null
-    } catch (e: Exception) {
-        Log.e(TAG, "Failed saving local session $recordingId", e)
-        Telemetry.event("recording_save_failed", "session" to sessionTag, "error" to Telemetry.describe(e))
-        e.message ?: "Couldn't save this recording"
-    }
+    private suspend fun saveSession(
+        recordingId: UUID,
+        filePath: String,
+        durationSeconds: Int,
+    ): String? =
+        try {
+            // "Now" is the end of the capture, not its start: stamping startedAt with it dated
+            // a 40-minute recording to when it finished, and handed DerivedTitle the wrong
+            // part of the day.
+            val endedAt = Instant.now()
+            repository.createLocalSession(
+                id = recordingId,
+                startedAt = endedAt.minusSeconds(durationSeconds.toLong()).toString(),
+                endedAt = endedAt.toString(),
+                filePath = filePath,
+                durationSeconds = durationSeconds,
+            )
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed saving local session $recordingId", e)
+            Telemetry.event("recording_save_failed", "session" to sessionTag, "error" to Telemetry.describe(e))
+            e.message ?: "Couldn't save this recording"
+        }
 
     private fun stopRecording(stopReason: RecordingStopReason) {
         if (!stopping.compareAndSet(false, true)) return
         scope.launch {
             capture?.stop()
-            val summary = synchronized(writerGate) {
-                try {
-                    writer?.close()
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed closing/patching the WAV file", e)
-                    RecordingState.publishError(R.string.error_recording_incomplete, e.message)
+            val summary =
+                synchronized(writerGate) {
+                    try {
+                        writer?.close()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed closing/patching the WAV file", e)
+                        RecordingState.publishError(R.string.error_recording_incomplete, e.message)
+                    }
+                    writer = null
+                    // Read before the detector is dropped, and carried out as one value: the
+                    // event below is the only place these are ever reported, and it runs
+                    // outside this lock.
+                    silenceDetector?.summarize().also { silenceDetector = null }
                 }
-                writer = null
-                // Read before the detector is dropped, and carried out as one value: the
-                // event below is the only place these are ever reported, and it runs
-                // outside this lock.
-                silenceDetector?.summarize().also { silenceDetector = null }
-            }
             Telemetry.event(
                 "recording_stopped",
                 "session" to sessionTag,
@@ -342,57 +358,68 @@ class RecordingForegroundService : Service() {
         super.onDestroy()
     }
 
-    private fun buildNotification(): Notification = LiveUpdateNotification.recording(
-        context = this,
-        channelId = ChannelId,
-        // The chronometer counts from here, so it is shifted forward by whatever this
-        // recording has spent paused — otherwise the notification counts the break and the
-        // record screen does not.
-        startedAtWallClockMs = System.currentTimeMillis() - RecordingState.elapsedMs(),
-        // Not the recording's id. The user, mid-meeting, was reading eight hex
-        // characters on their lock screen — on the app's most persistent surface, and
-        // the one they tap to get back in (ARC-018).
-        title = activeTitle,
-        paused = paused.get(),
-        elapsedMs = RecordingState.elapsedMs(),
-    )
+    private fun buildNotification(): Notification =
+        LiveUpdateNotification.recording(
+            context = this,
+            channelId = CHANNEL_ID,
+            // The chronometer counts from here, so it is shifted forward by whatever this
+            // recording has spent paused — otherwise the notification counts the break and the
+            // record screen does not.
+            startedAtWallClockMs = System.currentTimeMillis() - RecordingState.elapsedMs(),
+            // Not the recording's id. The user, mid-meeting, was reading eight hex
+            // characters on their lock screen — on the app's most persistent surface, and
+            // the one they tap to get back in (ARC-018).
+            title = activeTitle,
+            paused = paused.get(),
+            elapsedMs = RecordingState.elapsedMs(),
+        )
 
     private fun createNotificationChannelIfNeeded() {
         val manager = getSystemService(NotificationManager::class.java)
-        if (manager.getNotificationChannel(ChannelId) != null) return
+        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         manager.createNotificationChannel(
-            NotificationChannel(ChannelId, "Recording", NotificationManager.IMPORTANCE_LOW),
+            NotificationChannel(CHANNEL_ID, "Recording", NotificationManager.IMPORTANCE_LOW),
         )
     }
 
     companion object {
-        const val ChannelId = "recording"
-        const val NotificationId = 1001
-        const val ActionStop = "harken.action.STOP"
-        const val ActionPause = "harken.action.PAUSE"
-        const val ActionResume = "harken.action.RESUME"
-        const val RecordingIdExtra = "harken.recordingId"
-        const val FilePathExtra = "harken.filePath"
+        const val CHANNEL_ID = "recording"
+        const val NOTIFICATION_ID = 1001
+        const val ACTION_STOP = "harken.action.STOP"
+        const val ACTION_PAUSE = "harken.action.PAUSE"
+        const val ACTION_RESUME = "harken.action.RESUME"
+        const val RECORDING_ID_EXTRA = "harken.recordingId"
+        const val FILE_PATH_EXTRA = "harken.filePath"
 
-        fun start(context: Context, recordingId: UUID, filePath: String) {
-            val intent = Intent(context, RecordingForegroundService::class.java).apply {
-                putExtra(RecordingIdExtra, recordingId.toString())
-                putExtra(FilePathExtra, filePath)
-            }
+        fun start(
+            context: Context,
+            recordingId: UUID,
+            filePath: String,
+        ) {
+            val intent =
+                Intent(context, RecordingForegroundService::class.java).apply {
+                    putExtra(RECORDING_ID_EXTRA, recordingId.toString())
+                    putExtra(FILE_PATH_EXTRA, filePath)
+                }
             context.startForegroundService(intent)
         }
 
-        fun setPaused(context: Context, paused: Boolean) {
-            val intent = Intent(context, RecordingForegroundService::class.java).apply {
-                action = if (paused) ActionPause else ActionResume
-            }
+        fun setPaused(
+            context: Context,
+            paused: Boolean,
+        ) {
+            val intent =
+                Intent(context, RecordingForegroundService::class.java).apply {
+                    action = if (paused) ACTION_PAUSE else ACTION_RESUME
+                }
             context.startService(intent)
         }
 
         fun stop(context: Context) {
-            val intent = Intent(context, RecordingForegroundService::class.java).apply {
-                action = ActionStop
-            }
+            val intent =
+                Intent(context, RecordingForegroundService::class.java).apply {
+                    action = ACTION_STOP
+                }
             context.startService(intent)
         }
     }

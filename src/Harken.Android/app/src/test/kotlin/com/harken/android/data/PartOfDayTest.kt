@@ -1,8 +1,8 @@
 package com.harken.android.data
 
-import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.time.ZoneId
 
 class PartOfDayTest {
     private val kolkata = ZoneId.of("Asia/Kolkata")

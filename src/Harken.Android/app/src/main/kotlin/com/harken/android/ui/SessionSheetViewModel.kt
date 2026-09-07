@@ -9,16 +9,16 @@ import androidx.annotation.StringRes
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import com.harken.android.R
 import com.harken.android.container
-import com.harken.android.recordingTitle
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.SpeakerHeuristic
 import com.harken.android.data.TranscriptText
+import com.harken.android.recordingTitle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -74,7 +74,6 @@ class SessionSheetViewModel(
     application: Application,
     private val repository: SessionRepository,
 ) : AndroidViewModel(application) {
-
     private val _uiState = MutableStateFlow(SessionSheetUiState())
     val uiState: StateFlow<SessionSheetUiState> = _uiState.asStateFlow()
 
@@ -95,34 +94,36 @@ class SessionSheetViewModel(
         // Library list (and this sheet, if reopened) intermittently flicker.
         observeJob?.cancel()
 
-        observeJob = viewModelScope.launch {
-            combine(
-                repository.observeSession(id),
-                repository.observeSegments(id),
-            ) { session, segments ->
-                val rows = segments.map { TranscriptRowModel(it.id, it.offsetSeconds, it.text, it.voiceIndex) }
-                val voices = SpeakerHeuristic.voiceCount(rows.map { it.voiceIndex })
-                val duration = session?.durationSeconds ?: rows.lastOrNull()?.offsetSeconds ?: 0
-                _uiState.value.copy(
-                    title = session?.let { app.recordingTitle(it.localTitle, it.partOfDay) }.orEmpty(),
-                    hasLocalTitle = session?.localTitle != null,
-                    meta = buildMeta(session, duration, rows.isNotEmpty()),
-                    tags = session?.tags.orEmpty(),
-                    segments = rows,
-                    transcriptMeta = transcriptMeta(rows.size, voices),
-                    voiceCount = voices,
-                    status = session?.status,
-                    durationSeconds = duration,
-                    loadError = null,
-                    audioPath = session?.pendingUploadPath?.takeIf { java.io.File(it).exists() },
-                    playbackDurationMs = _uiState.value.playbackDurationMs.takeIf { it > 0 }
-                        ?: (duration * 1000),
-                )
-            }.flowOn(Dispatchers.Default).catch { e ->
-                Log.e(TAG, "Failed loading session $id", e)
-                _uiState.value = _uiState.value.copy(loadError = e.message)
-            }.collect { _uiState.value = it }
-        }
+        observeJob =
+            viewModelScope.launch {
+                combine(
+                    repository.observeSession(id),
+                    repository.observeSegments(id),
+                ) { session, segments ->
+                    val rows = segments.map { TranscriptRowModel(it.id, it.offsetSeconds, it.text, it.voiceIndex) }
+                    val voices = SpeakerHeuristic.voiceCount(rows.map { it.voiceIndex })
+                    val duration = session?.durationSeconds ?: rows.lastOrNull()?.offsetSeconds ?: 0
+                    _uiState.value.copy(
+                        title = session?.let { app.recordingTitle(it.localTitle, it.partOfDay) }.orEmpty(),
+                        hasLocalTitle = session?.localTitle != null,
+                        meta = buildMeta(session, duration, rows.isNotEmpty()),
+                        tags = session?.tags.orEmpty(),
+                        segments = rows,
+                        transcriptMeta = transcriptMeta(rows.size, voices),
+                        voiceCount = voices,
+                        status = session?.status,
+                        durationSeconds = duration,
+                        loadError = null,
+                        audioPath = session?.pendingUploadPath?.takeIf { java.io.File(it).exists() },
+                        playbackDurationMs =
+                            _uiState.value.playbackDurationMs.takeIf { it > 0 }
+                                ?: (duration * 1000),
+                    )
+                }.flowOn(Dispatchers.Default).catch { e ->
+                    Log.e(TAG, "Failed loading session $id", e)
+                    _uiState.value = _uiState.value.copy(loadError = e.message)
+                }.collect { _uiState.value = it }
+            }
     }
 
     /**
@@ -149,32 +150,34 @@ class SessionSheetViewModel(
 
         val path = _uiState.value.audioPath ?: return
         try {
-            player = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build(),
-                )
-                setDataSource(path)
-                prepare()
-                setOnCompletionListener {
-                    // Rewind rather than sit at the end, so the same button plays it again.
-                    ticker?.cancel()
-                    seekTo(0)
-                    _uiState.value = _uiState.value.copy(isPlaying = false, positionMs = 0)
+            player =
+                MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build(),
+                    )
+                    setDataSource(path)
+                    prepare()
+                    setOnCompletionListener {
+                        // Rewind rather than sit at the end, so the same button plays it again.
+                        ticker?.cancel()
+                        seekTo(0)
+                        _uiState.value = _uiState.value.copy(isPlaying = false, positionMs = 0)
+                    }
+                    seekTo(_uiState.value.positionMs)
+                    start()
                 }
-                seekTo(_uiState.value.positionMs)
-                start()
-            }
             _uiState.value = _uiState.value.copy(playbackDurationMs = player?.duration ?: 0)
             startTicking()
         } catch (e: Exception) {
             Log.e(TAG, "Failed playing ${_uiState.value.audioPath}", e)
             releasePlayer()
-            _uiState.value = _uiState.value.copy(
-                toast = getApplication<Application>().getString(R.string.session_playback_failed),
-            )
+            _uiState.value =
+                _uiState.value.copy(
+                    toast = getApplication<Application>().getString(R.string.session_playback_failed),
+                )
         }
     }
 
@@ -201,13 +204,14 @@ class SessionSheetViewModel(
     private fun startTicking() {
         ticker?.cancel()
         _uiState.value = _uiState.value.copy(isPlaying = true)
-        ticker = viewModelScope.launch {
-            while (true) {
-                val current = player ?: break
-                _uiState.value = _uiState.value.copy(positionMs = current.currentPosition)
-                delay(PLAYBACK_TICK_MS)
+        ticker =
+            viewModelScope.launch {
+                while (true) {
+                    val current = player ?: break
+                    _uiState.value = _uiState.value.copy(positionMs = current.currentPosition)
+                    delay(PLAYBACK_TICK_MS)
+                }
             }
-        }
     }
 
     private fun releasePlayer() {
@@ -223,7 +227,10 @@ class SessionSheetViewModel(
     }
 
     /** A blank [title] clears the local name, so the session goes back to its derived one. */
-    fun rename(id: UUID, title: String) {
+    fun rename(
+        id: UUID,
+        title: String,
+    ) {
         viewModelScope.launch {
             try {
                 repository.rename(id, title.ifBlank { null })
@@ -235,11 +242,21 @@ class SessionSheetViewModel(
         }
     }
 
-    fun addTag(id: UUID, tag: String) = setTags(id, (_uiState.value.tags + tag).distinct(), "adding")
+    fun addTag(
+        id: UUID,
+        tag: String,
+    ) = setTags(id, (_uiState.value.tags + tag).distinct(), "adding")
 
-    fun removeTag(id: UUID, tag: String) = setTags(id, _uiState.value.tags - tag, "removing")
+    fun removeTag(
+        id: UUID,
+        tag: String,
+    ) = setTags(id, _uiState.value.tags - tag, "removing")
 
-    private fun setTags(id: UUID, tags: List<String>, verb: String) {
+    private fun setTags(
+        id: UUID,
+        tags: List<String>,
+        verb: String,
+    ) {
         viewModelScope.launch {
             try {
                 repository.setTags(id, tags)
@@ -302,12 +319,13 @@ class SessionSheetViewModel(
             return
         }
         val app = getApplication<Application>()
-        val uri = runCatching { FileProvider.getUriForFile(app, "${app.packageName}.files", file) }
-            .getOrElse { e ->
-                Log.e(TAG, "Could not build a share URI for $path", e)
-                confirm(R.string.session_share_audio_failed)
-                return
-            }
+        val uri =
+            runCatching { FileProvider.getUriForFile(app, "${app.packageName}.files", file) }
+                .getOrElse { e ->
+                    Log.e(TAG, "Could not build a share URI for $path", e)
+                    confirm(R.string.session_share_audio_failed)
+                    return
+                }
         send(
             Intent(Intent.ACTION_SEND).apply {
                 type = "audio/x-wav"
@@ -323,10 +341,14 @@ class SessionSheetViewModel(
      * NEW_TASK because this starts from the application context: a ViewModel outlives the
      * composable that called it and holds no Activity to start from.
      */
-    private fun send(intent: Intent, @StringRes chooserTitle: Int) {
+    private fun send(
+        intent: Intent,
+        @StringRes chooserTitle: Int,
+    ) {
         val app = getApplication<Application>()
-        val chooser = Intent.createChooser(intent, app.getString(chooserTitle))
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val chooser =
+            Intent.createChooser(intent, app.getString(chooserTitle))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { app.startActivity(chooser) }
             .onFailure { e ->
                 Log.e(TAG, "No app accepted the share intent", e)
@@ -334,13 +356,17 @@ class SessionSheetViewModel(
             }
     }
 
-
-    fun confirm(@StringRes message: Int) {
+    fun confirm(
+        @StringRes message: Int,
+    ) {
         _uiState.value = _uiState.value.copy(toast = getApplication<Application>().getString(message))
     }
 
     /** "12 segments · 3 voices" — the voice clause only appears when there is more than one. */
-    private fun transcriptMeta(segmentCount: Int, voices: Int): String {
+    private fun transcriptMeta(
+        segmentCount: Int,
+        voices: Int,
+    ): String {
         val res = getApplication<Application>().resources
         val segments = res.getQuantityString(R.plurals.session_segment_count, segmentCount, segmentCount)
         return if (voices > 1) {
@@ -350,7 +376,11 @@ class SessionSheetViewModel(
         }
     }
 
-    private fun buildMeta(session: SessionRepository.SessionView?, duration: Int, transcribed: Boolean): String {
+    private fun buildMeta(
+        session: SessionRepository.SessionView?,
+        duration: Int,
+        transcribed: Boolean,
+    ): String {
         if (session == null) return ""
         val length = "${duration / 60}m ${(duration % 60).toString().padStart(2, '0')}s"
         val base = "${formatSessionTimestamp(session.startedAt)} · $length"
@@ -360,13 +390,14 @@ class SessionSheetViewModel(
     }
 
     companion object {
-        val Factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                SessionSheetViewModel(
-                    application = checkNotNull(this[APPLICATION_KEY]),
-                    repository = container.repository,
-                )
+        val Factory: ViewModelProvider.Factory =
+            viewModelFactory {
+                initializer {
+                    SessionSheetViewModel(
+                        application = checkNotNull(this[APPLICATION_KEY]),
+                        repository = container.repository,
+                    )
+                }
             }
-        }
     }
 }

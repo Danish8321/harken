@@ -6,10 +6,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DeviceCapabilityTest {
-
     /** What a device of [nominalGb] actually reports, at the reference device's 89%. */
-    private fun reported(nominalGb: Int): DeviceCapability =
-        DeviceCapability((nominalGb * DeviceCapability.BytesPerGb * 89) / 100)
+    private fun reported(nominalGb: Int): DeviceCapability = DeviceCapability((nominalGb * DeviceCapability.BYTES_PER_GB * 89) / 100)
 
     @Test
     fun aFourGigabyteDeviceIsBelowTheBar() {
@@ -44,12 +42,12 @@ class DeviceCapabilityTest {
     /** The bar itself is supported — it is a minimum, not a value to exceed. */
     @Test
     fun aDeviceExactlyAtTheBarClearsIt() {
-        assertFalse(DeviceCapability(DeviceCapability.MinimumTotalMemBytes).isBelowMinimum)
-        assertTrue(DeviceCapability(DeviceCapability.MinimumTotalMemBytes - 1).isBelowMinimum)
+        assertFalse(DeviceCapability(DeviceCapability.MINIMUM_TOTAL_MEM_BYTES).isBelowMinimum)
+        assertTrue(DeviceCapability(DeviceCapability.MINIMUM_TOTAL_MEM_BYTES - 1).isBelowMinimum)
     }
 
     @Test
     fun telemetryReportsMegabytes() {
-        assertEquals(1024L, DeviceCapability(DeviceCapability.BytesPerGb).totalMemMb)
+        assertEquals(1024L, DeviceCapability(DeviceCapability.BYTES_PER_GB).totalMemMb)
     }
 }
