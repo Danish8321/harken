@@ -51,9 +51,12 @@ object Telemetry {
      * Not the class name: R8 renames it, so the release build that first ran minified
      * reported `error=e` for a Gson failure whose message named the cause exactly. The
      * message is what survives minification and what distinguishes two failures of the
-     * same type, and it is already shown to the user on the Library card and stored on
-     * the session, so logging it exposes nothing new. The class name is the fallback for
-     * the exceptions that carry no message, where a minified name still beats `null`.
+     * same type. It is a diagnostic, not a sentence for the reader: it may carry a path
+     * inside the app's private storage or a socket's own words, which is why the screen
+     * no longer shows it (ARC-042) and why it stays here, where an engineer with `adb` is
+     * the audience. It carries no speech, which is the line the rest of this file draws.
+     * The class name is the fallback for the exceptions that carry no message, where a
+     * minified name still beats `null`.
      */
     fun describe(e: Throwable): String = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.name
 

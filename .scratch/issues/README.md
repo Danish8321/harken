@@ -100,3 +100,5 @@ inferred.
 | [ARC-039](ARC-039-migration-test-asserts-a-guess.md) | The migration test asserts against a v1 schema typed out by hand | medium | fixed |
 | [ARC-040](ARC-040-dead-sync-era-surface.md) | The sync tier is gone; its DAO surface and one of its chips are not | medium | fixed |
 | [ARC-041](ARC-041-integration-tests-are-not-deterministic.md) | The .NET gate failed once and passed on a re-run | medium | fixed |
+| [ARC-042](ARC-042-transcription-failure-text-comes-from-the-exception.md) | A failed transcription showed the user the exception's message | high | fixed |
+| [ARC-043](ARC-043-transcription-notification-could-stick.md) | The transcribing notification could stay up forever | medium | fixed |

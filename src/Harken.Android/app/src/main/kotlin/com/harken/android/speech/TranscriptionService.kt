@@ -16,13 +16,13 @@ import com.harken.android.container
 import com.harken.android.data.SessionRepository
 import com.harken.android.recording.LiveUpdateNotification
 import com.harken.android.telemetry.Telemetry
+import com.harken.android.ui.messageRes
 import java.util.UUID
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 private const val TAG = "TranscriptionService"
@@ -108,7 +108,11 @@ class TranscriptionService : Service() {
             onDeviceTranscriber = onDeviceTranscriber,
             sessionId = sessionId,
             filePath = filePath,
-            cancelledMessage = getString(R.string.error_transcription_cancelled),
+            messages = TranscriptionMessages(
+                cancelled = getString(R.string.error_transcription_cancelled),
+                failed = getString(R.string.error_transcription_failed),
+                modelUnavailable = { getString(it.messageRes()) },
+            ),
             onProgress = ::publishProgress,
         )
         Telemetry.event(
@@ -124,11 +128,14 @@ class TranscriptionService : Service() {
         }
 
         scope.launch {
-            // drop(1) because activeSessionId is already non-null by the time this
-            // collects — the coordinator sets it before returning — and the first value
-            // would otherwise be read as "already finished".
-            TranscriptionCoordinator.activeSessionId.drop(1).collect { active ->
-                if (active == null) {
+            // "No longer ours", not "not the first value". drop(1) assumed this collector
+            // attaches before the decode can finish; the decode runs on another
+            // dispatcher, so a transcription that failed immediately — no model and no
+            // network — could clear activeSessionId first, and drop(1) would then discard
+            // the null it was waiting for and hold the foreground notification open
+            // forever. Comparing against our own id is correct whichever order they run in.
+            TranscriptionCoordinator.activeSessionId.collect { active ->
+                if (active != sessionId) {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                 }

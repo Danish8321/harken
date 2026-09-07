@@ -212,6 +212,7 @@
     <string name="state_retry">Retry</string>
     <string name="state_dismiss">Dismiss</string>
     <string name="error_transcription_cancelled">Transcription cancelled. Tap to try again.</string>
+    <string name="error_transcription_failed">Harken couldn\'t transcribe this recording. Tap to try again.</string>
     <string name="error_transcription_interrupted">Transcription stopped when the app closed. Tap to try again.</string>
     <string name="error_transcription_interrupted_low_memory">Transcription stopped part-way. This phone has less memory than Harken needs, so it may not finish. Tap to try again.</string>
     <string name="error_recording_failed">Recording failed</string>

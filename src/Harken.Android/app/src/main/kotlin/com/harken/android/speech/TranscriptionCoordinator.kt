@@ -55,13 +55,6 @@ object TranscriptionCoordinator {
     @Volatile
     private var running: Job? = null
 
-    /**
-     * Used when a caller does not supply its own. Every caller on the device does — the
-     * message the user reads belongs in strings.xml, and this object has no Context to
-     * read one with — so this is only ever seen by the JVM tests.
-     */
-    const val DefaultCancelledMessage = "Transcription cancelled."
-
     private val _activeSessionId = MutableStateFlow<UUID?>(null)
     val activeSessionId: StateFlow<UUID?> = _activeSessionId.asStateFlow()
 
@@ -77,7 +70,7 @@ object TranscriptionCoordinator {
         onDeviceTranscriber: Transcriber,
         sessionId: UUID,
         filePath: String,
-        cancelledMessage: String = DefaultCancelledMessage,
+        messages: TranscriptionMessages = TranscriptionMessages(),
         onProgress: (fraction: Float) -> Unit = {},
     ): Boolean {
         if (!active.compareAndSet(null, sessionId)) return false
@@ -92,7 +85,12 @@ object TranscriptionCoordinator {
             )
             try {
                 repository.startLocalTranscription(sessionId)
-                val modelPath = modelDownloadManager.ensureModel().getOrThrow()
+                // Wrapped rather than rethrown bare, so the catch below can tell "we
+                // never got a model" — which the user can act on — from "the decode
+                // failed", which they cannot. runCatchingDownload never puts a
+                // CancellationException in this Result, so the wrapper cannot swallow one.
+                val modelPath = modelDownloadManager.ensureModel()
+                    .getOrElse { throw ModelUnavailableException(it) }
                 val segments = onDeviceTranscriber.transcribe(filePath, modelPath, onProgress)
                 repository.completeLocal(sessionId, segments, audioSeconds)
                 // The event the whisper-on-silence defect needed and did not have: a
@@ -122,19 +120,30 @@ object TranscriptionCoordinator {
                 // NonCancellable because this coroutine is already cancelled: a suspending
                 // write from inside it would be refused before it reached the database,
                 // and the row would sit at "Running" forever.
-                withContext(NonCancellable) { repository.failLocal(sessionId, cancelledMessage) }
+                withContext(NonCancellable) { repository.failLocal(sessionId, messages.cancelled) }
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "On-device transcription failed for session $sessionId", e)
+                // The wrapper carries no message of its own; every log and event names the
+                // failure that actually happened.
+                val cause = (e as? ModelUnavailableException)?.cause ?: e
+                Log.e(TAG, "On-device transcription failed for session $sessionId", cause)
                 Telemetry.event(
                     "transcribe_finished",
                     "session" to Telemetry.shortId(sessionId),
                     "outcome" to "failed",
                     "audioSeconds" to audioSeconds,
-                    "error" to Telemetry.describe(e),
+                    "error" to Telemetry.describe(cause),
                     "elapsedMs" to Telemetry.elapsedMsSince(startNs),
                 )
-                repository.failLocal(sessionId, e.message ?: "On-device transcription failed")
+                // Never e.message: it is the platform's untranslated text, the Library card
+                // renders it verbatim, and for a failed model load it is a path inside the
+                // app's private storage.
+                val reason = if (e is ModelUnavailableException) {
+                    messages.modelUnavailable(ModelDownloadFailure.of(cause))
+                } else {
+                    messages.failed
+                }
+                repository.failLocal(sessionId, reason)
             } finally {
                 onDeviceTranscriber.release()
                 active.set(null)
@@ -157,4 +166,7 @@ object TranscriptionCoordinator {
     // Segment offsets only mark where speech was detected, not the recording's actual
     // length — the last segment's offset undercounts trailing silence.
     private fun wavDurationSeconds(filePath: String): Int = WavFormat.durationSeconds(File(filePath))
+
+    /** Marks a failure that happened before the decode began, so the two can be told apart. */
+    private class ModelUnavailableException(override val cause: Throwable) : Exception(cause)
 }

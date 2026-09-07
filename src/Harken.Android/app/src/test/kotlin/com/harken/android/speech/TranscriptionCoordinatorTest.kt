@@ -1,6 +1,7 @@
 package com.harken.android.speech
 
 import com.harken.android.data.TranscriptionSink
+import java.net.UnknownHostException
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -94,7 +95,7 @@ class TranscriptionCoordinatorTest {
 
         TranscriptionCoordinator.transcribe(
             sink, FakeModelProvider(), transcriber, sessionId, tempWavPath(),
-            cancelledMessage = "you stopped it",
+            messages = TranscriptionMessages(cancelled = "you stopped it"),
         )
         assertTrue("decode never reached the cancellation point", transcriber.started.await(2, TimeUnit.SECONDS))
 
@@ -146,17 +147,48 @@ class TranscriptionCoordinatorTest {
     @Test
     fun `a transcription failure marks the session failed and still releases the transcriber`() {
         val sink = FakeSink()
-        val transcriber = FakeTranscriber(throwOnTranscribe = IllegalStateException("boom"))
+        // The exception's own message is deliberately something no reader should ever see:
+        // it stands in for the paths and socket errors real failures carry, and the point
+        // of the assertion is that it does not reach the session.
+        val transcriber = FakeTranscriber(throwOnTranscribe = IllegalStateException("/data/user/0/.../whisper.bin"))
         val sessionId = UUID.randomUUID()
 
-        TranscriptionCoordinator.transcribe(sink, FakeModelProvider(), transcriber, sessionId, tempWavPath())
+        TranscriptionCoordinator.transcribe(
+            sink, FakeModelProvider(), transcriber, sessionId, tempWavPath(),
+            messages = TranscriptionMessages(failed = "couldn't transcribe"),
+        )
 
         waitForIdle()
 
         assertTrue(sink.completed.isEmpty())
-        assertEquals(1, sink.failed.size)
-        assertEquals("boom", sink.failed.single().second)
+        assertEquals(sessionId to "couldn't transcribe", sink.failed.single())
         assertEquals(1, transcriber.releaseCount.get())
+    }
+
+    @Test
+    fun `a missing model is reported as a model failure, not as a decode failure`() {
+        val sink = FakeSink()
+        val transcriber = FakeTranscriber()
+        val sessionId = UUID.randomUUID()
+
+        TranscriptionCoordinator.transcribe(
+            sink,
+            FakeModelProvider(Result.failure(UnknownHostException("huggingface.co"))),
+            transcriber,
+            sessionId,
+            tempWavPath(),
+            messages = TranscriptionMessages(
+                failed = "couldn't transcribe",
+                modelUnavailable = { "no model: $it" },
+            ),
+        )
+
+        waitForIdle()
+
+        // Classified, not generic: "you have no connection" is something the user can act
+        // on, and it is the same classification Settings and onboarding show.
+        assertEquals(sessionId to "no model: NoConnection", sink.failed.single())
+        assertTrue("the decode must not start without a model", transcriber.releaseCount.get() == 1)
     }
 
     @Test
