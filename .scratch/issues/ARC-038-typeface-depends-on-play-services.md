@@ -41,12 +41,65 @@ Open Font License 1.1, which permits embedding and redistribution.
 Typography then loads from the APK: deterministic, offline, identical on every
 device, and with no Play Services in the picture at all.
 
-## Why it is not fixed here
+## Approved, 2026-09-07
 
-It adds font binaries to the repository — vendored third-party assets, which is
-a dependency decision even though the net effect is to remove one. That needs
-sign-off, and it wants a size budget: eleven weights are declared across the
-three families, and subsetting to the weights actually used is part of the job.
+Bundle them. Subset to the weights actually used, not everything declared.
 
-Blocked on the same call: whether to keep eleven weights or cut to the six the
-screens really use.
+## Blocked on one download
+
+The only step left that this environment cannot do. Outbound network from the
+shell is blocked here — `curl` to `fonts.google.com` and to `raw.githubusercontent.com`
+are both refused — so the `.ttf` files cannot be fetched. Gradle has its own network
+allowance, but adding a permanent download task to the build for a one-off vendoring
+is the wrong shape.
+
+Run this once, from the repository root, and the rest of the ticket is unblocked:
+
+```bash
+mkdir -p .scratch/fonts && cd .scratch/fonts
+curl -L -o spacegrotesk.zip "https://fonts.google.com/download?family=Space%20Grotesk"
+curl -L -o figtree.zip      "https://fonts.google.com/download?family=Figtree"
+curl -L -o ibmplexmono.zip  "https://fonts.google.com/download?family=IBM%20Plex%20Mono"
+unzip -o spacegrotesk.zip -d spacegrotesk
+unzip -o figtree.zip      -d figtree
+unzip -o ibmplexmono.zip  -d ibmplexmono
+```
+
+Each zip carries `OFL.txt` and a `static/` directory of per-weight `.ttf` files.
+The variable-font builds (`*[wght].ttf`) would be three files instead of ten and
+work from API 26, but static faces are the simpler thing that works and carry no
+runtime API risk, so take those.
+
+## What happens after the download
+
+`app/src/main/res/font/` gains, lowercase-with-underscores as Android resource
+names require:
+
+| File | From | Used by |
+|---|---|---|
+| `space_grotesk_regular.ttf` | Space Grotesk 400 | `ProtoHeadingFont` |
+| `space_grotesk_medium.ttf` | Space Grotesk 500 | `ProtoHeadingFont` |
+| `space_grotesk_bold.ttf` | Space Grotesk 700 | `ProtoHeadingFont` |
+| `figtree_regular.ttf` | Figtree 400 | `ProtoBodyFont` |
+| `figtree_medium.ttf` | Figtree 500 | `ProtoBodyFont` |
+| `figtree_semibold.ttf` | Figtree 600 | `ProtoBodyFont` |
+| `figtree_bold.ttf` | Figtree 700 | `ProtoBodyFont` |
+| `figtree_extrabold.ttf` | Figtree 800 | `ProtoBodyFont` |
+| `ibm_plex_mono_regular.ttf` | IBM Plex Mono 400 | `ProtoMonoFont` |
+| `ibm_plex_mono_medium.ttf` | IBM Plex Mono 500 | `ProtoMonoFont` |
+
+Ten faces, which is what the three families declare between them — the earlier
+count of eleven in this ticket was wrong. `FontWeight.Black` appears at two call
+sites and is declared by nothing; Compose resolves it to Bold today and will keep
+doing so, which is worth a look but is not this ticket.
+
+Then: rewrite `ui/theme/Type.kt` to `Font(R.font.…, FontWeight.…)` and drop the
+`GoogleFont.Provider`; delete `res/values/font_certs.xml`; drop
+`compose-google-fonts` from `libs.versions.toml` and `app/build.gradle.kts`; add
+each family's `OFL.txt` under `app/src/main/assets/licenses/` (SIL OFL 1.1
+requires the licence to travel with the fonts). `.gitattributes` already marks
+`*.ttf` binary.
+
+Expected: Lint&rsquo;s 35 typos go to zero, because every one of them is inside the
+certificate blobs in the file being deleted. That closes the last unblocked item
+in [ARC-037](ARC-037-lint-warnings-formatter-and-ci.md) too.
