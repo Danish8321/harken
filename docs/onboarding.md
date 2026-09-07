@@ -4,105 +4,86 @@ A condensed, ordered checklist for someone new to this repo. Each step links to 
 detail in [`setup.md`](setup.md) — read this first, go there when a step needs more than
 one command.
 
-## 1. Prerequisites
-- [ ] .NET 10 SDK installed (`dotnet --version` matches `global.json`'s `10.0.302`+).
-- [ ] A Whisper model file downloaded, path configured.
-- [ ] Ollama installed, `ollama pull gemma3:4b` done.
-- [ ] For the phone client (`src/Harken.Android`, native Kotlin + Jetpack Compose):
-      Android SDK + JDK 17. `sdk.dir` in `src/Harken.Android/local.properties`
-      (gitignored) points at your Android SDK.
+There is no backend. Every step below happens on a workstation and a phone; nothing
+listens on a port and nothing is uploaded. That was decided in
+[ADR-0011](adr/0011-on-device-transcription.md) and the last of the server was deleted in
+[ADR-0015](adr/0015-retire-the-dotnet-tier.md).
 
-See [`setup.md`](setup.md) §1–3 for install commands and troubleshooting.
+## 1. Prerequisites
+- [ ] JDK 17 and the Android SDK (API 36). Android Studio installs both.
+- [ ] The NDK and CMake, for the vendored whisper.cpp under
+      `src/Harken.Android/app/src/main/cpp`. Android Studio's SDK Manager, *SDK Tools*
+      tab, has both.
+- [ ] `sdk.dir` in `src/Harken.Android/local.properties` (gitignored) pointing at your
+      Android SDK.
+- [ ] `adb` on `PATH` — `test-full.sh` refuses to run without it.
+- [ ] A physical arm64 phone with 6 GB of RAM or more
+      ([ADR-0014](adr/0014-minimum-supported-device.md)). The build is `arm64-v8a` only,
+      so a stock x86 emulator image cannot install it.
+
+See [`setup.md`](setup.md) §1–§2 for install commands and troubleshooting.
 
 ## 2. Prove the code builds and tests pass
 ```
 bash .claude/scripts/check.sh
 bash .claude/scripts/test-fast.sh
 ```
-Both green before touching a device — a failure here is the SDK or the code, not
-anything below. `test-full.sh` adds the on-device tests and is covered in §5.
+Both green before touching a device — a failure here is the SDK or the code, not anything
+below. The first run compiles whisper.cpp and takes several minutes; later runs are
+cached. `test-full.sh` adds the on-device tests and is §4.
 
-## 3. Run the backend
-```
-dotnet run --project src/Harken.Api --urls http://0.0.0.0:5057
-```
-Binding `0.0.0.0`, not `localhost`, is required if a phone will reach it over LAN.
-Verify: `curl http://localhost:5057/health` → `{"status":"ok"}`.
-
-## 4. Prove transcription and summary work (console client)
-Run the console client, record a short clip, let it transcribe, then summarize.
-Text back at both steps means Whisper, the model file, Ollama, and Gemma are all wired.
-Do this **before** the phone — it isolates pipeline problems from mobile problems.
-
-## 5. Deploy to a phone
+## 3. Install it on the phone
 - [ ] Phone: Settings → About phone → tap Build number 7× → Developer options unlocked.
 - [ ] Developer options → USB debugging → on.
 - [ ] Connect via USB-C. Accept the "Allow USB debugging?" prompt on the phone.
 - [ ] USB mode set to File Transfer/PTP, not charging-only.
-- [ ] `adb devices -l` shows the phone as `device` (not `unauthorized`).
-- [ ] `cd src/Harken.Android && ./gradlew installDebug` — builds and installs the
-      debug APK; launch it from the phone's app drawer (Gradle's `installDebug` does
-      not auto-launch). Or open `src/Harken.Android` in Android Studio and hit Run for
-      the same result plus a debugger and Logcat. First launch runs the 3-step
-      onboarding described in §6.
-  - Unit tests only (no device needed): `bash .claude/scripts/test-fast.sh`.
-  - With the phone attached: `bash .claude/scripts/test-full.sh` — the same tests plus
-    the instrumented ones (Room migrations, foreground service, notification Stop
-    button, permission flow). It uninstalls the debug build first, so the run is
-    against this build's state and not the last one's. **A schema change must pass this
-    gate**: `SessionDatabaseMigrationTest` is what asserts a migration preserves the
-    rows already on the device.
+- [ ] `adb devices -l` shows the phone as `device`, not `unauthorized`.
+- [ ] `cd src/Harken.Android && ./gradlew installDebug`, then launch Harken from the app
+      drawer — `installDebug` installs but does not start it. Or open
+      `src/Harken.Android` in Android Studio and hit Run for the same result plus a
+      debugger and Logcat.
 
-## 5b. No LAN reachability between PC and phone?
+**Uninstall any previous build first when you are verifying behaviour by hand.** An app
+that carries over a database, a downloaded model and a set of permissions from the last
+install is not the app a new user gets, and first-run bugs hide there.
 
-If the phone can't reach the PC over Wi-Fi (router AP/client isolation is a common
-cause on shared or ISP-default routers, and shows up as the browser test on the phone
-to `http://<PC LAN IP>:5057/health` also failing, not just the app) and you have no
-router admin access to disable isolation, use a USB reverse tunnel instead of the LAN
-IP:
-
+## 4. Run the on-device tests
 ```
-adb reverse tcp:5057 tcp:5057
-adb reverse --list
+bash .claude/scripts/test-full.sh
 ```
+Everything `test-fast.sh` runs, plus `connectedDebugAndroidTest`. It uninstalls the debug
+build first, so the run is against this build's state and not the last one's. **A schema
+change must pass this gate**: `SessionDatabaseMigrationTest` is what asserts a migration
+preserves the rows already on the device, and it runs against the schema Room exported to
+`app/schemas`, not against a `CREATE TABLE` typed out by hand.
 
-Confirms `UsbFfs tcp:5057 tcp:5057`. Then in step 6 below, enter `http://localhost:5057`
-as the backend URL instead of the LAN IP — traffic goes phone → USB → PC, bypassing
-Wi-Fi and the router entirely. The tunnel does not survive USB disconnect, `adb
-kill-server`, or a phone reboot; re-run the command above each session. It also does
-not prove the LAN/Wi-Fi path works, only that app-to-backend logic is correct.
+## 5. First launch — the onboarding wizard
+Two steps, shown once:
 
-## 6. First launch — in-app onboarding wizard
-The app shows a 3-step wizard on first launch (`OnboardingPage`), skipped on every launch
-after:
-1. **Backend URL** — enter `http://<PC's LAN IP>:5057` and tap **Test connection**
-   (find the LAN IP with `ipconfig`, the `IPv4 Address` under your Wi-Fi adapter — not
-   `localhost`, the phone is a different device). A green "Connected." confirms the URL is
-   saved to Settings.
-2. **Microphone** — explains why Harken needs it. No permission prompt here; Android asks
-   the first time you actually tap Record, per this slice's design.
-3. **How recording works** — record/lock/stop-from-notification/upload/transcript flow,
-   and the two auto-stop limits.
+1. **Meet Harken** — what the app is.
+2. **Get the speech model** — a one-time ~140 MB download of `ggml-base.en.bin`. This is
+   the only network call the app ever makes. **Skip for now** is a real option: recording
+   works without it, and anything recorded meanwhile transcribes once the model lands.
+   Settings → Speech model has the same download, plus an Update.
 
-Tap **Get started** to land on the Capture page. Re-run onboarding any time by clearing
-app data, or by resetting `OnboardingComplete` in Settings' backing preferences.
+Then **Start recording** lands on the Record tab. Re-run onboarding by clearing app data.
 
-## 7. Verify the vertical slice end to end
-- [ ] Tap Record on the Capture page (grant the mic permission prompt).
-- [ ] Lock the screen mid-recording.
-- [ ] Unlock, pull down the notification, tap Stop.
-- [ ] Recording finalizes, uploads, polls, and shows a transcript.
-- [ ] Tap Summarize, confirm a summary comes back. Needs Ollama installed and running
-      (`docs/setup.md` §3) — a `502` here almost always means Ollama isn't installed or
-      the model isn't pulled, not an app bug.
-- [ ] Stop the backend, record again, confirm the app keeps the file and shows its path
-      rather than losing it.
-- [ ] Tap Recordings, tap Refresh, confirm the list re-fetches. Tap
-      Delete on a row — it disappears from the list; confirm via `sqlite3 harken.db
-      "select deleted from Sessions where id='<id>'"` that the row and its WAV file
-      still exist on disk. Tap Delete permanently on another row, confirm the dialog,
-      confirm the row is gone from the database and the WAV file removed from disk.
+## 6. Verify the vertical slice end to end
+On a fresh install, with the model downloaded:
+
+- [ ] Tap Record (grant the mic permission prompt). The waveform moves.
+- [ ] Lock the screen mid-recording. Recording continues.
+- [ ] Unlock, pull down the notification, tap **Stop**.
+- [ ] The recording appears in Library, transcribes in the background behind a progress
+      notification, and the card's state chip reaches "Transcribed".
+- [ ] Open it: the sheet plays the audio and shows the transcript, with the playback
+      cursor tracking the segment being spoken.
+- [ ] Give it a title and a tag. Go to Library, search for that title, that tag, and a
+      word from the transcript. All three find it.
+- [ ] Settings → **Export everything**, pick a folder, and confirm the WAV and the
+      transcript are both in it.
+- [ ] Kill the app mid-transcription (swipe it from Recents). Re-open: the recording is
+      still there and the transcription is re-queued rather than stuck.
 
 If any step fails, check [`setup.md`](setup.md)'s Troubleshooting table before assuming
-the code is wrong — most first-run failures are `localhost` vs. LAN IP, firewall, or a
-missing Ollama model.
+the code is wrong.

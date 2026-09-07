@@ -83,7 +83,7 @@ inferred.
 | [ARC-021](ARC-021-no-version-catalog.md) | Dependency versions are string literals in the build file | medium | fixed |
 | [ARC-022](ARC-022-no-release-signing-no-versioning.md) | The release build cannot be released | medium | fixed |
 | [ARC-023](ARC-023-instrumented-tests-never-run.md) | The instrumented tests are in no gate | medium | fixed |
-| [ARC-024](ARC-024-dead-dotnet-tier.md) | Half the repository is a backend nothing calls | medium | blocked |
+| [ARC-024](ARC-024-dead-dotnet-tier.md) | Half the repository is a backend nothing calls | medium | done |
 | [ARC-025](ARC-025-collectasstate-without-lifecycle.md) | Flows keep collecting while the app is backgrounded | medium | fixed |
 | [ARC-026](ARC-026-viewmodel-holds-navigation.md) | A ViewModel holds the navigation callbacks | medium | closed |
 | [ARC-033](ARC-033-no-export.md) | Nothing can leave the app except a copied transcript | medium | fixed |

@@ -1,7 +1,7 @@
 # ARC-024 — Half the repository is a backend nothing calls
 
 - **Severity:** medium
-- **Status:** blocked — needs a decision
+- **Status:** done
 - **Area:** `src/Harken.Api`, `src/Harken.Core`, `src/Harken.Console`
 
 ## Problem
@@ -44,7 +44,33 @@ Whisper.net and Ollama, the phone is a JNI build of whisper.cpp with no summariz
 green desktop run does not clear the phone's dependencies — but "unused" was not accurate
 and the ADR says so.
 
-## Blocked on
+## Resolution
 
-Deleting 5,214 lines and rewriting the onboarding path is not a decision to take from a
-ticket. Waiting on the maintainer to accept, reject or amend ADR-0015.
+ADR-0015 **accepted, Option A**, 2026-09-07. Deleted:
+
+- `src/Harken.Api`, `src/Harken.Core`, `src/Harken.Console`,
+  `tests/Harken.Api.IntegrationTests`, `tests/Harken.Core.UnitTests` — 5,457 lines
+  including the project files.
+- `Harken.slnx`, `global.json`, `Directory.Build.props`, `Directory.Packages.props`.
+  All four existed only to build the above; nothing in `src/Harken.Android` reads any of
+  them.
+- The `dotnet build` step from `check.sh`, the `dotnet test` step from `test-fast.sh`,
+  and `actions/setup-dotnet` from `.github/workflows/gates.yml`, which was `global.json`'s
+  only other reader.
+
+`audio/WavWriter.kt` is now the only implementation of that header.
+
+The docs went further than the ADR asked. `README.md`, `docs/setup.md` and `CONTEXT.md`
+still described accounts, an upload step, a polling client and a summarizer — none of
+which survived ADR-0009, ADR-0011 or ADR-0012, and none of which was about the .NET tier
+at all. Deleting the projects while leaving the front page telling a reader to
+`dotnet run --project src/Harken.Api` would have swapped one wrong description for a
+worse one, so all four docs were rewritten around the app that actually ships.
+`docs/plans/slice-*.md` and ADR-0001–0010 were left as written: they record what was
+true when made.
+
+## Left behind
+
+The three `src/Harken.*` directories and `tests/` still exist on disk holding untracked
+`bin/`, `obj/`, a developer's `harken.db` and six test recordings. Git tracks none of it.
+Removing them is one `rm -rf` the tooling here would not run.

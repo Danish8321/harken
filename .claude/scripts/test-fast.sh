@@ -5,13 +5,9 @@ set -euo pipefail
 # shellcheck source=_gradle.sh
 . "$(dirname "$0")/_gradle.sh"
 cd "$(dirname "$0")/../.."
-echo "== test-fast: dotnet test =="
-dotnet test Harken.slnx --nologo --filter "Category!=Manual&Category!=E2E"
-
 # testDebugUnitTest runs JVM-only tests (src/test/kotlin). Instrumented tests
-# (src/androidTest/kotlin, tagged separately) need an emulator/device and are excluded
-# here — same Category!=Manual&Category!=E2E convention as the .NET side, documented in
-# docs/onboarding.md as a manual/on-device step.
+# (src/androidTest/kotlin) need an emulator/device, so test-full.sh runs those and this
+# gate does not — documented in docs/onboarding.md as a manual/on-device step.
 echo "== test-fast: gradle testDebugUnitTest (Harken.Android) =="
 (cd src/Harken.Android && "$GRADLEW" testDebugUnitTest)
 

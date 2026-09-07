@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
-# Full build gate: every project must compile with no errors.
+# Full build gate: the app must compile with no errors. Android-only since ADR-0015
+# retired the .NET tier.
 set -euo pipefail
 # Sourced before the cd, while "$0" still points where the caller found it.
 # shellcheck source=_gradle.sh
 . "$(dirname "$0")/_gradle.sh"
 cd "$(dirname "$0")/../.."
-echo "== check: dotnet build =="
-dotnet build Harken.slnx --nologo -warnaserror
-
 echo "== check: gradle assembleDebug (Harken.Android) =="
 (cd src/Harken.Android && "$GRADLEW" assembleDebug)
 

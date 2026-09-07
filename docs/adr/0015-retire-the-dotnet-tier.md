@@ -1,7 +1,9 @@
 # ADR-0015: Retire the .NET tier
 
 ## Status
-Proposed
+Accepted — 2026-09-07. **Option A.** The maintainer chose deletion over keeping the
+tier behind its own script (B) or rewriting the console diagnostic against Whisper.net
+and Ollama directly (C).
 
 ## Context
 
@@ -48,8 +50,7 @@ is true.
 
 ## Decision
 
-**Proposed, not yet accepted — this one is the maintainer's call.** Three options,
-with what each costs.
+Three options were put, with what each costs. **Option A was chosen.**
 
 ### Option A — Delete the .NET tier
 
@@ -96,12 +97,28 @@ Option C's rewrite would buy a diagnostic that has the same flaw, and Option B k
 
 ## Consequences
 
-If Option A is accepted:
+Done when this ADR was accepted:
 
-- `check.sh` and `test-fast.sh` lose their `dotnet` steps and become Android-only. The
-  verification contract in `CLAUDE.md` should say so.
-- `docs/onboarding.md` §3–§4 are replaced by a phone-first bring-up, with the model
-  download and a first recording as the proof.
+- `check.sh` and `test-fast.sh` lost their `dotnet` steps and are Android-only. The
+  verification contract in `CLAUDE.md` still names scripts that no longer run .NET; the
+  script names are unchanged, so the contract still holds, but its wording is stale.
+- The CI workflow lost its `actions/setup-dotnet` step, and with it the only reader of
+  `global.json`.
+- `Harken.slnx`, `global.json`, `Directory.Build.props` and `Directory.Packages.props`
+  went with the projects — all four existed only to build them.
+- `docs/onboarding.md` §3–§4 were replaced by a phone-first bring-up. `README.md`,
+  `docs/setup.md` and `CONTEXT.md` went further than this ADR asked: each still described
+  a client that uploads to a server, an account model, and a summarizer, none of which
+  survived ADR-0009, ADR-0011 or ADR-0012. Deleting the tier without correcting them
+  would have left the repository's front door instructing a reader to run a project that
+  is not there.
 - ADR-0001 through ADR-0010 stay as written. They record decisions that were true when
   made; superseding them wholesale would be rewriting history rather than adding to it.
-- `Harken.slnx` goes, and with it the last thing in the repository that implies a server.
+  `docs/plans/slice-*.md` stay for the same reason.
+
+Not done, and known:
+
+- The three `src/Harken.*` directories and `tests/` still hold untracked build output and
+  a developer's `harken.db` and test recordings. Git no longer tracks a byte of them.
+- `Harken.Core/Audio/WavWriter.cs` is gone, so `audio/WavWriter.kt` is now the only
+  implementation of that 44-byte header — which was the point.
