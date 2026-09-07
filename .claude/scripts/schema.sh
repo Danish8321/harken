@@ -27,30 +27,51 @@ if [ ! -d "$SCHEMA_DIR" ]; then
 fi
 
 # Any uncommitted change under the schema directory would be indistinguishable from what
-# this run produces, and the whole comparison is against what is committed.
-if ! git diff --quiet -- "$SCHEMA_DIR" || ! git diff --cached --quiet -- "$SCHEMA_DIR"; then
+# this run produces, and the whole comparison is against what is committed. --porcelain
+# rather than `git diff`, because a version bump arrives as an untracked N.json and a
+# leftover one from an earlier run is exactly the state that makes this comparison lie.
+if [ -n "$(git status --porcelain -- "$SCHEMA_DIR")" ]; then
   echo "The exported schemas have uncommitted changes." >&2
-  echo "Commit or stash them first: this script compares what the entities produce now" >&2
-  echo "against what is committed, and cannot tell the two apart otherwise." >&2
+  echo "Commit them, stash them (git stash -u), or delete the untracked ones first: this" >&2
+  echo "script compares what the entities produce now against what is committed, and" >&2
+  echo "cannot tell the two apart otherwise." >&2
   git status --short -- "$SCHEMA_DIR" >&2
   exit 1
 fi
 
+# --rerun, not a plain invocation. room.schemaLocation points outside the task's declared
+# outputs, so Gradle's up-to-date check knows nothing about the schema directory: with an
+# unchanged entity file the task is skipped, no file is written, and this script would
+# report "Nothing" about a schema it never actually re-exported.
 echo "== schema: gradle kspDebugKotlin (re-exporting from the entities) =="
-(cd src/Harken.Android && "$GRADLEW" kspDebugKotlin)
+(cd src/Harken.Android && "$GRADLEW" kspDebugKotlin --rerun)
 
 echo
 echo "== schema: what changed =="
-if git diff --quiet -- "$SCHEMA_DIR"; then
+# A bumped @Database version makes Room write a *new* file, which git diff does not see:
+# it reports only tracked paths, so the most common schema change of all read as "nothing"
+# until this used git status instead.
+if [ -z "$(git status --porcelain -- "$SCHEMA_DIR")" ]; then
   echo "Nothing. The entities produce the schema that is committed."
   echo
   echo "If you meant to change the schema, the edit has not landed in an @Entity yet."
   exit 0
 fi
 
-git --no-pager diff --stat -- "$SCHEMA_DIR"
+git status --short -- "$SCHEMA_DIR"
 echo
-git --no-pager diff -- "$SCHEMA_DIR"
+if ! git diff --quiet -- "$SCHEMA_DIR"; then
+  git --no-pager diff -- "$SCHEMA_DIR"
+fi
+
+# A new version file has no committed side to diff against, so show it whole. This is the
+# shape being reviewed: read the column list, and check it against the migration.
+added=$(git ls-files --others --exclude-standard -- "$SCHEMA_DIR")
+for f in $added; do
+  echo
+  echo "--- new: $f ---"
+  cat "$f"
+done
 
 # Room writes the current version's file every build. If that file changed, the entities
 # no longer describe the version they are numbered as, and an install on the old shape has
