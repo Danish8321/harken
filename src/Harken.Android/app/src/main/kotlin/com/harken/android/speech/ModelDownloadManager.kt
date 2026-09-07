@@ -42,7 +42,9 @@ interface ModelProvider {
  * failure that is neither a network fault nor worth resuming from: the bytes already on
  * disk are wrong, so the retry has to start over.
  */
-class ModelIntegrityException(message: String) : IOException(message)
+class ModelIntegrityException(
+    message: String,
+) : IOException(message)
 
 /**
  * Why a model download failed, in terms a person can act on.
@@ -347,7 +349,8 @@ class ModelDownloadManager(
         // never finishes — each attempt costs the user the full 148 MB of data again.
         val alreadyHave = destination.length()
         val request =
-            Request.Builder()
+            Request
+                .Builder()
                 .url(MODEL_DOWNLOAD_URL)
                 .apply { if (alreadyHave > 0) header("Range", "bytes=$alreadyHave-") }
                 .build()

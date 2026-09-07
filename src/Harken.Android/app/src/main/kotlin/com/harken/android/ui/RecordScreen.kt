@@ -390,7 +390,11 @@ private fun MeterCard(
     content: @Composable () -> Unit,
 ) {
     Column(
-        Modifier.fillMaxWidth().height(height).background(c.meterBg, RoundedCornerShape(30.dp)).padding(20.dp),
+        Modifier
+            .fillMaxWidth()
+            .height(height)
+            .background(c.meterBg, RoundedCornerShape(30.dp))
+            .padding(20.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Mic, contentDescription = null, tint = iconTint, modifier = Modifier.size(15.dp))
@@ -424,12 +428,13 @@ private fun LiveDot(c: ProtoColors) {
         if (reduced) {
             1f
         } else {
-            transition.animateFloat(
-                initialValue = 0.35f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(tween(700, easing = LinearEasing), RepeatMode.Reverse),
-                label = "liveDotAlpha",
-            ).value
+            transition
+                .animateFloat(
+                    initialValue = 0.35f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(tween(700, easing = LinearEasing), RepeatMode.Reverse),
+                    label = "liveDotAlpha",
+                ).value
         }
     Box(Modifier.size(7.dp).background(c.accent.copy(alpha = alpha), CircleShape))
 }
@@ -486,8 +491,7 @@ private fun SaveStatusCard(
                     }
                     else -> Unit
                 }
-            }
-            .padding(16.dp),
+            }.padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // transitionSpec is not a composable scope, so the specs are resolved out here.

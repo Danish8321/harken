@@ -176,7 +176,11 @@ fun SplashScreen(
                 }
             }
             Row(
-                Modifier.padding(top = 10.dp).fillMaxWidth().padding(horizontal = 32.dp).height(64.dp),
+                Modifier
+                    .padding(top = 10.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp)
+                    .height(64.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {

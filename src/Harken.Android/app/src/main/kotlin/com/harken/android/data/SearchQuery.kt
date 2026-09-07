@@ -35,7 +35,11 @@ object SearchQuery {
             .replace("_", "\\_")
 
     /** A window of [text] around the first occurrence of [term], and where the match sits in it. */
-    data class Snippet(val text: String, val matchStart: Int, val matchEnd: Int) {
+    data class Snippet(
+        val text: String,
+        val matchStart: Int,
+        val matchEnd: Int,
+    ) {
         val hasMatch: Boolean get() = matchStart >= 0
     }
 

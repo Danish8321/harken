@@ -18,7 +18,9 @@ import android.content.Context
  * card, and on the failure message the killed decode leaves behind.
  */
 @JvmInline
-value class DeviceCapability(val totalMemBytes: Long) {
+value class DeviceCapability(
+    val totalMemBytes: Long,
+) {
     /**
      * True only when the device is *known* to be under the bar. A read that fails reports
      * zero, and an unknown device is left alone: a wrong warning is worse than the silence

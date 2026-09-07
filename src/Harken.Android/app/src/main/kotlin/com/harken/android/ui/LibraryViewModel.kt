@@ -67,12 +67,12 @@ class LibraryViewModel(
 
     init {
         viewModelScope.launch {
-            repository.observeSessions()
+            repository
+                .observeSessions()
                 .catch { e ->
                     Log.e(TAG, "Failed reading sessions from the local database", e)
                     _uiState.value = _uiState.value.copy(isLoading = false, loadError = e.message)
-                }
-                .collect { sessions ->
+                }.collect { sessions ->
                     _uiState.value = _uiState.value.copy(sessions = sessions, isLoading = false, loadError = null)
                 }
         }

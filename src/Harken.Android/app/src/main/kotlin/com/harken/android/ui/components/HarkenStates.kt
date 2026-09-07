@@ -53,7 +53,12 @@ fun EmptyState(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
 ) {
-    HarkenCard(modifier = modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(22.dp)) {
+    HarkenCard(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding =
+            androidx.compose.foundation.layout
+                .PaddingValues(22.dp),
+    ) {
         Box(
             Modifier.size(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center,
@@ -113,7 +118,9 @@ fun ErrorState(
                     onClick = onSecondary,
                     shape = PillShape,
                     modifier = Modifier.heightIn(min = 48.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                    colors =
+                        androidx.compose.material3.ButtonDefaults
+                            .textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
                 ) { Text(secondaryLabel, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
             }
         }

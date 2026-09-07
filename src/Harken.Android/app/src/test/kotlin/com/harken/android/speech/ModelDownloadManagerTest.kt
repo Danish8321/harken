@@ -128,19 +128,20 @@ class ModelDownloadManagerTest {
         bytes: ByteArray,
         requests: AtomicInteger = AtomicInteger(0),
         delayMs: Long = 0,
-    ) = OkHttpClient.Builder()
+    ) = OkHttpClient
+        .Builder()
         .addInterceptor { chain ->
             requests.incrementAndGet()
             if (delayMs > 0) Thread.sleep(delayMs)
-            Response.Builder()
+            Response
+                .Builder()
                 .request(chain.request())
                 .protocol(Protocol.HTTP_1_1)
                 .code(200)
                 .message("OK")
                 .body(bytes.toResponseBody("application/octet-stream".toMediaType()))
                 .build()
-        }
-        .build()
+        }.build()
 
     private fun sha256Of(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }

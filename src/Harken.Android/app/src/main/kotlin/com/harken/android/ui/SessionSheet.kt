@@ -168,7 +168,9 @@ fun SessionSheet(
                         LazyColumn(
                             state = transcriptState,
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, bottom = 118.dp),
+                            contentPadding =
+                                androidx.compose.foundation.layout
+                                    .PaddingValues(start = 20.dp, end = 20.dp, bottom = 118.dp),
                         ) {
                             item {
                                 // Rename is inline and local — no dialog, and no round trip, because
@@ -293,8 +295,14 @@ fun SessionSheet(
                                 androidx.compose.animation.AnimatedVisibility(
                                     visible = shown,
                                     enter =
-                                        fadeIn(com.harken.android.ui.theme.HarkenMotion.effectsFast()) +
-                                            slideInVertically(com.harken.android.ui.theme.HarkenMotion.spatialFast()) { it / 8 },
+                                        fadeIn(
+                                            com.harken.android.ui.theme.HarkenMotion
+                                                .effectsFast(),
+                                        ) +
+                                            slideInVertically(
+                                                com.harken.android.ui.theme.HarkenMotion
+                                                    .spatialFast(),
+                                            ) { it / 8 },
                                 ) {
                                     TranscriptRow(
                                         segment = segment,

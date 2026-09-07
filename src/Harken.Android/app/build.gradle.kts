@@ -2,7 +2,7 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    // kotlin.android is gone: AGP 9's built-in Kotlin support replaces it (ARC-044).
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
@@ -48,16 +48,35 @@ val gitCommitCount: Int = runCatching {
 
 val keystoreProperties = properties("keystore.properties")
 
+// room-migration:2.8.4 generates its FieldBundle serializer against kotlinx-serialization
+// 1.8.1 (its own direct dependency line says so) but ships a stale 1.7.3 "strictly" BOM
+// constraint bundled in the same release that downgrades it right back — the two disagree
+// within Room's own published metadata. Loading the 1.7.3 GeneratedSerializer interface
+// against a class generated for 1.8.1 is an AbstractMethodError on
+// typeParametersSerializers() at runtime (see MigrationTestHelper's connectedAndroidTest
+// failure, and Google Issue Tracker 400483860). Forcing back to what Room itself asked for
+// undoes Room's own downgrade; no fix is out from Room as of 2.8.4, the latest stable.
+configurations.all {
+    resolutionStrategy {
+        force(
+            "org.jetbrains.kotlinx:kotlinx-serialization-core:1.8.1",
+            "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.8.1",
+            "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1",
+            "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.8.1",
+        )
+    }
+}
+
 android {
     namespace = "com.harken.android"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.harken.android"
         // Foreground service microphone type needs API 26+ (Service.startForeground with
         // a type); AudioRecord/notification-action Stop button work fine from there too.
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         versionCode = gitCommitCount
         versionName = versionProperties.getProperty("versionName", "0.0.0")
         resValue("string", "app_name", "Harken")
@@ -129,15 +148,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
         // For GIT_SHA. Off by default since AGP 8, and the launch telemetry needs it to
         // say which build a report came from.
         buildConfig = true
+        // The debug build's "Harken Debug" app_name override needs this explicitly on
+        // AGP 9 (ARC-044) — it used to be on by default.
+        resValues = true
     }
 
     sourceSets {

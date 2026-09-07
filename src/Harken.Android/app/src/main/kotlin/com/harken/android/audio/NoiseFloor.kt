@@ -22,7 +22,9 @@ package com.harken.android.audio
  * Byte-driven like the [SilenceDetector] that owns it, so the window is 60 seconds of
  * audio whether chunks arrive on schedule or late.
  */
-class NoiseFloor(private val windowBytes: Int = WINDOW_BYTES) {
+class NoiseFloor(
+    private val windowBytes: Int = WINDOW_BYTES,
+) {
     init {
         require(windowBytes > 0) { "windowBytes must be positive" }
     }

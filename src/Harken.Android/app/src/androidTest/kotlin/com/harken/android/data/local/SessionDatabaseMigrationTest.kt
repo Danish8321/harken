@@ -52,18 +52,19 @@ class SessionDatabaseMigrationTest {
         // failure this whole tier exists to catch.
         val migrated = helper.runMigrationsAndValidate(DB_NAME, 2, true, MIGRATION_1_2)
 
-        migrated.query(
-            "SELECT segmentCount, localTitle, localTags, isLocalOnly FROM sessions WHERE id = ?",
-            arrayOf(existingId),
-        ).use { cursor ->
-            assertTrue("the row written at version 1 should survive the migration", cursor.moveToFirst())
-            assertEquals(3, cursor.getInt(cursor.getColumnIndexOrThrow("segmentCount")))
-            // The two local-only columns matter most: they hold what the user typed, and
-            // nothing else on the device has a copy of them.
-            assertEquals("Board review", cursor.getString(cursor.getColumnIndexOrThrow("localTitle")))
-            assertEquals("work", cursor.getString(cursor.getColumnIndexOrThrow("localTags")))
-            assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("isLocalOnly")))
-        }
+        migrated
+            .query(
+                "SELECT segmentCount, localTitle, localTags, isLocalOnly FROM sessions WHERE id = ?",
+                arrayOf(existingId),
+            ).use { cursor ->
+                assertTrue("the row written at version 1 should survive the migration", cursor.moveToFirst())
+                assertEquals(3, cursor.getInt(cursor.getColumnIndexOrThrow("segmentCount")))
+                // The two local-only columns matter most: they hold what the user typed, and
+                // nothing else on the device has a copy of them.
+                assertEquals("Board review", cursor.getString(cursor.getColumnIndexOrThrow("localTitle")))
+                assertEquals("work", cursor.getString(cursor.getColumnIndexOrThrow("localTags")))
+                assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("isLocalOnly")))
+            }
         migrated.close()
     }
 
@@ -107,24 +108,26 @@ class SessionDatabaseMigrationTest {
 
         val migrated = helper.runMigrationsAndValidate(DB_NAME, 3, true, MIGRATION_2_3)
 
-        migrated.query(
-            "SELECT audioPath, localTitle, localTags, segmentCount FROM sessions WHERE id = ?",
-            arrayOf(withAudio),
-        ).use { cursor ->
-            assertTrue("the recording written at version 2 should survive the rebuild", cursor.moveToFirst())
-            assertEquals(path, cursor.getString(cursor.getColumnIndexOrThrow("audioPath")))
-            assertEquals("Site walkthrough", cursor.getString(cursor.getColumnIndexOrThrow("localTitle")))
-            assertEquals("work,field", cursor.getString(cursor.getColumnIndexOrThrow("localTags")))
-            assertEquals(7, cursor.getInt(cursor.getColumnIndexOrThrow("segmentCount")))
-        }
+        migrated
+            .query(
+                "SELECT audioPath, localTitle, localTags, segmentCount FROM sessions WHERE id = ?",
+                arrayOf(withAudio),
+            ).use { cursor ->
+                assertTrue("the recording written at version 2 should survive the rebuild", cursor.moveToFirst())
+                assertEquals(path, cursor.getString(cursor.getColumnIndexOrThrow("audioPath")))
+                assertEquals("Site walkthrough", cursor.getString(cursor.getColumnIndexOrThrow("localTitle")))
+                assertEquals("work,field", cursor.getString(cursor.getColumnIndexOrThrow("localTags")))
+                assertEquals(7, cursor.getInt(cursor.getColumnIndexOrThrow("segmentCount")))
+            }
 
-        migrated.query(
-            "SELECT audioPath FROM sessions WHERE id = ?",
-            arrayOf(withoutAudio),
-        ).use { cursor ->
-            assertTrue(cursor.moveToFirst())
-            assertTrue("a null path must stay null", cursor.isNull(cursor.getColumnIndexOrThrow("audioPath")))
-        }
+        migrated
+            .query(
+                "SELECT audioPath FROM sessions WHERE id = ?",
+                arrayOf(withoutAudio),
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertTrue("a null path must stay null", cursor.isNull(cursor.getColumnIndexOrThrow("audioPath")))
+            }
 
         migrated.query("SELECT COUNT(*) FROM sessions").use { cursor ->
             assertTrue(cursor.moveToFirst())
@@ -158,14 +161,15 @@ class SessionDatabaseMigrationTest {
 
         val migrated = helper.runMigrationsAndValidate(DB_NAME, 3, true, MIGRATION_1_2, MIGRATION_2_3)
 
-        migrated.query(
-            "SELECT audioPath, localTitle FROM sessions WHERE id = ?",
-            arrayOf(existingId),
-        ).use { cursor ->
-            assertTrue("a version 1 row should reach version 3 intact", cursor.moveToFirst())
-            assertEquals(path, cursor.getString(cursor.getColumnIndexOrThrow("audioPath")))
-            assertEquals("Board review", cursor.getString(cursor.getColumnIndexOrThrow("localTitle")))
-        }
+        migrated
+            .query(
+                "SELECT audioPath, localTitle FROM sessions WHERE id = ?",
+                arrayOf(existingId),
+            ).use { cursor ->
+                assertTrue("a version 1 row should reach version 3 intact", cursor.moveToFirst())
+                assertEquals(path, cursor.getString(cursor.getColumnIndexOrThrow("audioPath")))
+                assertEquals("Board review", cursor.getString(cursor.getColumnIndexOrThrow("localTitle")))
+            }
         migrated.close()
     }
 

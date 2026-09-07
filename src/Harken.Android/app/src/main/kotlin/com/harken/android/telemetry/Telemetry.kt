@@ -43,7 +43,11 @@ object Telemetry {
     ) {
         val line = StringBuilder("event=").append(name)
         for ((key, value) in fields) {
-            line.append(' ').append(key).append('=').append(render(value))
+            line
+                .append(' ')
+                .append(key)
+                .append('=')
+                .append(render(value))
         }
         Log.i(TAG, line.toString())
     }

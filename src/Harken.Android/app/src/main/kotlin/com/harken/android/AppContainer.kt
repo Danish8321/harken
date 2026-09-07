@@ -25,7 +25,9 @@ import com.harken.android.speech.OnDeviceTranscriber
  * dependency is built the first time something actually asks for it — the transcriber, and
  * with it `System.loadLibrary`, only when a decode is about to run.
  */
-class AppContainer(context: Context) {
+class AppContainer(
+    context: Context,
+) {
     private val appContext = context.applicationContext
 
     val database: HarkenDatabase by lazy { HarkenDatabase.get(appContext) }

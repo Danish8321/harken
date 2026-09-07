@@ -30,8 +30,13 @@ private const val TAG = "LibraryExporter"
  * destination and a list, and it reports what it wrote. That is what makes the naming and
  * the counting testable without a device.
  */
-class LibraryExporter(private val resolver: ContentResolver) {
-    data class Progress(val done: Int, val total: Int)
+class LibraryExporter(
+    private val resolver: ContentResolver,
+) {
+    data class Progress(
+        val done: Int,
+        val total: Int,
+    )
 
     data class Report(
         val recordings: Int,

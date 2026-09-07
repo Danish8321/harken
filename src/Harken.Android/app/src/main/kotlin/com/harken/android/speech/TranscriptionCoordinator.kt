@@ -91,7 +91,8 @@ object TranscriptionCoordinator {
                     // failed", which they cannot. runCatchingDownload never puts a
                     // CancellationException in this Result, so the wrapper cannot swallow one.
                     val modelPath =
-                        modelDownloadManager.ensureModel()
+                        modelDownloadManager
+                            .ensureModel()
                             .getOrElse { throw ModelUnavailableException(it) }
                     val segments = onDeviceTranscriber.transcribe(filePath, modelPath, onProgress)
                     repository.completeLocal(sessionId, segments, audioSeconds)
@@ -171,5 +172,7 @@ object TranscriptionCoordinator {
     private fun wavDurationSeconds(filePath: String): Int = WavFormat.durationSeconds(File(filePath))
 
     /** Marks a failure that happened before the decode began, so the two can be told apart. */
-    private class ModelUnavailableException(override val cause: Throwable) : Exception(cause)
+    private class ModelUnavailableException(
+        override val cause: Throwable,
+    ) : Exception(cause)
 }

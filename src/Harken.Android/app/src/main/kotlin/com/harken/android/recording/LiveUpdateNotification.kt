@@ -57,7 +57,8 @@ object LiveUpdateNotification {
         // object to the system and the second addAction silently reuses the first's.
         val toggle = PendingIntent.getService(context, 1, toggleIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
-        return NotificationCompat.Builder(context, channelId)
+        return NotificationCompat
+            .Builder(context, channelId)
             .setContentTitle(title)
             .setContentText(
                 if (paused) {
@@ -65,8 +66,7 @@ object LiveUpdateNotification {
                 } else {
                     context.getString(R.string.notification_recording_body)
                 },
-            )
-            .setSmallIcon(R.drawable.ic_notification_mic)
+            ).setSmallIcon(R.drawable.ic_notification_mic)
             .setOngoing(true)
             .setUsesChronometer(!paused)
             .setWhen(startedAtWallClockMs)
@@ -74,8 +74,7 @@ object LiveUpdateNotification {
                 0,
                 context.getString(if (paused) R.string.notification_recording_resume else R.string.notification_recording_pause),
                 toggle,
-            )
-            .setColorized(true)
+            ).setColorized(true)
             .setColor(RECORDING_ACCENT)
             .setCategory(Notification.CATEGORY_PROGRESS)
             // Live Update: asks the system for the status-bar chip and the promoted
@@ -84,8 +83,7 @@ object LiveUpdateNotification {
                 if (android.os.Build.VERSION.SDK_INT >= 36) {
                     builder.extras.putBoolean("android.requestPromotedOngoing", true)
                 }
-            }
-            .addAction(0, context.getString(R.string.notification_recording_stop), stop)
+            }.addAction(0, context.getString(R.string.notification_recording_stop), stop)
             .build()
     }
 
@@ -103,7 +101,8 @@ object LiveUpdateNotification {
         cancelIntent: PendingIntent,
         contentIntent: PendingIntent,
     ): Notification =
-        NotificationCompat.Builder(context, channelId)
+        NotificationCompat
+            .Builder(context, channelId)
             .setContentTitle(context.getString(R.string.notification_transcribing_title, title))
             .setContentText(
                 if (etaMinutes != null) {
@@ -111,8 +110,7 @@ object LiveUpdateNotification {
                 } else {
                     context.getString(R.string.notification_transcribing_body)
                 },
-            )
-            .setSmallIcon(R.drawable.ic_notification_mic)
+            ).setSmallIcon(R.drawable.ic_notification_mic)
             .setOngoing(true)
             .setColorized(true)
             .setColor(DONE_ACCENT)
@@ -124,8 +122,7 @@ object LiveUpdateNotification {
                 if (android.os.Build.VERSION.SDK_INT >= 36) {
                     builder.extras.putBoolean("android.requestPromotedOngoing", true)
                 }
-            }
-            .build()
+            }.build()
 
     /**
      * An export in flight. Determinate from the first file: unlike a decode, the job knows
@@ -139,7 +136,8 @@ object LiveUpdateNotification {
         cancelIntent: PendingIntent,
         contentIntent: PendingIntent,
     ): Notification =
-        NotificationCompat.Builder(context, channelId)
+        NotificationCompat
+            .Builder(context, channelId)
             .setContentTitle(context.getString(R.string.notification_exporting_title))
             .setContentText(context.getString(R.string.notification_exporting_body, done, total))
             .setSmallIcon(R.drawable.ic_notification_mic)
@@ -154,8 +152,7 @@ object LiveUpdateNotification {
                 if (android.os.Build.VERSION.SDK_INT >= 36) {
                     builder.extras.putBoolean("android.requestPromotedOngoing", true)
                 }
-            }
-            .build()
+            }.build()
 
     // ProtoDarkColors.accent and .success as ARGB ints — the notification API predates
     // Compose Color, so these are the one place a literal is unavoidable. Keep in step

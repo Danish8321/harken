@@ -119,10 +119,11 @@ class SessionSheetViewModel(
                             _uiState.value.playbackDurationMs.takeIf { it > 0 }
                                 ?: (duration * 1000),
                     )
-                }.flowOn(Dispatchers.Default).catch { e ->
-                    Log.e(TAG, "Failed loading session $id", e)
-                    _uiState.value = _uiState.value.copy(loadError = e.message)
-                }.collect { _uiState.value = it }
+                }.flowOn(Dispatchers.Default)
+                    .catch { e ->
+                        Log.e(TAG, "Failed loading session $id", e)
+                        _uiState.value = _uiState.value.copy(loadError = e.message)
+                    }.collect { _uiState.value = it }
             }
     }
 
@@ -153,7 +154,8 @@ class SessionSheetViewModel(
             player =
                 MediaPlayer().apply {
                     setAudioAttributes(
-                        AudioAttributes.Builder()
+                        AudioAttributes
+                            .Builder()
                             .setUsage(AudioAttributes.USAGE_MEDIA)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                             .build(),
@@ -223,7 +225,6 @@ class SessionSheetViewModel(
 
     override fun onCleared() {
         releasePlayer()
-        super.onCleared()
     }
 
     /** A blank [title] clears the local name, so the session goes back to its derived one. */
@@ -347,7 +348,8 @@ class SessionSheetViewModel(
     ) {
         val app = getApplication<Application>()
         val chooser =
-            Intent.createChooser(intent, app.getString(chooserTitle))
+            Intent
+                .createChooser(intent, app.getString(chooserTitle))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { app.startActivity(chooser) }
             .onFailure { e ->

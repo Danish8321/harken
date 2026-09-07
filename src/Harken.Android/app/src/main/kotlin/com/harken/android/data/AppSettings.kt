@@ -11,7 +11,9 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "harken_settings")
 
-class AppSettings(private val context: Context) {
+class AppSettings(
+    private val context: Context,
+) {
     private object Keys {
         val OnboardingComplete = booleanPreferencesKey("onboarding_complete")
         val ThemeMode = stringPreferencesKey("theme_mode")

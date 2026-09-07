@@ -24,7 +24,9 @@ object WavFormat {
     fun durationSeconds(file: java.io.File): Int = ((file.length() - HEADER_LENGTH).coerceAtLeast(0) / BYTES_PER_SECOND).toInt()
 }
 
-class WavWriter(private val file: RandomAccessFile) : AutoCloseable {
+class WavWriter(
+    private val file: RandomAccessFile,
+) : AutoCloseable {
     private var dataLength: Long = 0
 
     init {

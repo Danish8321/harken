@@ -93,20 +93,19 @@ class OnboardingViewModel(
         if (_uiState.value.modelDownloadState == ModelDownloadState.Downloading) return
         _uiState.value = _uiState.value.copy(modelDownloadState = ModelDownloadState.Downloading, modelDownloadError = null)
         viewModelScope.launch {
-            modelDownloadManager.downloadProgress()
+            modelDownloadManager
+                .downloadProgress()
                 .catch { e ->
                     _uiState.value =
                         _uiState.value.copy(
                             modelDownloadState = ModelDownloadState.Failed,
                             modelDownloadError = ModelDownloadFailure.of(e),
                         )
-                }
-                .onCompletion { failure ->
+                }.onCompletion { failure ->
                     if (failure == null && _uiState.value.modelDownloadState != ModelDownloadState.Failed) {
                         _uiState.value = _uiState.value.copy(modelDownloadState = ModelDownloadState.Ready, modelDownloadProgress = 100)
                     }
-                }
-                .collect { percent ->
+                }.collect { percent ->
                     _uiState.value = _uiState.value.copy(modelDownloadProgress = percent)
                 }
         }
@@ -150,7 +149,12 @@ fun OnboardingScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(
-        Modifier.fillMaxSize().background(c.screenBg).statusBarsPadding().navigationBarsPadding().padding(24.dp),
+        Modifier
+            .fillMaxSize()
+            .background(c.screenBg)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(24.dp),
     ) {
         LinearProgressIndicator(
             progress = { state.step / 2f },

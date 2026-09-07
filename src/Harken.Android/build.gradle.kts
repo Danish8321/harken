@@ -2,7 +2,7 @@ plugins {
     // Versions live in gradle/libs.versions.toml, with the reasons for the non-obvious
     // ones (ARC-021).
     alias(libs.plugins.android.application) apply false
-    alias(libs.plugins.kotlin.android) apply false
+    // kotlin.android is gone: AGP 9's built-in Kotlin support replaces it (ARC-044).
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.ktlint)
@@ -18,7 +18,13 @@ subprojects {
         // Room's KSP output is Kotlin and lands under build/. It is not ours to format,
         // and formatting it would mean re-formatting on every schema change.
         filter {
-            exclude { it.file.path.startsWith(layout.buildDirectory.get().asFile.path) }
+            exclude {
+                it.file.path.startsWith(
+                    layout.buildDirectory
+                        .get()
+                        .asFile.path,
+                )
+            }
         }
     }
 }

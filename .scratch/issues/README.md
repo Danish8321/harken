@@ -103,4 +103,4 @@ inferred.
 | [ARC-041](ARC-041-integration-tests-are-not-deterministic.md) | The .NET gate failed once and passed on a re-run | medium | fixed |
 | [ARC-042](ARC-042-transcription-failure-text-comes-from-the-exception.md) | A failed transcription showed the user the exception's message | high | fixed |
 | [ARC-043](ARC-043-transcription-notification-could-stick.md) | The transcribing notification could stay up forever | medium | fixed |
-| [ARC-044](ARC-044-compilesdk-36-ceiling.md) | compileSdk 36 ceiling holds back 18 Lint version notices | low | open |
+| [ARC-044](ARC-044-compilesdk-36-ceiling.md) | compileSdk 36 ceiling holds back 18 Lint version notices | low | done |

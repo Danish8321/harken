@@ -100,7 +100,11 @@ private val HarkenShapes =
 val PillShape = RoundedCornerShape(999.dp)
 
 /** Ink is a role, not a colour scheme slot — see Color.kt. */
-data class InkColors(val ink: Color, val onInk: Color, val onInkDim: Color)
+data class InkColors(
+    val ink: Color,
+    val onInk: Color,
+    val onInkDim: Color,
+)
 
 val LocalInk = compositionLocalOf { InkColors(Organic.InkLight, Organic.OnInk, Organic.OnInk.copy(alpha = 0.6f)) }
 

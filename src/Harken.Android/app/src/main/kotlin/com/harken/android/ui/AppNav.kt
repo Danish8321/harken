@@ -226,7 +226,10 @@ private fun MainHost(
 }
 
 /** Which recording the sheet is showing, and which line of it to open at. */
-private data class OpenSession(val sessionId: UUID, val focusSegmentId: UUID?)
+private data class OpenSession(
+    val sessionId: UUID,
+    val focusSegmentId: UUID?,
+)
 
 // A floating pill instead of Material's edge-to-edge NavigationBar (UI-021) — inset from
 // the screen edges and elevated on the surface color, adapted from the floating-nav
@@ -317,7 +320,9 @@ private fun FloatingTabBar(
                         lineHeight = 13.sp,
                         style =
                             androidx.compose.ui.text.TextStyle(
-                                platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+                                platformStyle =
+                                    androidx.compose.ui.text
+                                        .PlatformTextStyle(includeFontPadding = false),
                             ),
                     )
                 }

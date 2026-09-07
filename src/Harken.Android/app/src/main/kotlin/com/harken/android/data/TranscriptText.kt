@@ -14,7 +14,10 @@ import java.util.Locale
  * — and it would have disagreed with whatever the export wrote.
  */
 object TranscriptText {
-    data class Line(val offsetSeconds: Int, val text: String)
+    data class Line(
+        val offsetSeconds: Int,
+        val text: String,
+    )
 
     /** `4:09`, or `1:04:09` once a recording passes an hour. */
     fun timestamp(offsetSeconds: Int): String {

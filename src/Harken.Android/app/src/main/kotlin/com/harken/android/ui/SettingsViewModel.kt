@@ -130,7 +130,8 @@ class SettingsViewModel(
         if (_uiState.value.modelDownloadState == ModelDownloadState.Downloading) return
         _uiState.value = _uiState.value.copy(modelDownloadState = ModelDownloadState.Downloading, modelDownloadError = null)
         viewModelScope.launch {
-            modelDownloadManager.downloadProgress(replaceExisting = true)
+            modelDownloadManager
+                .downloadProgress(replaceExisting = true)
                 .catch { e ->
                     _uiState.value =
                         _uiState.value.copy(
@@ -138,8 +139,7 @@ class SettingsViewModel(
                             modelDownloadError = ModelDownloadFailure.of(e),
                             modelPresent = modelDownloadManager.isModelPresent(),
                         )
-                }
-                .onCompletion { failure ->
+                }.onCompletion { failure ->
                     if (failure == null && _uiState.value.modelDownloadState != ModelDownloadState.Failed) {
                         _uiState.value =
                             _uiState.value.copy(
@@ -148,8 +148,7 @@ class SettingsViewModel(
                                 modelPresent = true,
                             )
                     }
-                }
-                .collect { percent ->
+                }.collect { percent ->
                     _uiState.value = _uiState.value.copy(modelDownloadProgress = percent)
                 }
         }

@@ -39,7 +39,9 @@ private class FakeSink : TranscriptionSink {
     }
 }
 
-private class FakeModelProvider(private val result: Result<String> = Result.success("/models/whisper.bin")) : ModelProvider {
+private class FakeModelProvider(
+    private val result: Result<String> = Result.success("/models/whisper.bin"),
+) : ModelProvider {
     override suspend fun ensureModel(): Result<String> = result
 }
 
@@ -77,7 +79,12 @@ private class FakeTranscriber(
 
 // wavDurationSeconds reads the file off disk, which a fake WAV path won't satisfy — every
 // test here uses a real, empty temp file so that path resolves to 0 instead of throwing.
-private fun tempWavPath(): String = kotlin.io.path.createTempFile(suffix = ".wav").toFile().apply { deleteOnExit() }.absolutePath
+private fun tempWavPath(): String =
+    kotlin.io.path
+        .createTempFile(suffix = ".wav")
+        .toFile()
+        .apply { deleteOnExit() }
+        .absolutePath
 
 class TranscriptionCoordinatorTest {
     @Test

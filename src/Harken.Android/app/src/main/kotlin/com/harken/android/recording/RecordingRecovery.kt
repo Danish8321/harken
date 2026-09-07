@@ -100,7 +100,6 @@ class RecordingRecovery(
                         startedAt = endedAt.minusSeconds(duration.toLong()),
                         endedAt = endedAt,
                     )
-                }
-                .sortedByDescending { it.endedAt }
+                }.sortedByDescending { it.endedAt }
     }
 }

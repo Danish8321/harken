@@ -1,7 +1,10 @@
 package com.harken.android.audio
 
 /** A stretch of a recording worth decoding, as sample indices into the PCM. */
-data class SpeechSpan(val startSample: Int, val endSampleExclusive: Int) {
+data class SpeechSpan(
+    val startSample: Int,
+    val endSampleExclusive: Int,
+) {
     val sampleCount: Int get() = endSampleExclusive - startSample
 }
 
@@ -153,8 +156,7 @@ object SpeechSpans {
                     startSample = (span.startSample - padding).coerceAtLeast(0),
                     endSampleExclusive = (span.endSampleExclusive + padding).coerceAtMost(totalSamples),
                 )
-            }
-            .map { span -> span.grownTo(sampleRate * MIN_SPAN_SECONDS, totalSamples) }
+            }.map { span -> span.grownTo(sampleRate * MIN_SPAN_SECONDS, totalSamples) }
             .mergedWhereTheyTouch()
             .flatMap { span -> span.chunked(sampleRate * MAX_SPAN_SECONDS) }
     }

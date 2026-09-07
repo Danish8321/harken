@@ -19,7 +19,9 @@ import java.io.File
  * transcript — a crash breadcrumb is not a reason to put a recording's content anywhere it
  * would not otherwise be (ADR-0011).
  */
-class NativeDecodeBreadcrumb(filesDir: File) {
+class NativeDecodeBreadcrumb(
+    filesDir: File,
+) {
     private val file = File(filesDir, FILE_NAME)
 
     /** Notes that a decode is starting. Overwrites any previous note. */

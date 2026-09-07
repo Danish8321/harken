@@ -12,7 +12,10 @@ import java.io.RandomAccessFile
 class WavWriterTest {
     @Test
     fun closePatchesRiffAndDataLengths() {
-        val file = kotlin.io.path.createTempFile().toFile()
+        val file =
+            kotlin.io.path
+                .createTempFile()
+                .toFile()
         file.delete()
         WavWriter(RandomAccessFile(file, "rw")).use { it.write(ByteArray(100), 0, 100) }
 
@@ -28,7 +31,10 @@ class WavWriterTest {
 
     @Test
     fun repairHeaderFixesAnOrphanedFile() {
-        val file = kotlin.io.path.createTempFile().toFile()
+        val file =
+            kotlin.io.path
+                .createTempFile()
+                .toFile()
         file.delete()
         val raf = RandomAccessFile(file, "rw")
         val writer = WavWriter(raf)
@@ -48,7 +54,10 @@ class WavWriterTest {
 
     @Test
     fun repairHeaderIsANoOpWhenAlreadyCorrect() {
-        val file = kotlin.io.path.createTempFile().toFile()
+        val file =
+            kotlin.io.path
+                .createTempFile()
+                .toFile()
         file.delete()
         WavWriter(RandomAccessFile(file, "rw")).use { it.write(ByteArray(50), 0, 50) }
 
@@ -62,7 +71,10 @@ class WavWriterTest {
         // being left at the end of the data by the header and by the previous write. If
         // that invariant ever breaks, chunks overwrite each other and the recording is
         // silence with one chunk in it.
-        val file = kotlin.io.path.createTempFile().toFile()
+        val file =
+            kotlin.io.path
+                .createTempFile()
+                .toFile()
         file.delete()
         WavWriter(RandomAccessFile(file, "rw")).use { writer ->
             writer.write(ByteArray(4) { 1 }, 0, 4)

@@ -8,43 +8,37 @@
 #   * room and ksp move together, and ksp moves with kotlin. Bumping one alone breaks the
 #     annotation processor rather than the build file.
 #
-# There is also a ceiling. compileSdk is 36 and AGP 8.12 recommends no higher, so every
-# androidx release cut in 2026 is out of reach: their AAR metadata demands API 37, and
-# `checkDebugAarMetadata` refuses the build with the version it wanted. That is why the
-# versions below are the newest that still build, not the newest that exist — Lint will
-# keep naming the 2026 ones. Raising the ceiling is one job: AGP 9, then compileSdk 37,
-# then the androidx train follows.
+# The ceiling ARC-037 documented here (compileSdk 36 / AGP 8.12) is gone as of ARC-044:
+# AGP 9, compileSdk 37, and the androidx train that was waiting on both.
 #
 # Group names say what moves together. A version with no group of its own is a library
 # nothing else is tied to.
 
 [versions]
-# 8.12+ rather than 8.7.3: lifecycle resolves to 2.9.0 through the Compose BOM, and that
-# release's lint checks are compiled against the Kotlin 2.1 analysis API. AGP 8.7's
-# bundled lint carries the older one, so lintVitalRelease crashed with
-# "Found class …KaCallableMemberCall, but interface was expected" and no release build
-# could be produced at all.
-agp = "8.12.0"
-kotlin = "2.2.0"
-# Tracks kotlin: the KSP version is <kotlin version>-<ksp release>, and a mismatch is a
-# hard failure at configuration time.
-ksp = "2.2.0-2.0.2"
+# AGP 9.4.0: the version this Google Maven mirrors as current on 2026-09-07 (ARC-044).
+# Needs Gradle 9.6.0 or higher — Gradle 9.6 removed the internal Problems API AGP 9.0
+# through 9.3 called, so the wrapper and this version move together.
+agp = "9.4.0"
+kotlin = "2.4.10"
+# Tracks kotlin. KSP dropped the "<kotlin>-<ksp>" compound version string somewhere
+# after 2.3 — a bare KSP release number now, and a mismatch is still a hard failure at
+# configuration time.
+ksp = "2.3.11"
 
-compose-bom = "2025.09.00"
+compose-bom = "2026.08.00"
 # Material 3 Expressive (MaterialExpressiveTheme, MotionScheme, ButtonGroup, SplitButton,
-# LoadingIndicator) needs material3 1.4 — the 2025.09 BOM still pins 1.3.2, so this is
-# pinned above the BOM's constraint until a BOM train carries 1.4 as its default. It is
-# the one Compose artifact with a version here; every other one takes the BOM's.
+# LoadingIndicator) needs material3 1.4 — carried by the BOM itself since 2026.08.00, but
+# still declared explicitly rather than trusted to a train that could regress it.
 material3 = "1.4.0"
 
 # room-runtime, room-ktx, room-compiler and room-testing are one release. The compiler
 # runs through KSP, so it is also what ties `room` to `ksp` above.
-room = "2.7.1"
-lifecycle = "2.9.4"
-activity-compose = "1.11.0"
-navigation-compose = "2.9.5"
-core-ktx = "1.17.0"
-datastore = "1.1.7"
+room = "2.8.4"
+lifecycle = "2.11.0"
+activity-compose = "1.13.0"
+navigation-compose = "2.10.0"
+core-ktx = "1.19.0"
+datastore = "1.2.1"
 # RoundedPolygon / Morph — the record button's Circle -> Cookie morph and the
 # shape-sequence loading indicator are both built on this.
 graphics-shapes = "1.1.0"
@@ -52,14 +46,18 @@ graphics-shapes = "1.1.0"
 # retrofit2 since the app went local-only (ADR-0011), and Gson came in through the
 # converter for two fields of JSON that org.json now reads directly — see
 # parseNativeSegments. okhttp stays; ModelDownloadManager streams the model with it.
-okhttp = "4.12.0"
+# 5.x (ARC-044): the breaking changes are Kotlin Multiplatform support, callTimeout()'s
+# switch to kotlin.time.Duration, and MockWebServer's package rename — this app uses none
+# of them. ModelDownloadManager's whole surface is OkHttpClient(), Request.Builder(), and
+# newCall().execute().use { }.
+okhttp = "5.5.0"
 
 # ktlint's Gradle plugin. The formatter itself is a separate version the plugin resolves;
 # this one is the plugin. Pinned here for the same reason everything else is (ARC-021).
-ktlint-plugin = "12.3.0"
+ktlint-plugin = "14.2.0"
 
 junit = "4.13.2"
-coroutines-test = "1.9.0"
+coroutines-test = "1.11.0"
 androidx-test-runner = "1.7.0"
 androidx-test-core = "1.7.0"
 androidx-test-junit = "1.3.0"
@@ -112,7 +110,8 @@ compose = [
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+# org.jetbrains.kotlin.android is gone (ARC-044): AGP 9's built-in Kotlin support replaces
+# it, and applying it alongside AGP 9 is a hard configuration error, not a warning.
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-plugin" }

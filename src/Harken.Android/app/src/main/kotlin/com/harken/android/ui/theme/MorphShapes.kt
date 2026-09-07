@@ -84,7 +84,10 @@ class MorphShape(
  * is retessellated from scratch every frame.
  */
 @Immutable
-data class RecordShape(val shape: Shape, val morphProgress: Float) {
+data class RecordShape(
+    val shape: Shape,
+    val morphProgress: Float,
+) {
     /** True while the outline is a circle and can therefore afford a shadow. */
     val isResting: Boolean get() = morphProgress <= 0.001f
 }

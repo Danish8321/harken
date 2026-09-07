@@ -12,14 +12,21 @@ sealed interface ExportState {
     /** Reading the library. Separate from [Running] because it has no count to show yet. */
     data object Preparing : ExportState
 
-    data class Running(val done: Int, val total: Int) : ExportState
+    data class Running(
+        val done: Int,
+        val total: Int,
+    ) : ExportState
 
-    data class Finished(val report: LibraryExporter.Report) : ExportState
+    data class Finished(
+        val report: LibraryExporter.Report,
+    ) : ExportState
 
     data object Cancelled : ExportState
 
     /** [reason] is a message from the platform, or null when there was none worth showing. */
-    data class Failed(val reason: String?) : ExportState
+    data class Failed(
+        val reason: String?,
+    ) : ExportState
 }
 
 /**
