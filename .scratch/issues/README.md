@@ -74,7 +74,7 @@ inferred.
 | [ARC-012](ARC-012-blocking-io-on-default-dispatcher.md) | Blocking reads run on the CPU dispatcher | medium | fixed |
 | [ARC-013](ARC-013-per-chunk-allocation.md) | A fresh byte array is allocated for every audio chunk | medium | fixed |
 | [ARC-014](ARC-014-no-composition-root.md) | Every ViewModel builds its own dependencies | medium | closed |
-| [ARC-015](ARC-015-domain-speaks-a-removed-backends-language.md) | The data layer speaks the language of a removed backend | medium | blocked |
+| [ARC-015](ARC-015-domain-speaks-a-removed-backends-language.md) | The data layer speaks the language of a removed backend | medium | done |
 | [ARC-016](ARC-016-persistence-triggered-from-the-ui-layer.md) | A finished recording is saved by the UI, not by the recorder | medium | closed |
 | [ARC-017](ARC-017-derived-titles-not-localizable.md) | Derived recording titles are hardcoded English | medium | fixed |
 | [ARC-018](ARC-018-notification-title-is-a-hex-fragment.md) | The recording notification is titled with eight hex characters | medium | fixed |

@@ -1,7 +1,7 @@
 # ARC-015 — The data layer still speaks the language of a backend that no longer exists
 
 - **Severity:** medium
-- **Status:** written and gated offline; needs a device to prove the migration
+- **Status:** done
 - **Area:** `data/local/SessionDao.kt`, `data/local/LocalModels.kt`, `data/SessionRepository.kt`
 
 ## Problem
@@ -86,11 +86,14 @@ to a recording's WAV. The 1→3 one runs the chain a never-updated phone will ac
 Gates at this tree: `check.sh` OK, `test-fast.sh` OK (152 tests, 0 failures, 22 files),
 `schema.sh` shows version 3 and warns about no already-shipped schema.
 
-### Still blocked
+### Proven, 2026-09-07
 
-`test-full.sh`. The migration has never been run against a real SQLite, because no device
-is attached. Nothing else is outstanding: the moment a phone is plugged in this is one
-command, and it either passes or it says which assertion it broke.
+`test-full.sh` OK on an SM-E625F running Android 13. Nine instrumented tests, no failures,
+no skips — the first time that gate has ever actually run rather than correctly refusing
+to. All three migration cases passed, including
+`migration2To3CarriesEveryRecordingsAudioPathIntoTheRenamedColumn`, which is the one that
+would have caught a drop-and-add: it asserts the audio path *value* arrives at version 3,
+not that a column of that name exists.
 
 ### Found while doing this
 
