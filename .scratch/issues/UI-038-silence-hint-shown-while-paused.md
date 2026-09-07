@@ -1,7 +1,7 @@
 # UI-038 — The silence-timeout hint stays on screen while paused
 
 - **Severity:** low
-- **Status:** open
+- **Status:** done
 - **Area:** `ui/RecordScreen.kt`
 
 ## Problem
@@ -33,3 +33,18 @@ elapsed clock holds across the pause (`recording_paused elapsedMs=111224` /
 `recording_resumed elapsedMs=111225`) and no silence is written into the WAV —
 3711360 bytes over a 116397 ms session is exactly 32000 bytes/second with
 nothing added for the 26 seconds spent paused.
+
+## Resolution, 2026-09-07
+
+The slot keeps its line and changes the wording rather than emptying. Hiding it was the
+other option and it is the wrong one here: this text sits directly above the pause and
+record buttons, and the comment beside those buttons already explains why nothing there is
+allowed to move between states — a control that shifts under the thumb gets mistapped.
+
+While paused it now reads **"Auto-stop pauses with the recording"**, which answers the
+question a paused user actually has.
+
+Verified on the device: recording shows `Stops after 5 min silence`, paused shows
+`Auto-stop pauses with the recording`, under `PAUSED · NOT RECORDING`. `check.sh` OK,
+`test-fast.sh` OK.
+

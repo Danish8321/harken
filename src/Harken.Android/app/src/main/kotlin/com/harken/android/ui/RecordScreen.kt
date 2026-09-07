@@ -277,8 +277,15 @@ fun RecordScreen(
 
         Spacer(Modifier.weight(1f, fill = true).heightIn(max = 140.dp))
         if (state.isRecording) {
+            // The slot stays filled while paused rather than emptying, for the same reason
+            // the pause button does not displace the record button below: this line sits
+            // directly above both, and letting it vanish moves them under the thumb. The
+            // wording changes instead, because no silence accumulates while paused and the
+            // auto-stop cannot fire (UI-038).
             Text(
-                stringResource(R.string.record_silence_hint),
+                stringResource(
+                    if (state.isPaused) R.string.record_silence_hint_paused else R.string.record_silence_hint,
+                ),
                 color = c.textSecondary,
                 fontFamily = ProtoBodyFont,
                 fontSize = 12.5.sp,
