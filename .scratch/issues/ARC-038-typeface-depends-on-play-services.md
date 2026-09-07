@@ -1,7 +1,7 @@
 # ARC-038 — The app's whole typeface system is a Play Services download
 
 - **Severity:** high
-- **Status:** open
+- **Status:** done
 - **Area:** `ui/theme/Type.kt`, `res/values/font_certs.xml`, `app/build.gradle.kts`
 
 ## Problem
@@ -103,3 +103,24 @@ requires the licence to travel with the fonts). `.gitattributes` already marks
 Expected: Lint&rsquo;s 35 typos go to zero, because every one of them is inside the
 certificate blobs in the file being deleted. That closes the last unblocked item
 in [ARC-037](ARC-037-lint-warnings-formatter-and-ci.md) too.
+
+## Resolution, 2026-09-07
+
+The zip download link above no longer works — `fonts.google.com/download?family=...`
+now serves the fonts.google.com app shell (HTML) to a plain `curl`, not a zip, so
+`unzip` failed with "End-of-central-directory signature not found" on all three.
+Used the CSS2 API instead: `fonts.googleapis.com/css2?family=...&wght@...` with an
+old-browser `User-Agent` (`Mozilla/5.0 (Windows NT 6.1)`) returns `@font-face` rules
+with `.ttf` src URLs straight to `fonts.gstatic.com` — no JS, no session, no zip
+needed. Each family's `OFL.txt` came from `raw.githubusercontent.com/google/fonts`
+(the `google/fonts` repo's canonical `ofl/<slug>/OFL.txt` path) since the zip that
+normally bundles it was unavailable.
+
+Vendored all ten static faces under `app/src/main/res/font/`, rewrote
+`ui/theme/Type.kt` to plain `Font(R.font.…, FontWeight.…)`, deleted
+`res/values/font_certs.xml`, dropped `compose-google-fonts` and
+`compose-ui-text-google-fonts` from `libs.versions.toml`, and added each family's
+`OFL.txt` under `app/src/main/assets/licenses/<slug>/`. `check.sh` and
+`test-fast.sh` both pass. Lint's `Typos` count is 0 (was 35); the 19 remaining
+warnings are all version notices (`GradleDependency`/`NewerVersionAvailable`) plus
+one `ChromeOsAbiSupport` — none from fonts. Committed as `0696cd4`.
