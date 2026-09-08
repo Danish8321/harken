@@ -26,6 +26,7 @@
     <string name="notification_transcribing_body_eta">About %1$d min left. Transcribing on this phone.</string>
     <string name="notification_transcribing_cancel">Cancel</string>
     <string name="notification_transcribing_channel">Transcribing</string>
+    <string name="notification_recording_channel">Recording</string>
 
     <!-- Onboarding (on-device transcription wizard) -->
     <string name="onboarding2_step_of">STEP %1$d OF 2</string>
@@ -154,6 +155,8 @@
     <string name="settings_title">Settings</string>
     <string name="settings_capture_header">CAPTURE LIMITS</string>
     <string name="settings_session_cap">Session cap</string>
+    <!-- Keep in sync with SessionCap.CAP_MS (com.harken.android.recording) — an XML
+         resource can't read that constant, so this has to be updated by hand if it changes. -->
     <string name="settings_session_cap_value">3 hours</string>
     <string name="settings_silence_timeout">Silence timeout</string>
     <string name="settings_silence_timeout_value">5 minutes</string>

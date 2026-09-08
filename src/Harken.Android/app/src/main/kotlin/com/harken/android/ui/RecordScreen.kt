@@ -71,6 +71,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -79,12 +80,15 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
 import com.harken.android.audio.RecordingStopReason
 import com.harken.android.recording.RecordingError
 import com.harken.android.recording.RecordingState
+import com.harken.android.recording.SessionCapLimits
 import com.harken.android.ui.components.HarkenErrorDialog
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.HarkenWaveform
@@ -96,6 +100,7 @@ import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.ProtoMonoFont
 import com.harken.android.ui.theme.rememberRecordShape
 import kotlinx.coroutines.launch
+import java.util.Locale
 import java.util.UUID
 
 // Prototype visuals (Claude Design .dc.html port), wired to the real CaptureViewModel:
@@ -235,7 +240,7 @@ fun RecordScreen(
                     Spacer(Modifier.height(18.dp))
                     LiveMeter(c, formatElapsed(elapsed), paused = state.isPaused)
 
-                    AnimatedVisibility(elapsed >= 10500, enter = fadeIn(fade), exit = fadeOut(fade)) {
+                    AnimatedVisibility(elapsed >= SESSION_CAP_WARNING_SECONDS, enter = fadeIn(fade), exit = fadeOut(fade)) {
                         Column {
                             Spacer(Modifier.height(14.dp))
                             Row(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(24.dp)).padding(16.dp)) {
@@ -610,12 +615,15 @@ private fun LiveMeter(
     // instance of the same trace, not a different widget, so it must read as the same object.
     val bars = remember { mutableStateListOf<Float>().apply { repeat(HarkenWaveform.BAR_COUNT) { add(0f) } } }
     val amplitude by RecordingState.amplitude.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(90)
-            bars.removeAt(0)
-            bars.add(amplitudeToBarHeight(amplitude))
+    LaunchedEffect(lifecycleOwner, amplitude) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                kotlinx.coroutines.delay(90)
+                bars.removeAt(0)
+                bars.add(amplitudeToBarHeight(amplitude))
+            }
         }
     }
 
@@ -736,9 +744,15 @@ private fun RecordButton(
     }
 }
 
+private val SESSION_CAP_WARNING_SECONDS = ((SessionCapLimits.CAP_MS - SessionCapLimits.WARNING_LEAD_MS) / 1000).toInt()
+
 internal fun formatElapsed(totalSeconds: Int): String {
     val h = totalSeconds / 3600
     val m = (totalSeconds % 3600) / 60
     val s = totalSeconds % 60
-    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+    return if (h > 0) {
+        "%d:%02d:%02d".format(Locale.ROOT, h, m, s)
+    } else {
+        "%d:%02d".format(Locale.ROOT, m, s)
+    }
 }

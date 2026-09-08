@@ -5,9 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.harken.android.device.DeviceCapability
 import com.harken.android.recording.RecordingRecovery
@@ -45,8 +45,8 @@ class MainActivity : ComponentActivity() {
         application.container.decodeBreadcrumb.reportCrashIfAny()
         setContent {
             val settings = remember { application.container.settings }
-            val themeMode by settings.themeMode.collectAsState(initial = ThemeMode.System)
-            val dynamicColor by settings.dynamicColor.collectAsState(initial = false)
+            val themeMode by settings.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.System)
+            val dynamicColor by settings.dynamicColor.collectAsStateWithLifecycle(initialValue = false)
             val darkTheme =
                 when (themeMode) {
                     ThemeMode.System -> isSystemInDarkTheme()

@@ -389,7 +389,7 @@ class SessionSheetViewModel(
         transcribed: Boolean,
     ): String {
         if (session == null) return ""
-        val length = "${duration / 60}m ${(duration % 60).toString().padStart(2, '0')}s"
+        val length = TranscriptText.timestamp(duration)
         val base = "${formatSessionTimestamp(session.startedAt)} · $length"
         // "whisper base.en" names the one on-device model this app ships (ADR-0011) — true
         // of every transcript, but false to claim for a session nothing has transcribed yet.

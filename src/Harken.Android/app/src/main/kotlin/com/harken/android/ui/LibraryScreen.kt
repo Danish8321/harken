@@ -63,6 +63,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
 import com.harken.android.data.SearchQuery
 import com.harken.android.data.SessionRepository
+import com.harken.android.data.TranscriptText
 import com.harken.android.displayTitle
 import com.harken.android.ui.components.EmptyState
 import com.harken.android.ui.components.ErrorState
@@ -369,7 +370,7 @@ private fun SearchResultCard(
             )
             hit.offsetSeconds?.let { at ->
                 Text(
-                    "${at / 60}:${(at % 60).toString().padStart(2, '0')}",
+                    TranscriptText.timestamp(at),
                     color = c.textSecondary,
                     fontFamily = ProtoBodyFont,
                     fontWeight = FontWeight.Bold,
@@ -465,7 +466,7 @@ private fun SessionCard(
     val metaLine =
         buildString {
             append(formatSessionTimestamp(s.startedAt))
-            s.durationSeconds?.let { append(" · ${it / 60}m ${(it % 60).toString().padStart(2, '0')}s") }
+            s.durationSeconds?.let { append(" · ${TranscriptText.timestamp(it)}") }
         }
     val barColor = if (transcribing) c.success else c.textSecondary
     val fraction = ((s.durationSeconds ?: 0).toFloat() / longestSeconds).coerceIn(0f, 1f)

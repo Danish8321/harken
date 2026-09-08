@@ -153,7 +153,7 @@ class RecordingForegroundService : Service() {
                 silenceDetector =
                     SilenceDetector(
                         silenceTimeoutMs = TimeUnit.MINUTES.toMillis(5),
-                        sessionCapMs = TimeUnit.HOURS.toMillis(3),
+                        sessionCapMs = SessionCapLimits.CAP_MS,
                     )
             }
         } catch (e: Exception) {
@@ -386,7 +386,11 @@ class RecordingForegroundService : Service() {
         val manager = getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Recording", NotificationManager.IMPORTANCE_LOW),
+            NotificationChannel(
+                CHANNEL_ID,
+                getString(R.string.notification_recording_channel),
+                NotificationManager.IMPORTANCE_LOW,
+            ),
         )
     }
 

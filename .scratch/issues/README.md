@@ -113,3 +113,9 @@ inferred.
 | [ARC-046](ARC-046-active-session-clear-race.md) | Finishing one transcription can kill the foreground service of the next | high | fixed |
 | [ARC-047](ARC-047-delete-orphans-segments.md) | Deleting a recording leaves its transcript in the database forever | high | fixed |
 | [ARC-048](ARC-048-dead-summaries-table.md) | The `summaries` table has no readers or writers | low | fixed |
+| [ARC-049](ARC-049-formatelapsed-missing-locale.md) | `RecordScreen.formatElapsed` can render non-Latin digits | medium | fixed |
+| [ARC-050](ARC-050-waveform-loop-ignores-lifecycle.md) | The waveform-bar animation loop bypasses ARC-025's lifecycle fix | medium | fixed |
+| [ARC-051](ARC-051-mainactivity-collectasstate-not-lifecycle-aware.md) | `MainActivity` still uses plain `collectAsState` | medium | fixed |
+| [ARC-052](ARC-052-recording-channel-name-hardcoded.md) | Recording notification channel name is hardcoded | low | fixed |
+| [ARC-053](ARC-053-duration-formatting-duplicated.md) | Duration formatting is reimplemented ad hoc in three places | low | fixed |
+| [ARC-054](ARC-054-session-cap-hardcoded-thrice.md) | The 3-hour session cap is hardcoded independently in three files | low | fixed |
