@@ -268,7 +268,19 @@ val MIGRATION_2_3 =
         }
     }
 
-@Database(entities = [SessionRow::class, SegmentRow::class, SummaryRow::class], version = 3, exportSchema = true)
+/**
+ * The `summaries` table had an `@Entity` and no reader or writer anywhere in [SessionDao]
+ * — no summary feature ever shipped (ARC-048). `DROP TABLE` needs no minSdk gymnastics
+ * the way `MIGRATION_2_3`'s rename did: it has been in SQLite since long before API 26.
+ */
+val MIGRATION_3_4 =
+    object : androidx.room.migration.Migration(3, 4) {
+        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            db.execSQL("DROP TABLE IF EXISTS `summaries`")
+        }
+    }
+
+@Database(entities = [SessionRow::class, SegmentRow::class], version = 4, exportSchema = true)
 @TypeConverters(UuidConverters::class)
 abstract class HarkenDatabase : RoomDatabase() {
     abstract fun sessions(): SessionDao
@@ -280,7 +292,7 @@ abstract class HarkenDatabase : RoomDatabase() {
             instance ?: synchronized(this) {
                 instance ?: androidx.room.Room
                     .databaseBuilder(context.applicationContext, HarkenDatabase::class.java, "harken-local.db")
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                     .also { instance = it }
             }

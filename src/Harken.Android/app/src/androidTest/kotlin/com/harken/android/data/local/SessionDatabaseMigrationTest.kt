@@ -173,6 +173,55 @@ class SessionDatabaseMigrationTest {
         migrated.close()
     }
 
+    /**
+     * `summaries` had an entity and no reader or writer anywhere (ARC-048). Dropping it
+     * must not touch the tables that hold actual user data.
+     */
+    @Test
+    fun migration3To4DropsSummariesTableAndKeepsSessionsAndSegments() {
+        val sessionId = "55555555-5555-5555-5555-555555555555"
+        val segmentId = "66666666-6666-6666-6666-666666666666"
+
+        helper.createDatabase(DB_NAME, 3).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO sessions (
+                    id, startedAt, endedAt, segmentCount, transcriptionStatus,
+                    transcriptionFailureReason, durationSeconds, localTitle, localTags, audioPath
+                ) VALUES ('$sessionId', '2026-03-01T00:00:00Z', NULL, 1, 'Succeeded', NULL, 60,
+                    'Standup', '', '/data/user/0/com.harken.android/files/recordings/55555555.wav')
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                INSERT INTO segments (id, sessionId, offsetSeconds, text, voiceIndex)
+                VALUES ('$segmentId', '$sessionId', 0, 'hello', 0)
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                INSERT INTO summaries (sessionId, summary, generatedAt)
+                VALUES ('$sessionId', 'a summary nothing reads', '2026-03-01T00:01:00Z')
+                """.trimIndent(),
+            )
+        }
+
+        val migrated = helper.runMigrationsAndValidate(DB_NAME, 4, true, MIGRATION_3_4)
+
+        migrated.query("SELECT name FROM sqlite_master WHERE type='table' AND name='summaries'").use { cursor ->
+            assertTrue("summaries must be gone after the migration", cursor.count == 0)
+        }
+        migrated.query("SELECT localTitle FROM sessions WHERE id = ?", arrayOf(sessionId)).use { cursor ->
+            assertTrue("the session row must survive", cursor.moveToFirst())
+            assertEquals("Standup", cursor.getString(cursor.getColumnIndexOrThrow("localTitle")))
+        }
+        migrated.query("SELECT text FROM segments WHERE id = ?", arrayOf(segmentId)).use { cursor ->
+            assertTrue("the segment row must survive", cursor.moveToFirst())
+            assertEquals("hello", cursor.getString(cursor.getColumnIndexOrThrow("text")))
+        }
+        migrated.close()
+    }
+
     private companion object {
         const val DB_NAME = "harken-migration-test.db"
     }

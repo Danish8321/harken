@@ -47,13 +47,6 @@ data class SegmentRow(
     val voiceIndex: Int,
 )
 
-@Entity(tableName = "summaries")
-data class SummaryRow(
-    @PrimaryKey val sessionId: UUID,
-    val summary: String,
-    val generatedAt: String,
-)
-
 /**
  * A transcript line that matched a search, with the session it came from.
  *
