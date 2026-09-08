@@ -70,6 +70,7 @@ import com.harken.android.ui.components.SkeletonRow
 import com.harken.android.ui.components.rememberStaggerShown
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalProtoColors
+import com.harken.android.ui.theme.PillShape
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
 import com.harken.android.ui.theme.ProtoHeadingFont
@@ -509,7 +510,7 @@ private fun SessionCard(
             // only the "kept on device" chip left the recording with no way forward at all,
             // which is what an interrupted transcription looks like after recovery.
             if (recorded || failed) {
-                Button(onClick = onTranscribe, enabled = transcribeEnabled) {
+                Button(onClick = onTranscribe, enabled = transcribeEnabled, shape = PillShape) {
                     Text(stringResource(R.string.library_action_transcribe))
                 }
             } else {

@@ -1,7 +1,7 @@
 # UI-039 — The Library "Transcribe" button breaks the pill-shape convention
 
 - **Severity:** low
-- **Status:** open
+- **Status:** fixed
 - **Area:** `ui/LibraryScreen.kt`
 
 ## Problem
@@ -24,3 +24,8 @@ Add `shape = PillShape` to this `Button` call.
 ## Found by
 
 Fresh full-repo audit, 2026-09-08.
+
+## Resolution, 2026-09-08
+
+Added `shape = PillShape` to the button. `check.sh` OK, `test-fast.sh` OK, `test-full.sh`
+OK (device `AIN065 - 16`).
