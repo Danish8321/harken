@@ -84,6 +84,13 @@ class RecordingForegroundService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    // AudioRecordCapture's own default scope is IO, not Default, exactly so its read loop
+    // never parks a thread on the CPU-sized Default pool for the length of a recording
+    // (ARC-012). Passing this service's own Default `scope` into it at construction
+    // (ARC-045) undid that; this scope exists only so the capture loop keeps landing on IO
+    // while the service's own short-lived coroutines above still use Default.
+    private val captureScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     // The recorder owns the recording, so the recorder owns the write. It used to be done
     // by whichever ViewModel happened to be collecting `RecordingState.completed` when the
     // capture ended — a durable record that existed only if a screen was alive to make it
@@ -170,7 +177,7 @@ class RecordingForegroundService : Service() {
         paused.set(false)
         Telemetry.event("recording_started", "session" to sessionTag)
 
-        capture = AudioRecordCapture(onChunk = ::writeChunk, onError = ::onCaptureError, scope = scope)
+        capture = AudioRecordCapture(onChunk = ::writeChunk, onError = ::onCaptureError, scope = captureScope)
         capture?.start()
 
         // NOT_STICKY: restarting a microphone capture without the user's knowledge is worse
@@ -355,6 +362,7 @@ class RecordingForegroundService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
+        captureScope.cancel()
         super.onDestroy()
     }
 
