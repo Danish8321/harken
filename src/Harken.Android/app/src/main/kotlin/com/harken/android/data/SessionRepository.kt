@@ -262,7 +262,7 @@ class SessionRepository(
                 val file = java.io.File(path)
                 check(!file.exists() || file.delete()) { "Could not delete the audio for this recording" }
             }
-            dao.deleteSession(id)
+            dao.deleteSessionAndSegments(id)
             Unit
         }
 

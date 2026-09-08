@@ -1,7 +1,7 @@
 # ARC-047 — Deleting a recording leaves its transcript in the database forever
 
 - **Severity:** high
-- **Status:** open
+- **Status:** fixed
 - **Area:** `data/local/SessionDao.kt`, `data/SessionRepository.kt`
 
 ## Problem
@@ -35,3 +35,16 @@ and call that from `purge()` instead of `deleteSession` directly.
 ## Found by
 
 Fresh full-repo audit, 2026-09-08.
+
+## Resolution, 2026-09-08
+
+Added `SessionDao.deleteSessionAndSegments` — `@Transaction`, calls `clearSegments`
+then `deleteSession` — and pointed `SessionRepository.purge()` at it instead of the bare
+`deleteSession`. `deleteSession` had exactly one caller, so nothing else needed to change.
+
+New instrumented test `SessionDeleteTest.deletingASessionDeletesItsSegmentsToo` inserts a
+session with two segments, deletes it, and asserts both `segmentsOnce` is empty and
+`findById` is null against real SQLite (in-memory Room), not just a mocked call.
+
+Verified: `check.sh` OK, `test-fast.sh` OK, `test-full.sh` OK (device `AIN065 - 16`, fresh
+install, full instrumented suite including the new test).

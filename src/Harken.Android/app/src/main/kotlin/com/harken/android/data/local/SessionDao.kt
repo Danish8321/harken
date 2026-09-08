@@ -142,6 +142,18 @@ interface SessionDao {
     @Query("DELETE FROM sessions WHERE id = :id")
     suspend fun deleteSession(id: UUID)
 
+    /**
+     * Delete is the one operation a user expects to be final (see [deleteSession]'s
+     * caller). The session row alone isn't the transcript — its segments are — and
+     * there is no `@ForeignKey` cascade onto [SegmentRow], so a plain [deleteSession]
+     * left every segment behind forever (ARC-047). This deletes both, atomically.
+     */
+    @Transaction
+    suspend fun deleteSessionAndSegments(id: UUID) {
+        clearSegments(id)
+        deleteSession(id)
+    }
+
     // Transcript search is a LIKE scan, not FTS4. The segments are the only text there
     // is, they are already indexed by session, and a scan of every segment on a device
     // holding a hundred recordings is a few milliseconds — measured, and reported as
