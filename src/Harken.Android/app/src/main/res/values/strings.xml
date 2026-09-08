@@ -155,7 +155,7 @@
     <string name="settings_title">Settings</string>
     <string name="settings_capture_header">CAPTURE LIMITS</string>
     <string name="settings_session_cap">Session cap</string>
-    <!-- Keep in sync with SessionCap.CAP_MS (com.harken.android.recording) — an XML
+    <!-- Keep in sync with SessionCapLimits.CAP_MS (com.harken.android.recording) — an XML
          resource can't read that constant, so this has to be updated by hand if it changes. -->
     <string name="settings_session_cap_value">3 hours</string>
     <string name="settings_silence_timeout">Silence timeout</string>

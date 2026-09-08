@@ -49,3 +49,13 @@ enters the build — this names one that was already there.
 
 Not seen on a device. What a phone would show that a JVM cannot: the notification
 itself, and whether backgrounding the app actually stops the meter recomposing.
+
+### Update, 2026-09-08
+
+"All nine call sites across six files" was wrong on both counts. A third audit found
+two more plain `collectAsState` calls this sweep missed, in `MainActivity` — fixed as
+[ARC-051](ARC-051-mainactivity-collectasstate-not-lifecycle-aware.md). It also found that
+"the one that matters most," `RecordScreen`'s amplitude meter, still had a second,
+separate lifecycle leak this ticket didn't touch: the `LaunchedEffect(Unit){ while(true) }`
+loop driving the waveform bars isn't a `collectAsState` call at all, so this sweep's grep
+never saw it — fixed as [ARC-050](ARC-050-waveform-loop-ignores-lifecycle.md).
