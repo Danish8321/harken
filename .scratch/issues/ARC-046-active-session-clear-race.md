@@ -1,0 +1,39 @@
+# ARC-046 — Finishing one transcription can kill the foreground service of the next
+
+- **Severity:** high
+- **Status:** open
+- **Area:** `speech/TranscriptionCoordinator.kt`, `speech/TranscriptionService.kt`
+
+## Problem
+
+`TranscriptionCoordinator`'s cleanup (`TranscriptionCoordinator.kt:151-154`)
+clears two separate pieces of state, not atomically:
+
+    active.set(null)
+    _activeSessionId.value = null
+
+`TranscriptionService` watches `activeSessionId` and, per
+`TranscriptionService.kt:142-147`, calls `stopForeground`/`stopSelf()` for
+its own session as soon as that value stops matching its own id — that
+behaviour exists so the service goes away once its work is done.
+
+If session A finishes and session B's `transcribe()` call lands on another
+thread between the two lines above, B's `active.compareAndSet(null, B)`
+succeeds and `_activeSessionId.value = B` is set — then A's finishing
+coroutine resumes and overwrites `_activeSessionId` back to `null`, even
+though `active` now correctly holds B. B's foreground service sees a value
+that isn't its own id and tears itself down while B's decode is genuinely
+still running in `TranscriptionCoordinator`'s scope — the exact
+"decode dies once the foreground service goes away" failure ARC-003 was
+written to prevent, reopened through a narrower race window.
+
+## Fix
+
+Make the two updates atomic with respect to a new `transcribe()` call: e.g.
+only clear `_activeSessionId` if it still equals the finishing session's id,
+or fold `active` and `_activeSessionId` into one state object updated under
+a single `compareAndSet`.
+
+## Found by
+
+Fresh full-repo audit, 2026-09-08.

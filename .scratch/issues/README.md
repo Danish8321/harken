@@ -37,6 +37,7 @@ relative-luminance formula.
 | [UI-038](UI-038-silence-hint-shown-while-paused.md) | The silence-timeout hint stays on screen while paused | low | done |
 | [UI-034](UI-034-recorder-silence-threshold.md) | Recorder auto-stop's fixed silence threshold vs the transcriber's adaptive one | medium | closed |
 | [UI-035](UI-035-below-minimum-device-guard.md) | Nothing tells a below-minimum device why transcription dies | medium | closed |
+| [UI-039](UI-039-transcribe-button-not-pill.md) | The Library "Transcribe" button breaks the pill-shape convention | low | open |
 
 UI-019..UI-027 were driven by direct interactive requests and have no
 ticket files of their own — [UI-030](UI-030-interactive-pass-backfill.md)
@@ -106,3 +107,7 @@ inferred.
 | [ARC-042](ARC-042-transcription-failure-text-comes-from-the-exception.md) | A failed transcription showed the user the exception's message | high | fixed |
 | [ARC-043](ARC-043-transcription-notification-could-stick.md) | The transcribing notification could stay up forever | medium | fixed |
 | [ARC-044](ARC-044-compilesdk-36-ceiling.md) | compileSdk 36 ceiling holds back 18 Lint version notices | low | done |
+| [ARC-045](ARC-045-capture-scope-back-on-default-dispatcher.md) | The recording capture loop is back on `Dispatchers.Default` | high | open |
+| [ARC-046](ARC-046-active-session-clear-race.md) | Finishing one transcription can kill the foreground service of the next | high | open |
+| [ARC-047](ARC-047-delete-orphans-segments.md) | Deleting a recording leaves its transcript in the database forever | high | open |
+| [ARC-048](ARC-048-dead-summaries-table.md) | The `summaries` table has no readers or writers | low | open |
