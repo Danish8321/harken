@@ -16,6 +16,11 @@
   ARC-001 already confirmed survives the round mask, rather than a small glyph centred
   inside it. Width triples (18dp -> 28dp capsule, 44dp base) without changing the
   silhouette, so it is unambiguously a microphone at both desktop and launcher scale.
+
+  v4: v3 filled the safe zone edge-to-edge (56dp of a 66dp visible circle), which read as
+  oversized once installed. Scaled the whole glyph 0.7x about the viewport centre (54,54),
+  same silhouette and centring: 28dp capsule shrinks to 19.6dp, 56dp tall shrinks to
+  39.2dp, leaving real margin inside the mask instead of touching it.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -26,15 +31,15 @@
     <!-- The capsule: the mic's head. -->
     <path
         android:fillColor="#BFA789"
-        android:pathData="M40,40 a14,14 0 0 1 28,0 v18 a14,14 0 0 1 -28,0 z" />
+        android:pathData="M44.2,44.2 a9.8,9.8 0 0 1 19.6,0 v12.6 a9.8,9.8 0 0 1 -19.6,0 z" />
 
     <!-- The stem: connects the head to the base. -->
     <path
         android:fillColor="#BFA789"
-        android:pathData="M48,72 h12 v6 h-12 z" />
+        android:pathData="M49.8,66.6 h8.4 v4.2 h-8.4 z" />
 
     <!-- The base: what the mic stands on. -->
     <path
         android:fillColor="#BFA789"
-        android:pathData="M36,74 h36 a4,4 0 0 1 0,8 h-36 a4,4 0 0 1 0,-8 z" />
+        android:pathData="M41.4,68 h25.2 a2.8,2.8 0 0 1 0,5.6 h-25.2 a2.8,2.8 0 0 1 0,-5.6 z" />
 </vector>
