@@ -108,6 +108,6 @@ inferred.
 | [ARC-043](ARC-043-transcription-notification-could-stick.md) | The transcribing notification could stay up forever | medium | fixed |
 | [ARC-044](ARC-044-compilesdk-36-ceiling.md) | compileSdk 36 ceiling holds back 18 Lint version notices | low | done |
 | [ARC-045](ARC-045-capture-scope-back-on-default-dispatcher.md) | The recording capture loop is back on `Dispatchers.Default` | high | fixed |
-| [ARC-046](ARC-046-active-session-clear-race.md) | Finishing one transcription can kill the foreground service of the next | high | open |
+| [ARC-046](ARC-046-active-session-clear-race.md) | Finishing one transcription can kill the foreground service of the next | high | fixed |
 | [ARC-047](ARC-047-delete-orphans-segments.md) | Deleting a recording leaves its transcript in the database forever | high | fixed |
 | [ARC-048](ARC-048-dead-summaries-table.md) | The `summaries` table has no readers or writers | low | open |

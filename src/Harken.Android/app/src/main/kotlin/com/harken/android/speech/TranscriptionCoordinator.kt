@@ -151,7 +151,13 @@ object TranscriptionCoordinator {
                 } finally {
                     onDeviceTranscriber.release()
                     active.set(null)
-                    _activeSessionId.value = null
+                    // Not an unconditional set: between the line above and this one, another
+                    // transcribe() can already have claimed the now-null `active` slot for a
+                    // different session and published its id here. An unconditional null would
+                    // then wipe that id back out from under it, and its TranscriptionService —
+                    // watching for "no longer ours" — would tear itself down mid-decode (ARC-046).
+                    // compareAndSet only clears the value if it is still this session's own.
+                    _activeSessionId.compareAndSet(sessionId, null)
                 }
             }
         return true
