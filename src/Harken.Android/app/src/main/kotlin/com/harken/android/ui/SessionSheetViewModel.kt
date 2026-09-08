@@ -200,7 +200,12 @@ class SessionSheetViewModel(
      */
     fun stopPlayback() {
         releasePlayer()
-        _uiState.value = _uiState.value.copy(isPlaying = false, positionMs = 0)
+        // playbackDurationMs too: this runs before load() for whichever session opens
+        // next (SessionSheet disposes the old sessionId key before the new one's
+        // LaunchedEffect fires), and load()'s combine only replaces a nonzero value with
+        // the decoder's own — otherwise a session opened after one that had already been
+        // played kept showing that other recording's duration until playback started.
+        _uiState.value = _uiState.value.copy(isPlaying = false, positionMs = 0, playbackDurationMs = 0)
     }
 
     private fun startTicking() {

@@ -38,6 +38,7 @@ relative-luminance formula.
 | [UI-034](UI-034-recorder-silence-threshold.md) | Recorder auto-stop's fixed silence threshold vs the transcriber's adaptive one | medium | closed |
 | [UI-035](UI-035-below-minimum-device-guard.md) | Nothing tells a below-minimum device why transcription dies | medium | closed |
 | [UI-039](UI-039-transcribe-button-not-pill.md) | The Library "Transcribe" button breaks the pill-shape convention | low | fixed |
+| [UI-040](UI-040-stale-playback-duration-across-sessions.md) | Reopening the sheet for a different session can show the previous one's duration | medium | fixed |
 
 UI-019..UI-027 were driven by direct interactive requests and have no
 ticket files of their own — [UI-030](UI-030-interactive-pass-backfill.md)
