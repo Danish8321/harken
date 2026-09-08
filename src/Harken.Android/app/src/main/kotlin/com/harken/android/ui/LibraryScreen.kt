@@ -417,6 +417,7 @@ private fun FilterChipProto(
         selected = selected,
         onClick = onClick,
         modifier = Modifier.heightIn(min = 48.dp),
+        shape = RoundedCornerShape(999.dp),
         label = { Text(stringResource(label), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) },
         colors =
             FilterChipDefaults.filterChipColors(

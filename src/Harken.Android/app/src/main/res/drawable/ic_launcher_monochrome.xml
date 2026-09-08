@@ -10,30 +10,18 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Outer ticks — the quiet end of the meter. -->
+    <!-- The capsule: the mic's head. -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M20,48 a3,3 0 0 1 6,0 v12 a3,3 0 0 1 -6,0 z" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M82,48 a3,3 0 0 1 6,0 v12 a3,3 0 0 1 -6,0 z" />
+        android:pathData="M40,40 a14,14 0 0 1 28,0 v18 a14,14 0 0 1 -28,0 z" />
 
-    <!-- Inner bars. -->
+    <!-- The stem: connects the head to the base. -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M32,40 a3,3 0 0 1 6,0 v28 a3,3 0 0 1 -6,0 z" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M70,40 a3,3 0 0 1 6,0 v28 a3,3 0 0 1 -6,0 z" />
+        android:pathData="M48,72 h12 v6 h-12 z" />
 
-    <!-- The centre bar is the microphone: capsule, stem, base. -->
+    <!-- The base: what the mic stands on. -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M45,35 a9,9 0 0 1 18,0 v16 a9,9 0 0 1 -18,0 z" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M51,63 a3,3 0 0 1 6,0 v10 a3,3 0 0 1 -6,0 z" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M48,76 h12 a3,3 0 0 1 0,6 h-12 a3,3 0 0 1 0,-6 z" />
+        android:pathData="M36,74 h36 a4,4 0 0 1 0,8 h-36 a4,4 0 0 1 0,-8 z" />
 </vector>

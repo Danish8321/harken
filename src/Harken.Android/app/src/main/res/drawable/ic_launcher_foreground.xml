@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The mark: a five-bar level meter whose centre bar is the microphone.
+  The mark: a plain microphone — capsule, stem, base — nothing else.
 
-  The splash (ui/SplashScreen.kt) shows those two things one after the other — an accent
-  circle holding a mic, then a strip of waveform bars — because they are the two halves of
-  what the app does. At 108dp there is room for one mark, so this is both at once: read it
-  quickly and it is a level meter; read it again and the middle bar has a stem and a base.
+  v1 (ARC-001) drew the same capsule/stem/base at 18dp wide inside a 68x56dp safe zone,
+  plus four extra tick/bar shapes flanking it meant to read as a level meter. On a real
+  home screen (Nothing OS) the whole thing read as a faint grey smear: the launcher's own
+  icon inset shrinks the foreground further than a desktop vector preview shows, and a
+  glyph occupying a quarter of the available width has nothing left after that.
 
-  Three weights, not one. The first cut drew all five bars at the same width with 1.5dp
-  between them and the capsule, and on a real home screen it resolved into a single blob
-  the size of a hairbrush. Air and hierarchy are what make a mark legible at 48px: ticks,
-  then bars, then the capsule at twice their width, with 6-8dp of ground between each.
+  v2 tried fixing that by enlarging three shapes (capsule + two flanking bars) to equal
+  weight — which stopped reading as a mic at all and became three abstract blobs.
 
-  Geometry sits inside the 72dp adaptive-icon safe zone (18..90 on both axes): the art
-  spans x 20..88 and y 26..82, which keeps every shape inside the circle
-  mask as well as the square one — the first draw put the outer ticks at x 19 and 89,
-  where the round mask clipped their outer edge.
+  v3 drops the meter conceit for good and keeps exactly one glyph — mic capsule, stem,
+  base — but sized to use the same proven-safe 68x56dp zone (x 20..88, y 26..82) that
+  ARC-001 already confirmed survives the round mask, rather than a small glyph centred
+  inside it. Width triples (18dp -> 28dp capsule, 44dp base) without changing the
+  silhouette, so it is unambiguously a microphone at both desktop and launcher scale.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -23,30 +23,18 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Outer ticks — the quiet end of the meter. -->
+    <!-- The capsule: the mic's head. -->
     <path
         android:fillColor="#BFA789"
-        android:pathData="M20,48 a3,3 0 0 1 6,0 v12 a3,3 0 0 1 -6,0 z" />
-    <path
-        android:fillColor="#BFA789"
-        android:pathData="M82,48 a3,3 0 0 1 6,0 v12 a3,3 0 0 1 -6,0 z" />
+        android:pathData="M40,40 a14,14 0 0 1 28,0 v18 a14,14 0 0 1 -28,0 z" />
 
-    <!-- Inner bars. -->
+    <!-- The stem: connects the head to the base. -->
     <path
         android:fillColor="#BFA789"
-        android:pathData="M32,40 a3,3 0 0 1 6,0 v28 a3,3 0 0 1 -6,0 z" />
-    <path
-        android:fillColor="#BFA789"
-        android:pathData="M70,40 a3,3 0 0 1 6,0 v28 a3,3 0 0 1 -6,0 z" />
+        android:pathData="M48,72 h12 v6 h-12 z" />
 
-    <!-- The centre bar is the microphone: capsule, stem, base. -->
+    <!-- The base: what the mic stands on. -->
     <path
         android:fillColor="#BFA789"
-        android:pathData="M45,35 a9,9 0 0 1 18,0 v16 a9,9 0 0 1 -18,0 z" />
-    <path
-        android:fillColor="#BFA789"
-        android:pathData="M51,63 a3,3 0 0 1 6,0 v10 a3,3 0 0 1 -6,0 z" />
-    <path
-        android:fillColor="#BFA789"
-        android:pathData="M48,76 h12 a3,3 0 0 1 0,6 h-12 a3,3 0 0 1 0,-6 z" />
+        android:pathData="M36,74 h36 a4,4 0 0 1 0,8 h-36 a4,4 0 0 1 0,-8 z" />
 </vector>
