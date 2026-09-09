@@ -144,4 +144,46 @@ Prioritized punch list, in order:
 
 ## Resolution
 
-Not yet started — filed from audit findings only.
+Items 1, 2 and 3 done; 4-9 remain, so this stays open.
+
+**1 and 3. One shape system.** Every hardcoded `RoundedCornerShape(24.dp)`
+standing in for the primary-card role now reads `MaterialTheme.shapes.large`
+(`LibraryScreen`'s SessionCard and SearchResultCard, `SettingsScreen`'s
+SettingsCard, `RecordScreen`'s cap-warning row and SaveStatusCard), and the
+meter card's `30.dp` reads `shapes.extraLarge`. The three inline
+`RoundedCornerShape(999.dp)` pills in `LibraryScreen` (SearchField,
+FilterChipProto, the status chip) use `PillShape`. `RecordScreen` no longer
+imports `RoundedCornerShape` at all. The 2.dp progress-bar clips in
+`SettingsScreen` are deliberately left alone — a 4dp-tall bar's radius is not
+the card role.
+
+**2. One type system.** Every raw `fontSize =` in the app is gone —
+`RecordScreen`, `LibraryScreen`, `SettingsScreen`, `OnboardingScreen`,
+`AppNav`, `SplashScreen` and `HarkenStates` all name
+`MaterialTheme.typography.*` instead, and the `ProtoBodyFont` /
+`ProtoHeadingFont` / `FontWeight` / `sp` imports they only needed for that
+went with them. `Theme.kt` already pointed `HeadingFont`/`BodyFont` at the
+Proto families, so this changes no typeface.
+
+Three decisions worth recording:
+
+- `headlineSmall` moved 24sp -> 26sp. It is the screen-title step, and the
+  titles migrating onto it were hand-written at 26sp (Library, Settings) and
+  28sp (each onboarding page, the splash-to-record wordmark). One value
+  between the two beats three literals. `HarkenStates`' empty-state title
+  rides along.
+- The `SessionCard`/`SearchResultCard` title takes `titleMedium` (17sp/Bold),
+  not the 15sp/Bold it hand-wrote — which also closes the "under-
+  differentiated from its own meta line" half of finding 1.
+- Where a family or weight is load-bearing the ramp supplies only the size,
+  via `.copy()`: the mono elapsed-time numeral and meter footers
+  (`ProtoMonoFont`), and the tab label's `includeFontPadding = false`.
+
+Fractional sp (`14.5.sp`, `14.5f.sp`, `13.5.sp`, `12.5.sp`) is now absent
+outside `Theme.kt`'s own `letterSpacing`, and so is every size below 12sp —
+`Theme.kt:67` claimed "nothing below 12sp" while `LibraryScreen` rendered
+10sp match counts and tags.
+
+Verified: gradle `ktlintCheck` + `assembleDebug` clean. Not yet installed —
+the device disconnected before `installDebug` ("No connected devices!"), so
+the on-device side-by-side in the checklist below is still outstanding.

@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,14 +39,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.harken.android.R
 import com.harken.android.ui.theme.HarkenWaveform
 import com.harken.android.ui.theme.LocalProtoColors
 import com.harken.android.ui.theme.LocalReducedMotion
-import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoEaseOut
-import com.harken.android.ui.theme.ProtoHeadingFont
 import kotlinx.coroutines.launch
 import kotlin.math.pow
 import kotlin.math.sin
@@ -203,8 +201,7 @@ fun SplashScreen(
             Text(
                 stringResource(R.string.record_wordmark),
                 color = c.text,
-                fontFamily = ProtoHeadingFont,
-                fontSize = 34.sp,
+                style = MaterialTheme.typography.headlineLarge,
                 modifier =
                     Modifier
                         .padding(top = 14.dp)
@@ -213,8 +210,7 @@ fun SplashScreen(
             Text(
                 stringResource(R.string.splash_tagline),
                 color = c.textSecondary,
-                fontFamily = ProtoBodyFont,
-                fontSize = 13.5.sp,
+                style = MaterialTheme.typography.bodySmall,
                 modifier =
                     Modifier
                         .padding(top = 2.dp)
@@ -231,8 +227,7 @@ fun SplashScreen(
                 Text(
                     stringResource(R.string.record_wordmark),
                     color = c.text,
-                    fontFamily = ProtoHeadingFont,
-                    fontSize = 20.sp,
+                    style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.align(Alignment.TopStart).graphicsLayer { alpha = morphT },
                 )
             }

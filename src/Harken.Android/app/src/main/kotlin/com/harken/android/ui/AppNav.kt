@@ -54,7 +54,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,8 +70,6 @@ import com.harken.android.recording.RecordingState
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalProtoColors
 import com.harken.android.ui.theme.LocalReducedMotion
-import com.harken.android.ui.theme.ProtoBodyFont
-import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.sharedAxisEnter
 import com.harken.android.ui.theme.sharedAxisExit
 import java.util.UUID
@@ -245,7 +242,7 @@ private fun SplashPlaceholder() {
         Modifier.fillMaxSize().background(c.screenBg),
         contentAlignment = Alignment.Center,
     ) {
-        Text(stringResource(R.string.record_wordmark), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 28.sp)
+        Text(stringResource(R.string.record_wordmark), color = c.text, style = MaterialTheme.typography.headlineSmall)
     }
 }
 
@@ -361,12 +358,12 @@ private fun FloatingTabBar(
                         Text(
                             stringResource(tab.label),
                             color = itemFg,
-                            fontFamily = ProtoBodyFont,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            lineHeight = 13.sp,
+                            // includeFontPadding = false is load-bearing here, not cosmetic:
+                            // the label sits inside a fixed-height pill next to its icon, and
+                            // the default font padding pushed it off that centre line.
                             style =
-                                androidx.compose.ui.text.TextStyle(
+                                MaterialTheme.typography.labelLarge.copy(
+                                    lineHeight = 13.sp,
                                     platformStyle =
                                         androidx.compose.ui.text
                                             .PlatformTextStyle(includeFontPadding = false),

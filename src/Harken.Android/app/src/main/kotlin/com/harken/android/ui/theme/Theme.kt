@@ -75,7 +75,10 @@ private val HarkenTypography =
         displaySmall = TextStyle(fontFamily = HeadingFont, fontSize = 38.sp, lineHeight = 40.sp),
         headlineLarge = TextStyle(fontFamily = HeadingFont, fontSize = 34.sp, lineHeight = 36.sp),
         headlineMedium = TextStyle(fontFamily = HeadingFont, fontSize = 32.sp, lineHeight = 34.sp),
-        headlineSmall = TextStyle(fontFamily = HeadingFont, fontSize = 24.sp, lineHeight = 27.sp),
+        // 26sp, not 24: this is the screen-title step (Library, Settings, each onboarding
+        // page), and those were hand-written at 26sp and 28sp before they were migrated onto
+        // the ramp. One value between the two, once, beats three literals.
+        headlineSmall = TextStyle(fontFamily = HeadingFont, fontSize = 26.sp, lineHeight = 29.sp),
         titleLarge = TextStyle(fontFamily = HeadingFont, fontSize = 21.sp, lineHeight = 24.sp),
         titleMedium = TextStyle(fontFamily = BodyFont, fontSize = 17.sp, fontWeight = FontWeight.Bold, lineHeight = 22.sp),
         bodyLarge = TextStyle(fontFamily = BodyFont, fontSize = 16.sp, lineHeight = 24.sp),

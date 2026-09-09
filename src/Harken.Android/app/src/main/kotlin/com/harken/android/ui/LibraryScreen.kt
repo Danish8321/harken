@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -35,6 +34,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -51,13 +51,11 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
@@ -72,9 +70,7 @@ import com.harken.android.ui.components.rememberStaggerShown
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalProtoColors
 import com.harken.android.ui.theme.PillShape
-import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
-import com.harken.android.ui.theme.ProtoHeadingFont
 import java.util.UUID
 
 // Prototype card visuals wired to the real LibraryViewModel — real Room+network session
@@ -106,7 +102,7 @@ fun LibraryScreen(
     val longest = remember(state.sessions) { state.sessions.mapNotNull { it.durationSeconds }.maxOrNull() ?: 1 }
 
     Column(Modifier.fillMaxSize().background(c.screenBg).padding(horizontal = 20.dp, vertical = 6.dp)) {
-        Text(stringResource(R.string.library_title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 26.sp)
+        Text(stringResource(R.string.library_title), color = c.text, style = MaterialTheme.typography.headlineSmall)
         Text(
             if (search.isActive) {
                 pluralStringResource(R.plurals.library_search_result_count, search.results.size, search.results.size)
@@ -114,8 +110,7 @@ fun LibraryScreen(
                 viewModel.subtitle(state, visible)
             },
             color = c.textSecondary,
-            fontFamily = ProtoBodyFont,
-            fontSize = 13.5.sp,
+            style = MaterialTheme.typography.bodySmall,
             maxLines = 1,
             modifier = Modifier.padding(top = 2.dp, bottom = 14.dp),
         )
@@ -236,7 +231,7 @@ private fun SearchField(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .background(c.pillTrack, RoundedCornerShape(999.dp))
+            .background(c.pillTrack, PillShape)
             .padding(start = 16.dp, end = if (query.isEmpty()) 16.dp else 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -252,7 +247,7 @@ private fun SearchField(
             onValueChange = onQueryChange,
             modifier = Modifier.weight(1f),
             singleLine = true,
-            textStyle = TextStyle(color = c.text, fontFamily = ProtoBodyFont, fontSize = 14.sp),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(color = c.text),
             cursorBrush = SolidColor(c.accent),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
@@ -261,8 +256,7 @@ private fun SearchField(
                     Text(
                         stringResource(R.string.library_search_hint),
                         color = c.textSecondary,
-                        fontFamily = ProtoBodyFont,
-                        fontSize = 14.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1,
                     )
                 }
@@ -353,7 +347,7 @@ private fun SearchResultCard(
     Column(
         Modifier
             .fillMaxWidth()
-            .background(c.card, RoundedCornerShape(24.dp))
+            .background(c.card, MaterialTheme.shapes.large)
             .clickable(role = Role.Button, onClick = onOpen)
             .padding(16.dp),
     ) {
@@ -361,9 +355,7 @@ private fun SearchResultCard(
             Text(
                 hit.session.displayTitle(),
                 color = c.text,
-                fontFamily = ProtoBodyFont,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
+                style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -372,9 +364,7 @@ private fun SearchResultCard(
                 Text(
                     TranscriptText.timestamp(at),
                     color = c.textSecondary,
-                    fontFamily = ProtoBodyFont,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(start = 8.dp),
                 )
             }
@@ -384,9 +374,7 @@ private fun SearchResultCard(
             Text(
                 highlighted,
                 color = c.textSecondary,
-                fontFamily = ProtoBodyFont,
-                fontSize = 13.sp,
-                lineHeight = 19.sp,
+                style = MaterialTheme.typography.bodySmall,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 6.dp),
@@ -400,9 +388,7 @@ private fun SearchResultCard(
                 stringResource(R.string.library_search_title_match)
             },
             color = c.textSecondary,
-            fontFamily = ProtoBodyFont,
-            fontWeight = FontWeight.Bold,
-            fontSize = 10.sp,
+            style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(top = 8.dp),
         )
     }
@@ -419,8 +405,8 @@ private fun FilterChipProto(
         selected = selected,
         onClick = onClick,
         modifier = Modifier.heightIn(min = 48.dp),
-        shape = RoundedCornerShape(999.dp),
-        label = { Text(stringResource(label), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) },
+        shape = PillShape,
+        label = { Text(stringResource(label), style = MaterialTheme.typography.labelLarge) },
         colors =
             FilterChipDefaults.filterChipColors(
                 containerColor = c.pillTrack,
@@ -471,23 +457,23 @@ private fun SessionCard(
     val barColor = if (transcribing) c.success else c.textSecondary
     val fraction = ((s.durationSeconds ?: 0).toFloat() / longestSeconds).coerceIn(0f, 1f)
 
-    Column(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(24.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().background(c.card, MaterialTheme.shapes.large).padding(16.dp)) {
         Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onOpen), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text(
                     s.displayTitle(),
                     color = c.text,
-                    fontFamily = ProtoBodyFont,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
+                    // titleMedium (17sp/Bold), not the 15sp/Bold this hand-wrote: the card
+                    // title is the primary scan target on this screen and was only one weight
+                    // step clear of its own meta line below.
+                    style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     metaLine,
                     color = c.textSecondary,
-                    fontFamily = ProtoBodyFont,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 2.dp),
                 )
                 // Why it failed, not just that it can be retried. The reason is recorded on
@@ -500,8 +486,7 @@ private fun SessionCard(
                             // stateError, not stateErrorFg: the foreground pair is for text
                             // sitting on the error fill, and this text sits on the card.
                             color = c.stateError,
-                            fontFamily = ProtoBodyFont,
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
@@ -516,7 +501,7 @@ private fun SessionCard(
                 }
             } else {
                 Row(
-                    Modifier.background(chipBg, RoundedCornerShape(999.dp)).padding(horizontal = 10.dp, vertical = 5.dp),
+                    Modifier.background(chipBg, PillShape).padding(horizontal = 10.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (transcribing) {
@@ -526,9 +511,7 @@ private fun SessionCard(
                     Text(
                         stringResource(chipLabel),
                         color = chipFg,
-                        fontFamily = ProtoBodyFont,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelMedium,
                     )
                 }
             }
@@ -564,9 +547,7 @@ private fun SessionCard(
                     Text(
                         it.uppercase(),
                         color = c.textSecondary,
-                        fontFamily = ProtoBodyFont,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
+                        style = MaterialTheme.typography.labelSmall,
                     )
                 }
             }

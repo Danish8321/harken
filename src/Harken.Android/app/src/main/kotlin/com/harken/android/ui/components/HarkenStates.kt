@@ -30,13 +30,10 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.harken.android.R
 import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.PillShape
-import com.harken.android.ui.theme.ProtoBodyFont
 
 // Empty and loading are the SAME card at the SAME radius as a populated row, so a list
 // that is empty or loading still reads as the same screen. The previous build had
@@ -111,7 +108,7 @@ fun ErrorState(
                             contentColor = MaterialTheme.colorScheme.onSurface,
                         ),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant),
-                ) { Text(stringResource(R.string.state_retry), fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                ) { Text(stringResource(R.string.state_retry), style = MaterialTheme.typography.labelLarge) }
             }
             if (secondaryLabel != null && onSecondary != null) {
                 TextButton(
@@ -121,7 +118,7 @@ fun ErrorState(
                     colors =
                         androidx.compose.material3.ButtonDefaults
                             .textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-                ) { Text(secondaryLabel, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                ) { Text(secondaryLabel, style = MaterialTheme.typography.labelLarge) }
             }
         }
     }

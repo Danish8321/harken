@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,9 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -52,8 +51,6 @@ import com.harken.android.ui.components.StatusChip
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalProtoColors
 import com.harken.android.ui.theme.PillShape
-import com.harken.android.ui.theme.ProtoBodyFont
-import com.harken.android.ui.theme.ProtoHeadingFont
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -161,9 +158,7 @@ fun OnboardingScreen(
         Text(
             stringResource(R.string.onboarding2_step_of, state.step),
             color = c.textSecondary,
-            fontFamily = ProtoBodyFont,
-            fontWeight = FontWeight.Bold,
-            fontSize = 11.sp,
+            style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(top = 12.dp),
         )
 
@@ -201,16 +196,13 @@ fun OnboardingScreen(
                             Text(
                                 stringResource(R.string.onboarding2_step1_title),
                                 color = c.text,
-                                fontFamily = ProtoHeadingFont,
-                                fontSize = 28.sp,
+                                style = MaterialTheme.typography.headlineSmall,
                                 modifier = Modifier.padding(top = 20.dp),
                             )
                             Text(
                                 stringResource(R.string.onboarding2_step1_body),
                                 color = c.textSecondary,
-                                fontFamily = ProtoBodyFont,
-                                fontSize = 14.5f.sp,
-                                lineHeight = 22.sp,
+                                style = MaterialTheme.typography.bodyMedium,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                 modifier = Modifier.padding(top = 10.dp),
                             )
@@ -222,14 +214,12 @@ fun OnboardingScreen(
                             Text(
                                 stringResource(R.string.onboarding2_step4_title),
                                 color = c.text,
-                                fontFamily = ProtoHeadingFont,
-                                fontSize = 28.sp,
+                                style = MaterialTheme.typography.headlineSmall,
                             )
                             Text(
                                 stringResource(R.string.onboarding2_step4_body),
                                 color = c.textSecondary,
-                                fontFamily = ProtoBodyFont,
-                                fontSize = 14.5f.sp,
+                                style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(top = 10.dp),
                             )
                             HarkenCard(Modifier.fillMaxWidth().padding(top = 20.dp)) {
@@ -252,8 +242,7 @@ fun OnboardingScreen(
                                             Text(
                                                 stringResource(R.string.onboarding2_downloading, state.modelDownloadProgress),
                                                 color = c.textSecondary,
-                                                fontFamily = ProtoBodyFont,
-                                                fontSize = 12.sp,
+                                                style = MaterialTheme.typography.bodySmall,
                                                 modifier = Modifier.padding(top = 8.dp),
                                             )
                                         }
@@ -281,8 +270,7 @@ fun OnboardingScreen(
                                                         ?: R.string.settings_model_download_failed,
                                                 ),
                                                 color = c.stateError,
-                                                fontFamily = ProtoBodyFont,
-                                                fontSize = 12.sp,
+                                                style = MaterialTheme.typography.bodySmall,
                                             )
                                             OutlinedButton(
                                                 onClick = viewModel::downloadModel,

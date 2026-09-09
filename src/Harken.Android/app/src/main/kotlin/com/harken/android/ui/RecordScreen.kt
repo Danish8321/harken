@@ -43,7 +43,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Mic
@@ -54,6 +53,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -78,7 +78,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -96,7 +95,6 @@ import com.harken.android.ui.theme.LocalProtoColors
 import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
-import com.harken.android.ui.theme.ProtoHeadingFont
 import com.harken.android.ui.theme.ProtoMonoFont
 import com.harken.android.ui.theme.rememberRecordShape
 import kotlinx.coroutines.launch
@@ -195,7 +193,7 @@ fun RecordScreen(
             .padding(horizontal = 20.dp, vertical = 6.dp),
     ) {
         Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.record_wordmark), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 20.sp)
+            Text(stringResource(R.string.record_wordmark), color = c.text, style = MaterialTheme.typography.titleLarge)
         }
 
         // Idle <-> live crossfades as one block instead of a hard cut — IdleMeter's wave
@@ -226,12 +224,14 @@ fun RecordScreen(
                     Text(
                         stringResource(R.string.record_idle_headline),
                         color = c.text,
-                        fontFamily = ProtoHeadingFont,
-                        fontSize = 32.sp,
-                        lineHeight = 37.sp,
+                        style = MaterialTheme.typography.headlineMedium,
                     )
                     Spacer(Modifier.height(10.dp))
-                    Text(stringResource(R.string.record_format_line), color = c.textSecondary, fontFamily = ProtoMonoFont, fontSize = 14.sp)
+                    Text(
+                        stringResource(R.string.record_format_line),
+                        color = c.textSecondary,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = ProtoMonoFont),
+                    )
                     Spacer(Modifier.height(22.dp))
                     IdleMeter(c)
                 }
@@ -243,7 +243,7 @@ fun RecordScreen(
                     AnimatedVisibility(elapsed >= SESSION_CAP_WARNING_SECONDS, enter = fadeIn(fade), exit = fadeOut(fade)) {
                         Column {
                             Spacer(Modifier.height(14.dp))
-                            Row(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(24.dp)).padding(16.dp)) {
+                            Row(Modifier.fillMaxWidth().background(c.card, MaterialTheme.shapes.large).padding(16.dp)) {
                                 Icon(
                                     Icons.Filled.Warning,
                                     contentDescription = null,
@@ -254,9 +254,7 @@ fun RecordScreen(
                                 Text(
                                     stringResource(R.string.record_cap_warning),
                                     color = c.textSecondary,
-                                    fontFamily = ProtoBodyFont,
-                                    fontSize = 12.sp,
-                                    lineHeight = 18.sp,
+                                    style = MaterialTheme.typography.bodySmall,
                                 )
                             }
                         }
@@ -292,8 +290,7 @@ fun RecordScreen(
                     if (state.isPaused) R.string.record_silence_hint_paused else R.string.record_silence_hint,
                 ),
                 color = c.textSecondary,
-                fontFamily = ProtoBodyFont,
-                fontSize = 12.5.sp,
+                style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 textAlign = TextAlign.Center,
             )
@@ -398,13 +395,13 @@ private fun MeterCard(
         Modifier
             .fillMaxWidth()
             .height(height)
-            .background(c.meterBg, RoundedCornerShape(30.dp))
+            .background(c.meterBg, MaterialTheme.shapes.extraLarge)
             .padding(20.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Mic, contentDescription = null, tint = iconTint, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(8.dp))
-            Text(label, color = labelColor, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp)
+            Text(label, color = labelColor, style = MaterialTheme.typography.labelSmall)
             if (live) {
                 Spacer(Modifier.width(8.dp))
                 LiveDot(c)
@@ -418,8 +415,8 @@ private fun MeterCard(
             content()
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(footerLeft, color = footerColor, fontFamily = footerLeftFont, fontSize = 12.5.sp)
-            Text(footerRight, color = footerColor, fontFamily = footerRightFont, fontSize = 12.5.sp)
+            Text(footerLeft, color = footerColor, style = MaterialTheme.typography.bodySmall.copy(fontFamily = footerLeftFont))
+            Text(footerRight, color = footerColor, style = MaterialTheme.typography.bodySmall.copy(fontFamily = footerRightFont))
         }
     }
 }
@@ -480,7 +477,7 @@ private fun SaveStatusCard(
             // Lambda overload: the shake is read in the layout pass rather than in
             // composition, so a frame of shake does not recompose the whole card.
             .offset { IntOffset(shake.value.dp.roundToPx(), 0) }
-            .background(bg, RoundedCornerShape(24.dp))
+            .background(bg, MaterialTheme.shapes.large)
             .clickable(role = Role.Button, enabled = status == SaveStatus.Succeeded || status == SaveStatus.Failed) {
                 when (status) {
                     SaveStatus.Succeeded -> lastSessionId?.let(onOpenSession)
@@ -555,24 +552,19 @@ private fun SaveStatusCard(
                     Text(
                         stringResource(title),
                         color = titleColor,
-                        fontFamily = ProtoBodyFont,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
+                        style = MaterialTheme.typography.labelLarge,
                     )
                     Text(
                         stringResource(body),
                         color = bodyColor,
-                        fontFamily = ProtoBodyFont,
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
                 SaveStatus.Failed -> {
                     Text(
                         stringResource(R.string.record_save_failed_title),
                         color = titleColor,
-                        fontFamily = ProtoBodyFont,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
+                        style = MaterialTheme.typography.labelLarge,
                     )
                     Text(
                         stringResource(
@@ -580,8 +572,7 @@ private fun SaveStatusCard(
                             lastError ?: stringResource(R.string.record_save_failed_reason_unknown),
                         ),
                         color = bodyColor,
-                        fontFamily = ProtoBodyFont,
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
                 SaveStatus.Idle -> Unit
@@ -640,7 +631,18 @@ private fun LiveMeter(
         footerRightFont = ProtoMonoFont,
         live = true,
     ) {
-        Text(elapsed, color = c.text, fontFamily = ProtoMonoFont, fontWeight = FontWeight.Medium, fontSize = 36.sp)
+        // The one numeral in the app that is the interface: the mono family and Medium weight
+        // are load-bearing (digits must not reflow as they tick), so the ramp supplies only
+        // the size step.
+        Text(
+            elapsed,
+            color = c.text,
+            style =
+                MaterialTheme.typography.headlineLarge.copy(
+                    fontFamily = ProtoMonoFont,
+                    fontWeight = FontWeight.Medium,
+                ),
+        )
         Row(
             Modifier.fillMaxWidth().height(72.dp),
             horizontalArrangement = Arrangement.SpaceBetween,

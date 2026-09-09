@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -33,9 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
@@ -45,9 +44,7 @@ import com.harken.android.export.LibraryExporter
 import com.harken.android.ui.theme.DynamicColorAvailable
 import com.harken.android.ui.theme.LocalProtoColors
 import com.harken.android.ui.theme.PillShape
-import com.harken.android.ui.theme.ProtoBodyFont
 import com.harken.android.ui.theme.ProtoColors
-import com.harken.android.ui.theme.ProtoHeadingFont
 
 // Prototype card styling wired to the real SettingsViewModel/AppSettings. The
 // prototype's Storage "warn before cap" and Transcription provider controls have no
@@ -66,7 +63,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
             .padding(horizontal = 20.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(stringResource(R.string.settings_title), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 26.sp)
+        Text(stringResource(R.string.settings_title), color = c.text, style = MaterialTheme.typography.headlineSmall)
 
         SettingsCard(c) {
             Eyebrow(c, stringResource(R.string.settings_model_header))
@@ -92,8 +89,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
                         ModelDownloadState.NotStarted -> stringResource(R.string.settings_model_not_started)
                     },
                     color = if (state.modelDownloadState == ModelDownloadState.Failed) c.stateError else c.text,
-                    fontFamily = ProtoBodyFont,
-                    fontSize = 13.5.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.weight(1f),
                 )
                 OutlinedButton(
@@ -106,9 +102,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
                 ) {
                     Text(
                         stringResource(if (state.modelPresent) R.string.settings_model_update else R.string.settings_model_download),
-                        fontFamily = ProtoBodyFont,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.5.sp,
+                        style = MaterialTheme.typography.labelMedium,
                     )
                 }
             }
@@ -128,9 +122,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
                 Text(
                     stringResource(R.string.settings_model_low_memory, DeviceCapability.MINIMUM_NOMINAL_GB),
                     color = c.stateError,
-                    fontFamily = ProtoBodyFont,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 10.dp),
                 )
             }
@@ -150,9 +142,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
             Text(
                 stringResource(R.string.settings_capture_note),
                 color = c.textSecondary,
-                fontFamily = ProtoBodyFont,
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
+                style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 10.dp),
             )
         }
@@ -173,9 +163,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
                         label = {
                             Text(
                                 stringResource(mode.label),
-                                fontFamily = ProtoBodyFont,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.5.sp,
+                                style = MaterialTheme.typography.labelMedium,
                             )
                         },
                     )
@@ -190,14 +178,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
                         Text(
                             stringResource(R.string.settings_wallpaper_title),
                             color = c.text,
-                            fontFamily = ProtoBodyFont,
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                         )
                         Text(
                             stringResource(R.string.settings_wallpaper_body),
                             color = c.textSecondary,
-                            fontFamily = ProtoBodyFont,
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(top = 2.dp),
                         )
                     }
@@ -245,9 +231,7 @@ private fun BackupCard(
         Text(
             stringResource(R.string.settings_backup_body),
             color = c.textSecondary,
-            fontFamily = ProtoBodyFont,
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
+            style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 6.dp),
         )
         Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -267,9 +251,7 @@ private fun BackupCard(
                 Text(
                     status,
                     color = if (state is ExportState.Failed) c.stateError else c.text,
-                    fontFamily = ProtoBodyFont,
-                    fontSize = 13.5.sp,
-                    lineHeight = 18.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.weight(1f).padding(end = 12.dp),
                 )
             } else {
@@ -296,9 +278,7 @@ private fun BackupCard(
                             else -> R.string.settings_backup_dismiss
                         },
                     ),
-                    fontFamily = ProtoBodyFont,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.5.sp,
+                    style = MaterialTheme.typography.labelMedium,
                 )
             }
         }
@@ -357,7 +337,7 @@ private fun SettingsCard(
     c: ProtoColors,
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().background(c.card, RoundedCornerShape(24.dp)).padding(16.dp), content = content)
+    Column(Modifier.fillMaxWidth().background(c.card, MaterialTheme.shapes.large).padding(16.dp), content = content)
 }
 
 @Composable
@@ -365,7 +345,7 @@ private fun Eyebrow(
     c: ProtoColors,
     text: String,
 ) {
-    Text(text, color = c.textSecondary, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Black, fontSize = 11.sp, letterSpacing = 1.2.sp)
+    Text(text, color = c.textSecondary, style = MaterialTheme.typography.labelSmall)
 }
 
 @Composable
@@ -378,8 +358,8 @@ private fun CaptureLimitRow(
         Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(label, color = c.text, fontFamily = ProtoBodyFont, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
-        Text(value, color = c.textSecondary, fontFamily = ProtoBodyFont, fontSize = 13.5.sp)
+        Text(label, color = c.text, style = MaterialTheme.typography.labelLarge)
+        Text(value, color = c.textSecondary, style = MaterialTheme.typography.bodySmall)
     }
 }
 
