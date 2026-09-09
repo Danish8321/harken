@@ -54,6 +54,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -170,6 +172,13 @@ fun AppNav() {
             // the system-bar insets for every destination now, OnboardingScreen no longer
             // applies its own.
             Scaffold(
+                // The session sheet composes in this window now rather than a Dialog of its
+                // own (UI-043), which is what lets a shared element span a Library card into
+                // it — but it also means it cannot trap focus the way that Dialog did. So the
+                // content behind it leaves the accessibility tree explicitly instead of merely
+                // being painted over: without this, TalkBack still walks the Library under the
+                // scrim.
+                modifier = if (openSession != null) Modifier.semantics { hideFromAccessibility() } else Modifier,
                 containerColor = MaterialTheme.colorScheme.background,
                 bottomBar = {
                     AnimatedVisibility(

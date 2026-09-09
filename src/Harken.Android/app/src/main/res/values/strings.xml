@@ -148,6 +148,7 @@
     <string name="session_play">Play</string>
     <string name="session_pause">Pause</string>
     <string name="session_scrub">Playback position</string>
+    <string name="session_close">Close recording</string>
     <string name="session_playback_failed">Couldn\'t play this recording.</string>
     <string name="session_audio_missing">The audio for this recording is no longer on this phone. The transcript is below.</string>
 
