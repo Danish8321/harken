@@ -91,8 +91,8 @@ private const val STAGGER_STEP_MS = 35L
 
 @Composable
 fun LibraryScreen(
-    /** [fromCard] is true only when the tap was on a [SessionCard] whose bounds the session
-     *  sheet can grow out of — see UI-043's container transform. */
+    /** [fromCard] is true when the tap was on a card whose bounds the session sheet can grow
+     *  out of — a [SessionCard] or a [SearchResultCard]. See UI-043's container transform. */
     onOpenSession: (sessionId: UUID, focusSegmentId: UUID?, fromCard: Boolean) -> Unit = { _, _, _ -> },
     onGoToRecord: () -> Unit = {},
     /** The far end of the container transform. Null in previews and tests, which compose no
@@ -164,7 +164,9 @@ fun LibraryScreen(
                     term = search.query.trim(),
                     results = search.results,
                     isSearching = search.isSearching,
-                    onOpen = { id, segmentId -> onOpenSession(id, segmentId, false) },
+                    onOpen = { id, segmentId -> onOpenSession(id, segmentId, true) },
+                    sharedScope = sharedScope,
+                    transformingSessionId = transformingSessionId,
                 )
 
             state.loadError != null ->
@@ -337,6 +339,8 @@ private fun SearchResults(
     results: List<SessionRepository.SearchHit>,
     isSearching: Boolean,
     onOpen: (UUID, UUID?) -> Unit,
+    sharedScope: SharedTransitionScope? = null,
+    transformingSessionId: UUID? = null,
 ) {
     when {
         // Only while there is nothing to show. Re-running the query on the next keystroke
@@ -355,8 +359,17 @@ private fun SearchResults(
 
         else ->
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Keyed by session, so one session cannot appear twice and two cards cannot
+                // claim the same container-transform key.
                 items(results, key = { it.session.id }) { hit ->
-                    SearchResultCard(c = c, hit = hit, term = term) { onOpen(hit.session.id, hit.segmentId) }
+                    SearchResultCard(
+                        c = c,
+                        hit = hit,
+                        term = term,
+                        sharedScope = sharedScope,
+                        isTransforming = hit.session.id == transformingSessionId,
+                        onOpen = { onOpen(hit.session.id, hit.segmentId) },
+                    )
                 }
                 item { Spacer(Modifier.height(8.dp)) }
             }
@@ -375,6 +388,8 @@ private fun SearchResultCard(
     hit: SessionRepository.SearchHit,
     term: String,
     onOpen: () -> Unit,
+    sharedScope: SharedTransitionScope? = null,
+    isTransforming: Boolean = false,
 ) {
     val snippet = remember(hit.snippet, term) { hit.snippet?.let { SearchQuery.snippet(it, term) } }
     val highlighted =
@@ -392,10 +407,25 @@ private fun SearchResultCard(
             }
         }
 
+    // The near end of the container transform, on the same terms as [SessionCard]: a result
+    // is the card the sheet grows out of when the sheet was opened from here (UI-043).
+    val boundsSpec = HarkenMotion.spatialSlow<Rect>()
     Column(
         Modifier
             .fillMaxWidth()
-            .background(c.card, MaterialTheme.shapes.large)
+            .then(
+                if (sharedScope == null) {
+                    Modifier
+                } else {
+                    with(sharedScope) {
+                        Modifier.sharedElementWithCallerManagedVisibility(
+                            rememberSharedContentState(sessionSharedKey(hit.session.id)),
+                            visible = !isTransforming,
+                            boundsTransform = BoundsTransform { _, _ -> boundsSpec },
+                        )
+                    }
+                },
+            ).background(c.card, MaterialTheme.shapes.large)
             .clickable(role = Role.Button, onClick = onOpen)
             .padding(16.dp),
     ) {

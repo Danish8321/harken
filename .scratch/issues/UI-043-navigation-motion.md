@@ -185,8 +185,8 @@ sheet is the far end via `sharedBounds`. Both take their bounds spec from
 container actually exists: a `SessionCard` tap sets it, a search result and
 `RecordScreen` do not, and without it the sheet slides up as before.
 Otherwise a search result would hide a card that is nowhere on screen and
-grow the sheet out of nothing. `SearchResultCard` is therefore still a
-plain card — giving it the same treatment is a follow-up, not part of this.
+grow the sheet out of nothing. `SearchResultCard` was therefore left a
+plain card here, and given the same treatment in the follow-up below.
 
 Re-established by hand, because the Dialog window had supplied them: a
 scrim that dismisses, `PredictiveBackHandler` shrinking the surface toward
@@ -269,4 +269,25 @@ Verified: `bash .claude/scripts/check.sh` -> `== check: OK ==`, then
 - swipe down brings it back
 - searching with the bar hidden brings it back
 - back out of a scrolled Library and RECORD has its bar
+- no exception in `logcat`
+
+**Follow-up: the search result is a container too.** The reason 4 skipped
+`SearchResultCard` was that `fromCard` had to be false for anything without
+a card on screen — but a search result *is* a card on screen, so the
+exclusion was about the work not being done, not about the shape of the
+screen. It now takes the same near end as `SessionCard`:
+`sharedElementWithCallerManagedVisibility` on the same `sessionSharedKey`,
+`visible = !isTransforming`, bounds on `spatialSlow`, and the search call
+site passes `fromCard = true`. `SearchResults` already keys its items by
+`it.session.id`, so a session cannot appear twice and two cards cannot
+claim one key — which is what would break the far end.
+
+Verified: `bash .claude/scripts/check.sh` -> `== check: OK ==`, then
+`installDebug` onto 'AIN065 - 16'. Search matches transcripts and typed
+names, and nothing on the device is transcribed, so a recording was renamed
+to "zebra" through the sheet to get a hit. At `animator_duration_scale 10`:
+
+- the result card stops drawing on tap and the sheet grows out of its
+  bounds, same as from the Library list
+- back dismisses and the result card is drawn again, with the tab bar back
 - no exception in `logcat`
