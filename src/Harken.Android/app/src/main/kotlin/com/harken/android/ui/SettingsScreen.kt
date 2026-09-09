@@ -94,7 +94,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
                         }
                         ModelDownloadState.NotStarted -> stringResource(R.string.settings_model_not_started)
                     },
-                    color = if (state.modelDownloadState == ModelDownloadState.Failed) c.stateError else c.text,
+                    color = if (state.modelDownloadState == ModelDownloadState.Failed) c.errorInk else c.text,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.weight(1f),
                 )
@@ -127,7 +127,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
             if (state.device.isBelowMinimum) {
                 Text(
                     stringResource(R.string.settings_model_low_memory, DeviceCapability.MINIMUM_NOMINAL_GB),
-                    color = c.stateError,
+                    color = c.errorInk,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 10.dp),
                 )
@@ -273,7 +273,7 @@ private fun BackupCard(
             if (status.isNotEmpty()) {
                 Text(
                     status,
-                    color = if (state is ExportState.Failed) c.stateError else c.text,
+                    color = if (state is ExportState.Failed) c.errorInk else c.text,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.weight(1f).padding(end = 12.dp),
                 )

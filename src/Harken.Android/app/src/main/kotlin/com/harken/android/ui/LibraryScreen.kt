@@ -653,9 +653,9 @@ private fun SessionCard(
                     s.failureReason?.let { reason ->
                         Text(
                             reason,
-                            // stateError, not stateErrorFg: the foreground pair is for text
-                            // sitting on the error fill, and this text sits on the card.
-                            color = c.stateError,
+                            // errorInk, not the fill or its foreground: this text sits on the
+                            // card, and the fill's red read 2.69:1 there in dark (UI-044).
+                            color = c.errorInk,
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(top = 4.dp),
                         )

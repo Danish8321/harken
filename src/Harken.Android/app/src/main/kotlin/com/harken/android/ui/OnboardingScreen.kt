@@ -269,7 +269,7 @@ fun OnboardingScreen(
                                                     state.modelDownloadError?.messageRes()
                                                         ?: R.string.settings_model_download_failed,
                                                 ),
-                                                color = c.stateError,
+                                                color = c.errorInk,
                                                 style = MaterialTheme.typography.bodySmall,
                                             )
                                             OutlinedButton(

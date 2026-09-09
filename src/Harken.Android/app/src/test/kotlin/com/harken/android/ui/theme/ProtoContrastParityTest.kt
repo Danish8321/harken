@@ -39,6 +39,17 @@ class ProtoContrastParityTest {
         return (maxOf(a, b) + 0.05) / (minOf(a, b) + 0.05)
     }
 
+    /** A translucent colour drawn over an opaque one — what the eye actually gets. */
+    private fun composite(
+        over: Color,
+        under: Color,
+    ): Color =
+        Color(
+            red = over.red * over.alpha + under.red * (1f - over.alpha),
+            green = over.green * over.alpha + under.green * (1f - over.alpha),
+            blue = over.blue * over.alpha + under.blue * (1f - over.alpha),
+        )
+
     /** Asserts one foreground/background role in both palettes, so neither can drift alone. */
     private fun bothThemes(
         role: String,
@@ -81,6 +92,12 @@ class ProtoContrastParityTest {
         bothThemes("stateDoneFg on stateDone", aa) { it.stateDoneFg to it.stateDone }
         bothThemes("stateDoneFg on stateDoneSoft", aa) { it.stateDoneFg to it.stateDoneSoft }
         bothThemes("stateErrorFg on stateError", aa) { it.stateErrorFg to it.stateError }
+        // Material's errorContainer is the fill at 18% over the surface under it, and the
+        // scheme's onErrorContainer has to read on the result — not on the fill itself,
+        // which is the mistake that left it at 2.03:1 (UI-044).
+        bothThemes("onErrorContainer on errorContainer", aa) {
+            it.errorInk to composite(it.stateError.copy(alpha = 0.18f), it.card)
+        }
         // stateLive is the same value as accent in both palettes today, and its foreground
         // pairs with it the same way — asserted separately so splitting them later is caught.
         // DEBT (UI-044): 4.12:1 in light.
@@ -92,11 +109,14 @@ class ProtoContrastParityTest {
     fun `status colours used as ink, not as fill, survive on the surfaces under them`() {
         bothThemes("success on card", aa) { it.success to it.card }
         bothThemes("success on screenBg", aa) { it.success to it.screenBg }
-        // DEBT (UI-044), and the worst of them: 2.69:1 in dark. This is the failure reason
-        // printed under a recording's title — the one place the app explains what went
-        // wrong, and in dark theme it is barely there. Light reads 5.18:1.
-        bothThemes("stateError on card", 2.6) { it.stateError to it.card }
-        bothThemes("stateError on screenBg", 3.4) { it.stateError to it.screenBg }
+        // Was the worst pair here at 2.69:1 in dark, when the error fill doubled as ink.
+        // errorInk is that split (UI-044): every error label and error icon on a neutral
+        // surface reads this, and the fill below keeps stateErrorFg.
+        bothThemes("errorInk on card", aa) { it.errorInk to it.card }
+        bothThemes("errorInk on screenBg", aa) { it.errorInk to it.screenBg }
+        // errorInk is also Material's `error` role, so it has to survive its own fill's
+        // foreground — a Button(containerColor = error) with onError content.
+        bothThemes("stateErrorFg on errorInk", aa) { it.stateErrorFg to it.errorInk }
         // DEBT (UI-044): 4.45:1 dark / 4.49:1 light — a rounding away from AA on both sides.
         bothThemes("accent on card", 4.4) { it.accent to it.card }
         bothThemes("accent on screenBg", 4.1) { it.accent to it.screenBg }

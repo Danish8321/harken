@@ -57,10 +57,15 @@ private fun protoColorScheme(
         onSurfaceVariant = c.textSecondary,
         outline = c.cardBorder,
         outlineVariant = c.cardBorder,
-        error = c.stateError,
+        // Material's error role is read both ways — as a fill under onError, and as ink for
+        // an icon or a label on a plain surface — so it takes the ink, which is legible in
+        // both readings. onError stays the fill's foreground and still pairs with it
+        // (9.15:1 dark, 6.50:1 light). onErrorContainer took stateErrorFg and read 2.03:1
+        // on the tint it sits on (UI-044).
+        error = c.errorInk,
         onError = c.stateErrorFg,
         errorContainer = c.stateError.copy(alpha = 0.18f),
-        onErrorContainer = c.stateErrorFg,
+        onErrorContainer = c.errorInk,
     )
 }
 

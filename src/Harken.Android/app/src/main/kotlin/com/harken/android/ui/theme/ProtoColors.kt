@@ -47,8 +47,18 @@ data class ProtoColors(
     val stateDoneSoft: Color,
     /** "Done / connected / healthy" foreground, legible directly on [card] and [screenBg]. */
     val success: Color,
+    /** Red fill: "failed", with [stateErrorFg] as the only thing legible on it. */
     val stateError: Color,
     val stateErrorFg: Color,
+    /**
+     * "Failed" as ink rather than as fill — error text and error icons sitting directly on
+     * [card] or [screenBg], the counterpart [success] already is for [stateDone].
+     *
+     * Separate because a fill and the ink over a neutral surface cannot be one value: the
+     * red that carries [stateErrorFg] read 2.69:1 as text on a dark card, which is where
+     * the app explains why a transcription failed (UI-044).
+     */
+    val errorInk: Color,
     val meterBg: Color,
     val inkSubtle: Color,
     val inkStrong: Color,
@@ -95,6 +105,9 @@ val ProtoDarkColors =
         success = Color(0xFF8FBF9A),
         stateError = Color(0xFFE74C3C),
         stateErrorFg = Color(0xFF2B0B08),
+        // Lighter than the fill, the way Material's own dark schemes carry error: 5.16:1
+        // on card and 6.57:1 on the ground, against E74C3C's 2.69 and 3.42.
+        errorInk = Color(0xFFFF9E93),
         // The one surface that still goes darker than the ground — the meter is a readout
         // behind the signal, and it has to sit under the card tier, not float above it.
         meterBg = Color(0xFF232830),
@@ -122,6 +135,9 @@ val ProtoLightColors =
         success = Color(0xFF2F6B3E),
         stateError = Color(0xFFC7392F),
         stateErrorFg = Color(0xFFFFFFFF),
+        // A step deeper than the fill. C7392F already cleared AA as text on white, but not
+        // on the error container tint under it (3.95:1); this clears both.
+        errorInk = Color(0xFFAE2F24),
         meterBg = Color(0xFFE4EAEC),
         inkSubtle = lightInk.copy(alpha = 0.60f),
         inkStrong = lightInk.copy(alpha = 0.72f),

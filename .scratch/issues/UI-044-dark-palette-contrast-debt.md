@@ -15,8 +15,8 @@ palettes, and is now a unit test (`ProtoContrastParityTest`). Six pairs are belo
 
 | pair | dark | light | where it shows |
 | --- | --- | --- | --- |
-| `stateError` on `card` | **2.69** | 5.18 | the failure reason under a recording's title |
-| `stateError` on `screenBg` | **3.42** | 4.77 | same text, on a screen without a card |
+| ~~`stateError` on `card`~~ | ~~**2.69**~~ | ~~5.18~~ | fixed below — now `errorInk`, 5.16 / 6.50 |
+| ~~`stateError` on `screenBg`~~ | ~~**3.42**~~ | ~~4.77~~ | fixed below — now `errorInk`, 6.57 / 5.98 |
 | `textSecondary` on `pillTrack` | **3.48** | 4.80 | the "Transcribed" chip's own label |
 | `textSecondary` on `card` / `navBg` | **4.18** | 5.83 | every card meta line, every nav label |
 | `accent` on `card` | **4.45** | **4.49** | accent-coloured text and icons on a card |
@@ -47,6 +47,28 @@ reference strip):
 2. `textSecondary` in dark lifts from #A0A6AD toward #B4BAC1 (4.18 -> ~5.1 on `card`),
    which moves every meta line and nav label in the app a step brighter.
 3. `accent` is left alone. 4.45/4.49 is a rounding from AA, and it is the brand primitive.
+
+## Resolution so far
+
+Option 1 is done; the two `stateError` rows are fixed and four pairs remain, so this
+stays open.
+
+`errorInk` is the split: "failed" as ink on a neutral surface, the counterpart `success`
+already is for `stateDone`. Dark #FF9E93 (5.16:1 on `card`, 6.57:1 on the ground, against
+2.69 and 3.42), light #AE2F24 (6.50 and 5.98). `stateError` keeps both its values and
+stays the fill, so `SaveStatusCard`'s failed state and every other filled error surface
+look exactly as they did.
+
+Taking it are the five places error was painted as text or icon — the Library's failure
+reason, the onboarding error, and Settings' model-download, backup-cancel and export-failed
+lines — plus Material's `error` role, which is read both ways: as a fill under `onError`
+and as ink for an icon on a plain surface. `onError` stays `stateErrorFg` and still pairs
+with it (9.15:1 dark, 6.50:1 light).
+
+One more pair surfaced while measuring, and is fixed with it: `onErrorContainer` was
+`stateErrorFg` over `errorContainer` — the fill at 18% over the surface — which is 2.03:1
+in dark and 1.31:1 in light. Reading the ink there instead gives 4.52 and 4.96. The test
+now composites the container rather than measuring against the fill, which is what hid it.
 
 ## Verification
 
