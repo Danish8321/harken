@@ -2,6 +2,10 @@ package com.harken.android.ui
 
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.BoundsTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.fadeIn
@@ -74,6 +78,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -115,6 +120,12 @@ private const val BACK_PULL_SHRINK = 0.1f
 private const val DISMISS_VELOCITY = 1200f
 private val DISMISS_DRAG = 120.dp
 
+/**
+ * The container-transform key a Library card and this sheet have to agree on, in one place so
+ * they cannot drift (UI-043).
+ */
+internal fun sessionSharedKey(id: UUID): Any = "session-$id"
+
 // Renamed from SessionDetailScreen. Same modal-sheet presentation as before (a session is
 // content to review and hand off, not a stack frame), rebuilt on the shared card and ink
 // surfaces so it stops being the only screen in the app with a bordered elevated card.
@@ -131,6 +142,9 @@ fun SessionSheet(
     onDismiss: () -> Unit,
     /** A transcript line to open at, from a search result. Null opens at the top. */
     focusSegmentId: UUID? = null,
+    /** Non-null when a Library card is on screen for this session and can hand its bounds
+     *  over: the sheet then grows out of that card instead of sliding up. */
+    sharedScope: SharedTransitionScope? = null,
     viewModel: SessionSheetViewModel = viewModel(factory = SessionSheetViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -188,7 +202,7 @@ fun SessionSheet(
     }
     val hide = { sheet.targetState = false }
 
-    SheetSurface(visible = sheet, onHide = hide) {
+    SheetSurface(visible = sheet, onHide = hide, sharedScope = sharedScope, sharedKey = sessionSharedKey(sessionId)) {
         Column(Modifier.fillMaxSize()) {
             val revealedSegmentIds = remember { androidx.compose.runtime.mutableStateSetOf<java.util.UUID>() }
             val reducedMotion = com.harken.android.ui.theme.LocalReducedMotion.current
@@ -648,6 +662,8 @@ data class TranscriptRowModel(
 private fun SheetSurface(
     visible: MutableTransitionState<Boolean>,
     onHide: () -> Unit,
+    sharedScope: SharedTransitionScope?,
+    sharedKey: Any,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -656,6 +672,9 @@ private fun SheetSurface(
     val settleBack = HarkenMotion.spatialDefault<Float>()
     val dismissAt = with(LocalDensity.current) { DISMISS_DRAG.toPx() }
     val closeLabel = stringResource(R.string.session_close)
+    val boundsSpec = HarkenMotion.spatialSlow<Rect>()
+    val contentFadeIn = fadeIn(HarkenMotion.effectsSlow())
+    val contentFadeOut = fadeOut(HarkenMotion.effectsSlow())
 
     // Back follows the finger instead of snapping: progress shrinks the surface toward its own
     // bottom edge, and the flow completing is the gesture being committed. A CancellationException
@@ -670,18 +689,20 @@ private fun SheetSurface(
         }
     }
 
+    // Nothing at this level: the scrim and the surface want different halves of the motion
+    // vocabulary, so each animates itself. The scrim only recolours, so it takes an effects
+    // spec — springing an alpha reads as a rendering glitch (Motion.kt). The surface moves, so
+    // it takes spatialSlow, the token whose own doc names this surface.
     AnimatedVisibility(
         visibleState = visible,
-        // The scrim only recolours, so it takes an effects spec — springing an alpha reads as a
-        // rendering glitch (Motion.kt). The surface underneath moves, so it takes spatialSlow,
-        // which is the token written for exactly this surface.
-        enter = fadeIn(HarkenMotion.effectsSlow()),
-        exit = fadeOut(HarkenMotion.effectsSlow()),
+        enter = EnterTransition.None,
+        exit = ExitTransition.None,
     ) {
         Box(Modifier.fillMaxSize()) {
             Box(
                 Modifier
                     .fillMaxSize()
+                    .animateEnterExit(enter = contentFadeIn, exit = contentFadeOut)
                     .background(MaterialTheme.colorScheme.scrim.copy(alpha = SCRIM_ALPHA))
                     // No indication: a ripple spreading across the whole screen reads as a bug,
                     // not as feedback. The click label is what carries the action to TalkBack.
@@ -708,9 +729,25 @@ private fun SheetSurface(
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .fillMaxHeight(SHEET_HEIGHT_FRACTION)
-                        .animateEnterExit(
-                            enter = slideInVertically(HarkenMotion.spatialSlow()) { it },
-                            exit = slideOutVertically(HarkenMotion.spatialSlow()) { it },
+                        .then(
+                            if (sharedScope == null) {
+                                // No card to grow out of — opened from Record, or from a search
+                                // result whose own card is not on screen. Slide up instead.
+                                Modifier.animateEnterExit(
+                                    enter = slideInVertically(HarkenMotion.spatialSlow()) { it },
+                                    exit = slideOutVertically(HarkenMotion.spatialSlow()) { it },
+                                )
+                            } else {
+                                with(sharedScope) {
+                                    Modifier.sharedBounds(
+                                        rememberSharedContentState(sharedKey),
+                                        animatedVisibilityScope = this@AnimatedVisibility,
+                                        enter = contentFadeIn,
+                                        exit = contentFadeOut,
+                                        boundsTransform = BoundsTransform { _, _ -> boundsSpec },
+                                    )
+                                }
+                            },
                         ).offset { IntOffset(0, dragOffset.value.roundToInt()) }
                         .graphicsLayer {
                             val shrink = 1f - BACK_PULL_SHRINK * backPull

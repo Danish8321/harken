@@ -3,6 +3,7 @@ package com.harken.android.ui
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.fadeIn
@@ -171,73 +172,89 @@ fun AppNav() {
             // Onboarding is not a tab, so it gets no bar — and since the Scaffold supplies
             // the system-bar insets for every destination now, OnboardingScreen no longer
             // applies its own.
-            Scaffold(
-                // The session sheet composes in this window now rather than a Dialog of its
-                // own (UI-043), which is what lets a shared element span a Library card into
-                // it — but it also means it cannot trap focus the way that Dialog did. So the
-                // content behind it leaves the accessibility tree explicitly instead of merely
-                // being painted over: without this, TalkBack still walks the Library under the
-                // scrim.
-                modifier = if (openSession != null) Modifier.semantics { hideFromAccessibility() } else Modifier,
-                containerColor = MaterialTheme.colorScheme.background,
-                bottomBar = {
-                    AnimatedVisibility(
-                        visible = tabOrder(currentRoute) >= 0,
-                        enter =
-                            slideInVertically(HarkenMotion.spatialDefault()) { it } +
-                                fadeIn(HarkenMotion.effectsDefault()),
-                        exit =
-                            slideOutVertically(HarkenMotion.spatialDefault()) { it } +
-                                fadeOut(HarkenMotion.effectsDefault()),
+            // Both the graph and the sheet sit inside one SharedTransitionLayout, because a
+            // shared element can only travel between two ends composed in the same place —
+            // exactly what ModalBottomSheet's separate Dialog window ruled out (UI-043). It
+            // lays out as a Box, so the sheet still stacks over the graph as it did before.
+            SharedTransitionLayout(Modifier.fillMaxSize()) {
+                Scaffold(
+                    // The session sheet composes in this window now rather than a Dialog of its
+                    // own, which is what lets that shared element exist at all — but it also
+                    // means it cannot trap focus the way the Dialog did. So the content behind
+                    // it leaves the accessibility tree explicitly instead of merely being
+                    // painted over: without this, TalkBack still walks the Library under the
+                    // scrim.
+                    modifier = if (openSession != null) Modifier.semantics { hideFromAccessibility() } else Modifier,
+                    containerColor = MaterialTheme.colorScheme.background,
+                    bottomBar = {
+                        AnimatedVisibility(
+                            visible = tabOrder(currentRoute) >= 0,
+                            enter =
+                                slideInVertically(HarkenMotion.spatialDefault()) { it } +
+                                    fadeIn(HarkenMotion.effectsDefault()),
+                            exit =
+                                slideOutVertically(HarkenMotion.spatialDefault()) { it } +
+                                    fadeOut(HarkenMotion.effectsDefault()),
+                        ) {
+                            FloatingTabBar(
+                                c = c,
+                                currentRoute = currentRoute,
+                                isRecording = isRecording,
+                                onSelect = { tab ->
+                                    navController.navigate(tab.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                            )
+                        }
+                    },
+                ) { padding ->
+                    NavHost(
+                        navController = navController,
+                        startDestination = if (onboardingComplete == true) Routes.RECORD else Routes.ONBOARDING,
+                        modifier = Modifier.padding(padding),
+                        enterTransition = { sharedAxisEnter(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
+                        exitTransition = { sharedAxisExit(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
+                        popEnterTransition = { sharedAxisEnter(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
+                        popExitTransition = { sharedAxisExit(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
                     ) {
-                        FloatingTabBar(
-                            c = c,
-                            currentRoute = currentRoute,
-                            isRecording = isRecording,
-                            onSelect = { tab ->
-                                navController.navigate(tab.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                        )
+                        composable(Routes.ONBOARDING) {
+                            OnboardingScreen(onFinished = {
+                                navController.navigate(Routes.RECORD) { popUpTo(Routes.ONBOARDING) { inclusive = true } }
+                            })
+                        }
+                        composable(Routes.RECORD) {
+                            // Nothing on this screen is the sheet's container, so fromCard is
+                            // false and the sheet slides up rather than transforming.
+                            RecordScreen(onOpenSession = { openSession = OpenSession(it, null, fromCard = false) })
+                        }
+                        composable(Routes.LIBRARY) {
+                            LibraryScreen(
+                                onOpenSession = { id, segmentId, fromCard ->
+                                    openSession = OpenSession(id, segmentId, fromCard)
+                                },
+                                onGoToRecord = { navController.navigate(Routes.RECORD) },
+                                sharedScope = this@SharedTransitionLayout,
+                                // Only the card the sheet actually grew out of stops drawing
+                                // itself. A search result opens the same sheet with no card on
+                                // screen to hand bounds over.
+                                transformingSessionId = openSession?.takeIf { it.fromCard }?.sessionId,
+                            )
+                        }
+                        composable(Routes.SETTINGS) { SettingsScreen() }
                     }
-                },
-            ) { padding ->
-                NavHost(
-                    navController = navController,
-                    startDestination = if (onboardingComplete == true) Routes.RECORD else Routes.ONBOARDING,
-                    modifier = Modifier.padding(padding),
-                    enterTransition = { sharedAxisEnter(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
-                    exitTransition = { sharedAxisExit(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
-                    popEnterTransition = { sharedAxisEnter(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
-                    popExitTransition = { sharedAxisExit(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
-                ) {
-                    composable(Routes.ONBOARDING) {
-                        OnboardingScreen(onFinished = {
-                            navController.navigate(Routes.RECORD) { popUpTo(Routes.ONBOARDING) { inclusive = true } }
-                        })
-                    }
-                    composable(Routes.RECORD) {
-                        RecordScreen(onOpenSession = { openSession = OpenSession(it, null) })
-                    }
-                    composable(Routes.LIBRARY) {
-                        LibraryScreen(
-                            onOpenSession = { id, segmentId -> openSession = OpenSession(id, segmentId) },
-                            onGoToRecord = { navController.navigate(Routes.RECORD) },
-                        )
-                    }
-                    composable(Routes.SETTINGS) { SettingsScreen() }
                 }
-            }
 
-            openSession?.let { target ->
-                SessionSheet(
-                    sessionId = target.sessionId,
-                    focusSegmentId = target.focusSegmentId,
-                    onDismiss = { openSession = null },
-                )
+                openSession?.let { target ->
+                    SessionSheet(
+                        sessionId = target.sessionId,
+                        focusSegmentId = target.focusSegmentId,
+                        onDismiss = { openSession = null },
+                        sharedScope = if (target.fromCard) this@SharedTransitionLayout else null,
+                    )
+                }
             }
         }
     }
@@ -255,10 +272,14 @@ private fun SplashPlaceholder() {
     }
 }
 
-/** Which recording the sheet is showing, and which line of it to open at. */
+/**
+ * Which recording the sheet is showing, which line of it to open at, and whether a Library
+ * card is standing behind it ready to hand its bounds over to the container transform.
+ */
 private data class OpenSession(
     val sessionId: UUID,
     val focusSegmentId: UUID?,
+    val fromCard: Boolean,
 )
 
 // A floating pill instead of Material's edge-to-edge NavigationBar (UI-021) — inset from

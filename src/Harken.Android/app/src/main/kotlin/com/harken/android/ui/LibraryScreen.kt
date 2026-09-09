@@ -2,6 +2,8 @@ package com.harken.android.ui
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.BoundsTransform
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
@@ -44,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
@@ -83,8 +86,15 @@ private const val STAGGER_STEP_MS = 35L
 
 @Composable
 fun LibraryScreen(
-    onOpenSession: (sessionId: UUID, focusSegmentId: UUID?) -> Unit = { _, _ -> },
+    /** [fromCard] is true only when the tap was on a [SessionCard] whose bounds the session
+     *  sheet can grow out of — see UI-043's container transform. */
+    onOpenSession: (sessionId: UUID, focusSegmentId: UUID?, fromCard: Boolean) -> Unit = { _, _, _ -> },
     onGoToRecord: () -> Unit = {},
+    /** The far end of the container transform. Null in previews and tests, which compose no
+     *  SharedTransitionLayout, and the cards then behave as plain cards. */
+    sharedScope: SharedTransitionScope? = null,
+    /** The one card currently handing its bounds to the sheet, and so not drawing itself. */
+    transformingSessionId: UUID? = null,
     viewModel: LibraryViewModel = viewModel(factory = LibraryViewModel.Factory),
 ) {
     val c = LocalProtoColors.current
@@ -142,7 +152,7 @@ fun LibraryScreen(
                     term = search.query.trim(),
                     results = search.results,
                     isSearching = search.isSearching,
-                    onOpen = onOpenSession,
+                    onOpen = { id, segmentId -> onOpenSession(id, segmentId, false) },
                 )
 
             state.loadError != null ->
@@ -199,9 +209,11 @@ fun LibraryScreen(
                                 longestSeconds = longest,
                                 sessionCount = visible.size,
                                 isTranscribing = session.id == state.transcribingSessionId,
-                                onOpen = { onOpenSession(session.id, null) },
+                                onOpen = { onOpenSession(session.id, null, true) },
                                 onTranscribe = { viewModel.transcribe(session) },
                                 transcribeEnabled = state.transcribingSessionId == null,
+                                sharedScope = sharedScope,
+                                isTransforming = session.id == transformingSessionId,
                             )
                         }
                     }
@@ -435,6 +447,8 @@ private fun SessionCard(
     onOpen: () -> Unit,
     onTranscribe: () -> Unit,
     transcribeEnabled: Boolean,
+    sharedScope: SharedTransitionScope? = null,
+    isTransforming: Boolean = false,
 ) {
     // isTranscribing (from TranscriptionCoordinator.activeSessionId) is set the instant
     // Transcribe is tapped; s.status flips Recorded -> Pending/Running only once Room's
@@ -457,7 +471,29 @@ private fun SessionCard(
     val barColor = if (transcribing) c.success else c.textSecondary
     val fraction = ((s.durationSeconds ?: 0).toFloat() / longestSeconds).coerceIn(0f, 1f)
 
-    Column(Modifier.fillMaxWidth().background(c.card, MaterialTheme.shapes.large).padding(16.dp)) {
+    // This card is the near end of the session sheet's container transform (UI-043).
+    // Caller-managed visibility rather than an AnimatedVisibilityScope: the card is not
+    // leaving a transition of its own, it is standing still in a list while a sheet grows out
+    // of it, so this composable is the only thing that knows when to stop drawing it.
+    val boundsSpec = HarkenMotion.spatialSlow<Rect>()
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .then(
+                if (sharedScope == null) {
+                    Modifier
+                } else {
+                    with(sharedScope) {
+                        Modifier.sharedElementWithCallerManagedVisibility(
+                            rememberSharedContentState(sessionSharedKey(s.id)),
+                            visible = !isTransforming,
+                            boundsTransform = BoundsTransform { _, _ -> boundsSpec },
+                        )
+                    }
+                },
+            ).background(c.card, MaterialTheme.shapes.large)
+            .padding(16.dp),
+    ) {
         Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onOpen), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text(
