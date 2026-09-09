@@ -4,23 +4,30 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +41,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -41,16 +49,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -138,31 +148,90 @@ fun AppNav() {
             // same screen and a tab change slid a pane against itself (ARC-020).
             val reduced = LocalReducedMotion.current
             val fade = HarkenMotion.effectsDefault<Float>()
-            val slide = HarkenMotion.spatialDefault<androidx.compose.ui.unit.IntOffset>()
+            // Full-screen surface, so spatialSlow — Motion.kt's own rule is that speed
+            // follows element size, and this is the largest thing that moves in the app.
+            val slide = HarkenMotion.spatialSlow<IntOffset>()
 
             fun AnimatedContentTransitionScope<NavBackStackEntry>.movingRight(): Boolean =
                 tabOrder(targetState.destination.route) > tabOrder(initialState.destination.route)
 
-            NavHost(
-                navController = navController,
-                startDestination = if (onboardingComplete == true) Routes.RECORD else Routes.ONBOARDING,
-                enterTransition = { sharedAxisEnter(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
-                exitTransition = { sharedAxisExit(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
-                popEnterTransition = { sharedAxisEnter(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
-                popExitTransition = { sharedAxisExit(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
-            ) {
-                composable(Routes.ONBOARDING) {
-                    OnboardingScreen(onFinished = {
-                        navController.navigate(Routes.RECORD) { popUpTo(Routes.ONBOARDING) { inclusive = true } }
-                    })
-                }
-                composable(Routes.RECORD) { MainHost(navController) { open -> RecordScreen(onOpenSession = { open(it, null) }) } }
-                composable(Routes.LIBRARY) {
-                    MainHost(navController) { open ->
-                        LibraryScreen(onOpenSession = open, onGoToRecord = { navController.navigate(Routes.RECORD) })
+            val backStackEntry by navController.currentBackStackEntryAsState()
+            val currentRoute = backStackEntry?.destination?.route
+            val c = LocalProtoColors.current
+            val isRecording by RecordingState.isRecording.collectAsStateWithLifecycle()
+            // The segment travels with the session id: a search result opens the transcript
+            // at the line that matched, and everything else opens it at the top.
+            var openSession by remember { mutableStateOf<OpenSession?>(null) }
+
+            // The tab bar is chrome, so it is hoisted above the graph rather than built
+            // inside each destination (UI-043). Per-destination, it was carried by the
+            // NavHost's own enter/exit transitions: the bar slid out from under the finger
+            // that tapped it while a second copy slid in, and the selected-pill colour
+            // spring never ran at all, because the incoming bar composed already selected.
+            //
+            // Onboarding is not a tab, so it gets no bar — and since the Scaffold supplies
+            // the system-bar insets for every destination now, OnboardingScreen no longer
+            // applies its own.
+            Scaffold(
+                containerColor = MaterialTheme.colorScheme.background,
+                bottomBar = {
+                    AnimatedVisibility(
+                        visible = tabOrder(currentRoute) >= 0,
+                        enter =
+                            slideInVertically(HarkenMotion.spatialDefault()) { it } +
+                                fadeIn(HarkenMotion.effectsDefault()),
+                        exit =
+                            slideOutVertically(HarkenMotion.spatialDefault()) { it } +
+                                fadeOut(HarkenMotion.effectsDefault()),
+                    ) {
+                        FloatingTabBar(
+                            c = c,
+                            currentRoute = currentRoute,
+                            isRecording = isRecording,
+                            onSelect = { tab ->
+                                navController.navigate(tab.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                        )
                     }
+                },
+            ) { padding ->
+                NavHost(
+                    navController = navController,
+                    startDestination = if (onboardingComplete == true) Routes.RECORD else Routes.ONBOARDING,
+                    modifier = Modifier.padding(padding),
+                    enterTransition = { sharedAxisEnter(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
+                    exitTransition = { sharedAxisExit(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
+                    popEnterTransition = { sharedAxisEnter(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
+                    popExitTransition = { sharedAxisExit(reduced, movingRight(), fade, slide, offsetDivisor = 4) },
+                ) {
+                    composable(Routes.ONBOARDING) {
+                        OnboardingScreen(onFinished = {
+                            navController.navigate(Routes.RECORD) { popUpTo(Routes.ONBOARDING) { inclusive = true } }
+                        })
+                    }
+                    composable(Routes.RECORD) {
+                        RecordScreen(onOpenSession = { openSession = OpenSession(it, null) })
+                    }
+                    composable(Routes.LIBRARY) {
+                        LibraryScreen(
+                            onOpenSession = { id, segmentId -> openSession = OpenSession(id, segmentId) },
+                            onGoToRecord = { navController.navigate(Routes.RECORD) },
+                        )
+                    }
+                    composable(Routes.SETTINGS) { SettingsScreen() }
                 }
-                composable(Routes.SETTINGS) { MainHost(navController) { SettingsScreen() } }
+            }
+
+            openSession?.let { target ->
+                SessionSheet(
+                    sessionId = target.sessionId,
+                    focusSegmentId = target.focusSegmentId,
+                    onDismiss = { openSession = null },
+                )
             }
         }
     }
@@ -177,51 +246,6 @@ private fun SplashPlaceholder() {
         contentAlignment = Alignment.Center,
     ) {
         Text(stringResource(R.string.record_wordmark), color = c.text, fontFamily = ProtoHeadingFont, fontSize = 28.sp)
-    }
-}
-
-@Composable
-private fun MainHost(
-    navController: NavHostController,
-    content: @Composable (onOpenSession: (sessionId: UUID, focusSegmentId: UUID?) -> Unit) -> Unit,
-) {
-    val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = backStackEntry?.destination?.route
-    // The segment travels with the session id: a search result opens the transcript at the
-    // line that matched, and everything else opens it at the top.
-    var openSession by remember { mutableStateOf<OpenSession?>(null) }
-
-    val c = LocalProtoColors.current
-    val isRecording by RecordingState.isRecording.collectAsStateWithLifecycle()
-
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            FloatingTabBar(
-                c = c,
-                currentRoute = currentRoute,
-                isRecording = isRecording,
-                onSelect = { tab ->
-                    navController.navigate(tab.route) {
-                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        // No transition here: the shared-axis slide is the NavHost's, since only the
-        // graph knows which screen is being left for which.
-        Box(Modifier.padding(padding)) { content { id, segmentId -> openSession = OpenSession(id, segmentId) } }
-    }
-
-    openSession?.let { target ->
-        SessionSheet(
-            sessionId = target.sessionId,
-            focusSegmentId = target.focusSegmentId,
-            onDismiss = { openSession = null },
-        )
     }
 }
 
@@ -249,82 +273,106 @@ private fun FloatingTabBar(
             .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(
+        // One indicator that travels, rather than three that cross-fade in place. The tabs
+        // are equal-weight so a slot is always a third of the bar, which is what lets the
+        // pill's position be a plain offset animation instead of per-item geometry.
+        var barWidthPx by remember { mutableIntStateOf(0) }
+        val slotWidthPx = if (barWidthPx > 0) barWidthPx / tabs.size else 0
+        val selectedIndex = tabs.indexOfFirst { it.route == currentRoute }
+        val indicatorPx by animateIntAsState(
+            targetValue = if (selectedIndex >= 0) selectedIndex * slotWidthPx else 0,
+            animationSpec = HarkenMotion.spatialDefault(),
+            label = "tabIndicator",
+        )
+
+        Box(
             Modifier
                 .fillMaxWidth()
                 .background(c.navBg, RoundedCornerShape(32.dp))
-                .padding(6.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(6.dp)
+                // Intrinsic height so the pill can fill it: the bar is as tall as its
+                // tallest tab, which grows with the user's font scale.
+                .height(IntrinsicSize.Min)
+                .onSizeChanged { barWidthPx = it.width },
         ) {
-            tabs.forEach { tab ->
-                val selected = currentRoute == tab.route
-                // Live pill rides along on the RECORD tab's icon whenever a capture is
-                // active and the user isn't already looking at the live view — the real
-                // record button subsumes it there, so a second live dot on top of the tab
-                // would be redundant rather than reassuring.
-                val showLiveDot = tab.route == Routes.RECORD && isRecording && !selected
-                val itemBg by animateColorAsState(
-                    if (selected) c.accent else androidx.compose.ui.graphics.Color.Transparent,
-                    HarkenMotion.effectsFast(),
-                    label = "tabItemBg",
-                )
-                val itemFg by animateColorAsState(
-                    if (selected) c.onAccent else c.textSecondary,
-                    HarkenMotion.effectsFast(),
-                    label = "tabItemFg",
-                )
-                // selectable, not clickable: it carries Role.Tab and the selected state
-                // into the semantics tree, which is what NavigationBarItem gave us for
-                // free before this bar replaced it (UI-005). A bare clickable announced
-                // these as unlabelled text and never said which tab you were on. The
-                // 48dp floor is UI-004's — icon plus padding alone came to 40dp, and
-                // these are the most-tapped controls in the app.
-                Row(
+            if (selectedIndex >= 0 && slotWidthPx > 0) {
+                Box(
                     Modifier
-                        .clip(RoundedCornerShape(24.dp))
-                        .selectable(
-                            selected = selected,
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = LocalIndication.current,
-                            role = Role.Tab,
-                        ) { if (!selected) onSelect(tab) }
-                        .background(itemBg, RoundedCornerShape(24.dp))
-                        .heightIn(min = 48.dp)
-                        .padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box {
-                        Icon(tab.icon, contentDescription = null, tint = itemFg, modifier = Modifier.size(20.dp))
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = showLiveDot,
-                            enter = scaleIn(HarkenMotion.spatialFast()) + fadeIn(HarkenMotion.effectsFast()),
-                            exit = scaleOut(HarkenMotion.spatialFast()) + fadeOut(HarkenMotion.effectsFast()),
-                            modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-2).dp),
-                        ) {
-                            // stateLive and accent are the same color since UI-020 (recording-live
-                            // rides the resting brand accent) — one filled dot, not a two-layer ring.
-                            Box(Modifier.size(8.dp).background(c.stateLive, CircleShape))
-                        }
-                    }
-                    // Decorative: the visible label sits directly next to the icon and the
-                    // Row's selectable already announces the tab, so a contentDescription
-                    // here would make TalkBack read the tab name twice.
-                    Text(
-                        stringResource(tab.label),
-                        color = itemFg,
-                        fontFamily = ProtoBodyFont,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        lineHeight = 13.sp,
-                        style =
-                            androidx.compose.ui.text.TextStyle(
-                                platformStyle =
-                                    androidx.compose.ui.text
-                                        .PlatformTextStyle(includeFontPadding = false),
-                            ),
+                        .offset { IntOffset(indicatorPx, 0) }
+                        .width(with(LocalDensity.current) { slotWidthPx.toDp() })
+                        .fillMaxHeight()
+                        .background(c.accent, RoundedCornerShape(24.dp)),
+                )
+            }
+
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                tabs.forEach { tab ->
+                    val selected = currentRoute == tab.route
+                    // Live pill rides along on the RECORD tab's icon whenever a capture is
+                    // active and the user isn't already looking at the live view — the real
+                    // record button subsumes it there, so a second live dot on top of the tab
+                    // would be redundant rather than reassuring.
+                    val showLiveDot = tab.route == Routes.RECORD && isRecording && !selected
+                    val itemFg by animateColorAsState(
+                        if (selected) c.onAccent else c.textSecondary,
+                        HarkenMotion.effectsFast(),
+                        label = "tabItemFg",
                     )
+                    // selectable, not clickable: it carries Role.Tab and the selected state
+                    // into the semantics tree, which is what NavigationBarItem gave us for
+                    // free before this bar replaced it (UI-005). A bare clickable announced
+                    // these as unlabelled text and never said which tab you were on. The
+                    // 48dp floor is UI-004's — icon plus padding alone came to 40dp, and
+                    // these are the most-tapped controls in the app.
+                    Row(
+                        Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(24.dp))
+                            .selectable(
+                                selected = selected,
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = LocalIndication.current,
+                                role = Role.Tab,
+                            ) { if (!selected) onSelect(tab) }
+                            .heightIn(min = 48.dp)
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box {
+                            Icon(tab.icon, contentDescription = null, tint = itemFg, modifier = Modifier.size(20.dp))
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = showLiveDot,
+                                enter = scaleIn(HarkenMotion.spatialFast()) + fadeIn(HarkenMotion.effectsFast()),
+                                exit = scaleOut(HarkenMotion.spatialFast()) + fadeOut(HarkenMotion.effectsFast()),
+                                modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-2).dp),
+                            ) {
+                                // stateLive and accent are the same color since UI-020 (recording-live
+                                // rides the resting brand accent) — one filled dot, not a two-layer ring.
+                                Box(Modifier.size(8.dp).background(c.stateLive, CircleShape))
+                            }
+                        }
+                        // Decorative: the visible label sits directly next to the icon and the
+                        // Row's selectable already announces the tab, so a contentDescription
+                        // here would make TalkBack read the tab name twice.
+                        Text(
+                            stringResource(tab.label),
+                            color = itemFg,
+                            fontFamily = ProtoBodyFont,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            lineHeight = 13.sp,
+                            style =
+                                androidx.compose.ui.text.TextStyle(
+                                    platformStyle =
+                                        androidx.compose.ui.text
+                                            .PlatformTextStyle(includeFontPadding = false),
+                                ),
+                        )
+                    }
                 }
             }
         }

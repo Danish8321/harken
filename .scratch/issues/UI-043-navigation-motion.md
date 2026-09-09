@@ -119,4 +119,30 @@ land on its own.
 
 ## Resolution
 
-Not yet started — filed from audit findings only.
+Items 1, 2 and 3 done; 4, 5 and 6 remain, so this stays open.
+
+**1. Chrome hoisted.** `MainHost` is deleted. `AppNav` now owns one
+`Scaffold` above the `NavHost`; its `bottomBar` is a single
+`FloatingTabBar` wrapped in `AnimatedVisibility` gated on
+`tabOrder(currentRoute) >= 0`, so the bar slides down for ONBOARDING and
+stays put across every tab switch. `openSession` state and the
+`SessionSheet` call moved up with it. `OnboardingScreen`'s own
+`statusBarsPadding()`/`navigationBarsPadding()` were removed — the hoisted
+Scaffold supplies system-bar insets to every destination now, and leaving
+them would have double-padded.
+
+**2. Sliding selection pill.** The three per-item `itemBg`
+`animateColorAsState` calls (dead code — the incoming bar always composed
+with `selected` already at its target) are replaced by one indicator Box.
+The bar measures itself with `onSizeChanged`, divides by tab count for a
+slot width, and the indicator's `offset` animates to
+`selectedIndex * slotWidth` under `animateIntAsState` +
+`HarkenMotion.spatialDefault()`. `itemFg` is kept for the label/icon
+colour cross-fade.
+
+**3. `spatialSlow` for the NavHost slide,** per `Motion.kt`'s rule that
+speed follows element size. Full-screen destination changes are the
+largest surface that moves, so they get the slowest spring.
+
+Verified: gradle `ktlintCheck` + `assembleDebug` clean, then
+`installDebug` onto 'SM-E625F - 13'.
