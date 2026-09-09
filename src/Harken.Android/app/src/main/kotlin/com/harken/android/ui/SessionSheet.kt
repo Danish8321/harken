@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -109,8 +110,11 @@ private const val TRANSCRIPT_STAGGER_CAP = 10
 private const val TRANSCRIPT_STAGGER_STEP_MS = 30L
 
 // Not full height: the strip of the screen still showing through is what says the recording
-// behind is still there and this is a layer over it, not a new place.
-private const val SHEET_HEIGHT_FRACTION = 0.95f
+// behind is still there and this is a layer over it, not a new place. It is also the only part
+// of the scrim a thumb can reach, so it is measured down from the status bar rather than as a
+// fraction of the screen — 5% of a 2412px phone is 51dp, entirely inside a 54dp status bar and
+// cutout, which left the scrim visible but untappable (UI-043).
+private val SHEET_TOP_GAP = 28.dp
 private const val SCRIM_ALPHA = 0.45f
 private const val DRAG_HANDLE_ALPHA = 0.4f
 
@@ -728,7 +732,9 @@ private fun SheetSurface(
                     Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .fillMaxHeight(SHEET_HEIGHT_FRACTION)
+                        .statusBarsPadding()
+                        .padding(top = SHEET_TOP_GAP)
+                        .fillMaxHeight()
                         .then(
                             if (sharedScope == null) {
                                 // No card to grow out of — opened from Record, or from a search

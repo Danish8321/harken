@@ -119,7 +119,7 @@ land on its own.
 
 ## Resolution
 
-Items 1, 2, 3 and 4 done; 5 remains and 6 is half-answered, so this stays open.
+Items 1, 2, 3, 4 and 6 done; 5 remains, so this stays open.
 
 **1. Chrome hoisted.** `MainHost` is deleted. `AppNav` now owns one
 `Scaffold` above the `NavHost`; its `bottomBar` is a single
@@ -202,13 +202,40 @@ inside the transcript. Both existed solely so leftover drag could not reach
 `ModalBottomSheet`'s drag handling and wobble the sheet at the list's
 edges. Nothing above the list drags any more.
 
-Item 6 is now half-answered: `ModalBottomSheetDialogWrapper` carried its
-own `PredictiveBackOnBackPressedCallback`, so the sheet had predictive back
-before and would have lost it — hence the `PredictiveBackHandler` above.
-What still needs an on-device check is predictive back *between tabs* and
-out of the app, which is navigation's, not the sheet's.
+**6 is answered, on the device.** `ModalBottomSheetDialogWrapper` carried
+its own `PredictiveBackOnBackPressedCallback`, so the sheet had predictive
+back before and would have lost it — hence the `PredictiveBackHandler`
+above. The other half, predictive back *between tabs*, needs no wiring: the
+back gesture from SETTINGS shrinks the outgoing destination and reveals
+RECORD under it, the hoisted tab bar stays put through the whole gesture,
+and releasing lands on RECORD with the pill moved. `navigation-compose`
+2.10.0 seeks its own pop transitions off back progress already; adding
+anything on top would be duplicating it.
+
+**The on-device pass found one defect, now fixed.** `SHEET_HEIGHT_FRACTION
+= 0.95f` left a 51dp strip of scrim above the sheet on a 1080x2412 device —
+and the status bar plus punch-hole cutout is 126px (54dp) there, so the
+whole strip sat inside the status bar's touch region. The scrim was visible
+and completely untappable: two taps in it did nothing. The fraction is
+replaced by `SHEET_TOP_GAP = 28.dp` applied under `statusBarsPadding()`, so
+the exposed strip is measured down from the status bar rather than up from
+the screen and is a reachable 28dp on any device. `safeDrawingPadding()`
+inside the sheet does not double-pad, because `statusBarsPadding` consumes
+the inset it applies.
 
 Verified: `bash .claude/scripts/check.sh` -> `== check: OK ==` (ktlint,
 assemble debug/androidTest/release, Android lint), then `installDebug` onto
-'AIN065 - 16'. The gesture and transform pass on the device itself is
-still to do — that is eyes, not a script.
+'AIN065 - 16' and driven by adb with `animator_duration_scale` at 10 to
+sample the transitions mid-flight:
+
+- the card stops drawing and the sheet grows out of its bounds, scrim
+  fading in with it — not a slide
+- predictive back shrinks the surface toward its own bottom edge under the
+  finger and dismisses on release, back to the Library with the card
+  redrawn
+- handle drag of 200px springs back to rest; 925px dismisses
+- scrim tap dismisses (after the fix above; it did not before)
+- action bar clears the gesture bar, title clears the status bar
+- `animator_duration_scale 0` snaps the sheet fully open in the first frame
+  — `LocalReducedMotion` still reaches it
+- no exception in `logcat` across the whole pass
