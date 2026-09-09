@@ -43,6 +43,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -62,6 +63,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
@@ -151,7 +154,11 @@ fun SessionSheet(
                 Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                     Spacer(Modifier.weight(1f))
                     IconButton(onClick = { confirmDelete = true }, modifier = Modifier.size(48.dp)) {
-                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.session_delete))
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = stringResource(R.string.session_delete),
+                            tint = MaterialTheme.colorScheme.error,
+                        )
                     }
                 }
 
@@ -162,7 +169,21 @@ fun SessionSheet(
                 // list forwards leftover drag to the sheet, which briefly reads as the sheet
                 // expanding past its fixed 0.95f height before springing back. Disabling
                 // overscroll here removes the extra delta this sheet has no use for.
-                Box(Modifier.weight(1f)) {
+                // The list itself only consumes what it can scroll; any leftover drag past its
+                // bounds used to bubble up through nested scroll into the sheet's own drag
+                // handling, which read as the sheet wobbling open/closed at the transcript's
+                // top/bottom edge. Swallowing the leftover here keeps that delta from the sheet.
+                val noBubbleConnection =
+                    remember {
+                        object : NestedScrollConnection {
+                            override fun onPostScroll(
+                                consumed: androidx.compose.ui.geometry.Offset,
+                                available: androidx.compose.ui.geometry.Offset,
+                                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
+                            ): androidx.compose.ui.geometry.Offset = available
+                        }
+                    }
+                Box(Modifier.weight(1f).nestedScroll(noBubbleConnection)) {
                     @Suppress("DEPRECATION")
                     CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
                         LazyColumn(
@@ -212,7 +233,7 @@ fun SessionSheet(
                                         Icon(
                                             Icons.Filled.Edit,
                                             contentDescription = stringResource(R.string.session_rename),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.size(18.dp).padding(top = 8.dp),
                                         )
                                     }
@@ -425,6 +446,7 @@ private fun PlaybackCard(
                 Icon(
                     if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription = stringResource(if (isPlaying) R.string.session_pause else R.string.session_play),
+                    tint = ink.onInk,
                 )
             }
             Text(
@@ -439,6 +461,12 @@ private fun PlaybackCard(
                     scrubbing?.let { onSeek(PlaybackCursor.seekTarget(it, durationMs)) }
                     scrubbing = null
                 },
+                colors =
+                    SliderDefaults.colors(
+                        thumbColor = ink.onInk,
+                        activeTrackColor = ink.onInk,
+                        inactiveTrackColor = ink.onInkDim,
+                    ),
                 modifier = Modifier.weight(1f).semantics { contentDescription = scrubLabel },
             )
             Text(

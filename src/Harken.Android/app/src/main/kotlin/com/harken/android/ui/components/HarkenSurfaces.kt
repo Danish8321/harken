@@ -56,10 +56,15 @@ fun InkSurface(
     contentPadding: PaddingValues = PaddingValues(20.dp),
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    // Surface only auto-derives a readable contentColor for its own colorScheme slots — ink
+    // is a bespoke colour outside that scheme, so without this the icon/slider inside fell
+    // back to whatever ambient content colour surrounded the card (near-black in light
+    // theme), reading as an invisible play button on a dark card.
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.extraLarge,
         color = LocalInk.current.ink,
+        contentColor = LocalInk.current.onInk,
     ) {
         Column(Modifier.padding(contentPadding), verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
     }
