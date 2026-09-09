@@ -151,17 +151,6 @@ fun SessionSheet(
     ) {
         Box(Modifier.fillMaxWidth().fillMaxHeight(0.95f)) {
             Column(Modifier.fillMaxSize()) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Spacer(Modifier.weight(1f))
-                    IconButton(onClick = { confirmDelete = true }, modifier = Modifier.size(48.dp)) {
-                        Icon(
-                            Icons.Filled.Delete,
-                            contentDescription = stringResource(R.string.session_delete),
-                            tint = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
-
                 val revealedSegmentIds = remember { androidx.compose.runtime.mutableStateSetOf<java.util.UUID>() }
                 val reducedMotion = com.harken.android.ui.theme.LocalReducedMotion.current
                 // Stretch overscroll at the transcript's scroll boundaries fights the
@@ -210,7 +199,10 @@ fun SessionSheet(
                                         label = { Text(stringResource(R.string.session_name_label)) },
                                         placeholder = { Text(state.title) },
                                     )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        modifier = Modifier.padding(top = 12.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
                                         TextButton(onClick = {
                                             editingTitle = false
                                             titleDraft = if (state.hasLocalTitle) state.title else ""
@@ -224,19 +216,14 @@ fun SessionSheet(
                                         ) { Text(stringResource(R.string.session_save_name)) }
                                     }
                                 } else {
-                                    Row(
-                                        modifier = Modifier.pointerInput(Unit) { detectTapGestures { editingTitle = true } },
-                                        verticalAlignment = Alignment.Top,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    ) {
-                                        Text(state.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                                        Icon(
-                                            Icons.Filled.Edit,
-                                            contentDescription = stringResource(R.string.session_rename),
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.size(18.dp).padding(top = 8.dp),
-                                        )
-                                    }
+                                    Text(
+                                        state.title,
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        modifier =
+                                            Modifier.fillMaxWidth().pointerInput(Unit) {
+                                                detectTapGestures { editingTitle = true }
+                                            },
+                                    )
                                 }
                                 Text(
                                     state.meta,
@@ -365,6 +352,16 @@ fun SessionSheet(
                             Icon(Icons.Filled.AudioFile, contentDescription = stringResource(R.string.session_share_audio))
                         }
                         Spacer(Modifier.weight(1f))
+                        IconButton(onClick = { editingTitle = true }) {
+                            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.session_rename))
+                        }
+                        IconButton(onClick = { confirmDelete = true }) {
+                            Icon(
+                                Icons.Filled.Delete,
+                                contentDescription = stringResource(R.string.session_delete),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
                     }
                 }
             }
