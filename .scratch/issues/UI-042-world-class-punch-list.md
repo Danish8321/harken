@@ -256,8 +256,73 @@ surface that carries the obligation.
 
 Verified: `bash .claude/scripts/check.sh` -> `== check: OK ==` and
 `bash .claude/scripts/test-fast.sh` -> `== test-fast: OK ==` (five new
-contrast assertions among them). Not yet installed: the device was gone by
-this point ("no devices/emulators found"), so the on-device pass for items
-4, 5, 6 and 8 — the chip swap firing, the idle breath reading as alive
-rather than as drift, four haptics, and the pause press — is outstanding,
-along with the one items 1-2 already owed.
+contrast assertions among them).
+
+## On-device pass
+
+Device 'AIN065' (1080x2412, density override 375, so 1dp = 2.34375px), debug
+build installed, app forced into Dark from Settings. Every number below is
+measured off a screenshot rather than eyeballed, because "the animation looks
+about right" is the claim this section exists to avoid.
+
+**1. Card radius is one value.** Least-squares fit of the arc along a
+`SessionCard`'s top-left corner: r = 61.4px = **26.2dp**, i.e.
+`MaterialTheme.shapes.large` (26dp), not the 24dp literal it replaced.
+
+**2. Type scale.** The card title's ascender-to-descender band measures 37px
+against titleMedium's 17sp em box of 39.8px; the meta line under it measures
+26px. The two are a clear step apart, which is the half of finding 1 the
+migration was meant to close.
+
+**4. The chip swap fires.** Tapped Transcribe with
+`animator_duration_scale 10` and sampled 14 frames: frame 1 the Transcribe
+button fading and scaling out, frame 2 a small "Transcribing" pill with its
+spinner scaling in, frame 3 both chips crossfading mid-scale, frames 4-5 the
+"Transcribed" pill growing to full width, then settled. The width change is
+carried, not snapped — that is the `SizeTransform` doing its job.
+
+**5. The breath is real and is the right size.** Sampled the record FAB across
+a full cycle at `animator_duration_scale 3`. Its measured body oscillates
+between 201.7px and 204.5px with one turning point per direction — **1.37%
+peak to peak** against the 1.5% the code asks for, the gap being the strict
+colour threshold clipping the anti-aliased rim. 88dp on this device is
+206.25px, which is what the resting frames measure.
+
+**6. Haptics.** `dumpsys vibrator_manager`'s history names the constant each
+request carried, so each one is identifiable: LONG_PRESS is 0, CONFIRM 16,
+REJECT 17.
+
+- Transcribe tapped -> `constant=0` at 20:26:36.342, then `constant=16` at
+  20:26:36.681 when the session settled to Succeeded. Reproduced at
+  20:50:05.445 / 20:50:05.767.
+- Delete confirmed in `SessionSheet` -> `constant=16` at 20:33:29.224.
+- Export finished (12 recordings, 1.4 MB) -> `constant=16` at 20:39:20.591.
+- The seeding holds: entering the Library while a row already read Failed
+  fired nothing, and the second Transcribe (Failed -> Running -> Succeeded)
+  fired exactly one CONFIRM, not one per recomposition.
+
+Not verified: the two REJECT paths (transcription failed, export failed).
+Neither can be provoked from the UI on a device where the model works and the
+export succeeds, and the two ways to force them — renaming a session's `.wav`
+aside under `run-as`, or removing the model — were not taken (the first was
+refused by the permission classifier; the second would leave the phone without
+a working speech model). Their sibling CONFIRM paths in the same
+`LaunchedEffect` both fire, so what is untested is the branch, not the wiring.
+
+**8. The pause press.** With the press held, `PauseButton`'s circle measures
+131px against 141px at rest — **0.929**, sampled mid-spring against the 0.92
+target.
+
+**errorInk in dark, on hardware.** Forced a Failed row honestly: started a
+transcription, force-stopped the app mid-run, and let `SessionDao`'s orphan
+sweep flip the leftover 'Running' row on the next launch. The failure reason
+under the title reads **#FF9E93** on the card's #3C414A — the dark `errorInk`
+from UI-044, exactly as the palette declares it, at the 5.16:1 that replaced
+2.69:1. `SessionSheet`'s delete icon and the delete dialog's filled button
+(Material's `error` role) measure the same value. The row was transcribed
+again afterwards and is back to Succeeded.
+
+`logcat` across the whole pass: no crash, no app-tagged error. The two
+entries mentioning the package are the framework's own
+(`dispatchAppVisibility` on the window I force-stopped, and a notification
+preference lookup for the stopped package).

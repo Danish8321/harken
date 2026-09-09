@@ -40,7 +40,7 @@ relative-luminance formula.
 | [UI-039](UI-039-transcribe-button-not-pill.md) | The Library "Transcribe" button breaks the pill-shape convention | low | fixed |
 | [UI-040](UI-040-stale-playback-duration-across-sessions.md) | Reopening the sheet for a different session can show the previous one's duration | medium | fixed |
 | [UI-041](UI-041-launcher-icon-mic-too-large.md) | The launcher icon's mic glyph reads too large on a real home screen | low | fixed |
-| [UI-042](UI-042-world-class-punch-list.md) | World-class UI/UX punch list: two parallel type/shape systems, motion and haptics gaps, latent contrast-parity risk | medium | open |
+| [UI-042](UI-042-world-class-punch-list.md) | World-class UI/UX punch list: two parallel type/shape systems, motion and haptics gaps, latent contrast-parity risk | medium | resolved |
 | [UI-043](UI-043-navigation-motion.md) | Navigation motion: the tab bar travels with the screen, and there is no shared-element anywhere | medium | resolved |
 | [UI-044](UI-044-dark-palette-contrast-debt.md) | Six colour roles sit below WCAG AA, five of them only in dark (error split done, four remain) | medium | open |
 

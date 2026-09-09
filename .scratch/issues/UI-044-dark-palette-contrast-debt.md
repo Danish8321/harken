@@ -78,4 +78,7 @@ now composites the container rather than measuring against the fill, which is wh
   assertion.
 - `bash .claude/scripts/test-fast.sh` after any palette change.
 - On-device dark-theme pass over a failed transcription in the Library, which is what
-  pair 1 is about.
+  pair 1 is about. Done: the failure reason measures #FF9E93 on the card's #3C414A on
+  device 'AIN065' in Dark, and so do `SessionSheet`'s delete icon and the delete
+  dialog's filled button, which read the same role through Material's `error`. See
+  UI-042's on-device pass.
