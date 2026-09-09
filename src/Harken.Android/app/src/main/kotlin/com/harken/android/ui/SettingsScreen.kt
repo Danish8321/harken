@@ -27,11 +27,17 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -218,6 +224,23 @@ private fun BackupCard(
     viewModel: SettingsViewModel,
 ) {
     val state by viewModel.exportState.collectAsStateWithLifecycle()
+
+    // An export is the one thing here that can silently half-work, and it reported its
+    // outcome in text alone (UI-042). Same Confirm/Reject pair RecordScreen uses for a
+    // save. previousState starts at the current value, so re-entering Settings with a
+    // finished-but-unacknowledged export does not fire on arrival.
+    val haptics = LocalHapticFeedback.current
+    var previousState by remember { mutableStateOf(state) }
+    LaunchedEffect(state) {
+        val before = previousState
+        previousState = state
+        if (before === state) return@LaunchedEffect
+        when (state) {
+            is ExportState.Finished -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            is ExportState.Failed -> haptics.performHapticFeedback(HapticFeedbackType.Reject)
+            else -> Unit
+        }
+    }
     val pickFolder =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             // Null when the user backed out of the picker. Nothing to say about that: they

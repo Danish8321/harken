@@ -82,9 +82,11 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -153,6 +155,7 @@ fun SessionSheet(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
+    val haptics = LocalHapticFeedback.current
 
     var editingTitle by remember { mutableStateOf(false) }
     // Seeded from the *local* title only. Seeding it from state.title put the derived
@@ -419,6 +422,10 @@ fun SessionSheet(
                 Button(
                     onClick = {
                         confirmDelete = false
+                        // The recording is gone and the sheet is leaving with it, so the
+                        // screen cannot report this afterwards — Confirm, as RecordScreen
+                        // uses when a save lands (UI-042).
+                        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                         viewModel.purge(sessionId)
                         hide()
                     },

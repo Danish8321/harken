@@ -1,11 +1,19 @@
 package com.harken.android.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.BoundsTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,10 +59,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -63,6 +73,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -77,6 +88,7 @@ import com.harken.android.ui.components.SkeletonRow
 import com.harken.android.ui.components.rememberStaggerShown
 import com.harken.android.ui.theme.HarkenMotion
 import com.harken.android.ui.theme.LocalProtoColors
+import com.harken.android.ui.theme.LocalReducedMotion
 import com.harken.android.ui.theme.PillShape
 import com.harken.android.ui.theme.ProtoColors
 import java.util.UUID
@@ -122,6 +134,24 @@ fun LibraryScreen(
     // Searching swaps the recording list out from under the scroll listener below, which
     // would otherwise leave the bar hidden with nothing left on screen to scroll it back.
     LaunchedEffect(search.isActive) { if (search.isActive) onBarVisibleChange(true) }
+
+    // "Did this work" reaches the Library too, on the vocabulary RecordScreen established
+    // for a save: Confirm when a transcription lands, Reject when one fails (UI-042).
+    // Only a transition fires, and only out of a status that was actually running, so
+    // arriving at a screen that already holds a failed row is silent — as is a rename, a
+    // delete, or the first list Room hands over.
+    val haptics = LocalHapticFeedback.current
+    val statuses = remember(state.sessions) { state.sessions.associate { it.id to it.status } }
+    var previousStatuses by remember { mutableStateOf(statuses) }
+    LaunchedEffect(statuses) {
+        val before = previousStatuses
+        previousStatuses = statuses
+        val settled = statuses.filterKeys { before[it] == "Running" || before[it] == "Pending" }
+        when {
+            settled.any { it.value == "Failed" } -> haptics.performHapticFeedback(HapticFeedbackType.Reject)
+            settled.any { it.value == "Succeeded" } -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+        }
+    }
 
     Column(Modifier.fillMaxSize().background(c.screenBg).padding(horizontal = 20.dp, vertical = 6.dp)) {
         Text(stringResource(R.string.library_title), color = c.text, style = MaterialTheme.typography.headlineSmall)
@@ -207,7 +237,7 @@ fun LibraryScreen(
                 // finish settling; HarkenMotion collapses to snap() under reduced motion, so
                 // only the artificial per-row delay needs its own skip.
                 val animatedIds = remember { mutableStateSetOf<UUID>() }
-                val reduced = com.harken.android.ui.theme.LocalReducedMotion.current
+                val reduced = LocalReducedMotion.current
 
                 // Chrome yields to content: scrolling down hides the floating tab bar and any
                 // scroll back up returns it (UI-043). Read from the scroll gesture rather than
@@ -248,7 +278,13 @@ fun LibraryScreen(
                                 sessionCount = visible.size,
                                 isTranscribing = session.id == state.transcribingSessionId,
                                 onOpen = { onOpenSession(session.id, null, true) },
-                                onTranscribe = { viewModel.transcribe(session) },
+                                onTranscribe = {
+                                    // The same LongPress that acknowledges a recording
+                                    // starting: work has been handed off and the row is
+                                    // about to change under the finger.
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    viewModel.transcribe(session)
+                                },
                                 transcribeEnabled = state.transcribingSessionId == null,
                                 sharedScope = sharedScope,
                                 isTransforming = session.id == transformingSessionId,
@@ -503,6 +539,34 @@ private fun FilterChipProto(
     )
 }
 
+/**
+ * The three things a [SessionCard]'s trailing slot can say about where a recording is in
+ * its life. Named as one state rather than read from four booleans at the call site,
+ * because [AnimatedContent] animates between values of one thing.
+ */
+private enum class CardAction { Transcribe, Transcribing, Transcribed }
+
+/** The chip half of that slot: a shape and a WORD, per StatusChip's house rule, plus a
+ *  spinner while work is actually running. */
+@Composable
+private fun StatusPill(
+    bg: Color,
+    fg: Color,
+    @StringRes label: Int,
+    spinner: Boolean,
+) {
+    Row(
+        Modifier.background(bg, PillShape).padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (spinner) {
+            CircularProgressIndicator(modifier = Modifier.size(11.dp), strokeWidth = 1.5.dp, color = fg)
+            Spacer(Modifier.width(4.dp))
+        }
+        Text(stringResource(label), color = fg, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
 @Composable
 private fun SessionCard(
     c: ProtoColors,
@@ -523,11 +587,14 @@ private fun SessionCard(
     val transcribing = isTranscribing || s.status == "Pending" || s.status == "Running"
     val recorded = s.status == "Recorded" && !isTranscribing
     val failed = s.status == "Failed"
-    val (chipBg, chipFg, chipLabel) =
+    // A failed transcription offers the same action as one never started. Showing only a
+    // "kept on device" chip left the recording with no way forward at all, which is what an
+    // interrupted transcription looks like after recovery.
+    val action =
         when {
-            transcribing -> Triple(c.stateDone, c.stateDoneFg, R.string.library_chip_transcribing)
-            failed -> Triple(c.stateError, c.stateErrorFg, R.string.library_chip_kept_on_device)
-            else -> Triple(c.pillTrack, c.textSecondary, R.string.library_chip_transcribed)
+            recorded || failed -> CardAction.Transcribe
+            transcribing -> CardAction.Transcribing
+            else -> CardAction.Transcribed
         }
     val metaLine =
         buildString {
@@ -542,6 +609,7 @@ private fun SessionCard(
     // leaving a transition of its own, it is standing still in a list while a sheet grows out
     // of it, so this composable is the only thing that knows when to stop drawing it.
     val boundsSpec = HarkenMotion.spatialSlow<Rect>()
+    val reduced = LocalReducedMotion.current
     Column(
         Modifier
             .fillMaxWidth()
@@ -594,27 +662,48 @@ private fun SessionCard(
                     }
                 }
             }
-            // A failed transcription offers the same action as one never started. Showing
-            // only the "kept on device" chip left the recording with no way forward at all,
-            // which is what an interrupted transcription looks like after recovery.
-            if (recorded || failed) {
-                Button(onClick = onTranscribe, enabled = transcribeEnabled, shape = PillShape) {
-                    Text(stringResource(R.string.library_action_transcribe))
-                }
-            } else {
-                Row(
-                    Modifier.background(chipBg, PillShape).padding(horizontal = 10.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (transcribing) {
-                        CircularProgressIndicator(modifier = Modifier.size(11.dp), strokeWidth = 1.5.dp, color = chipFg)
-                        Spacer(Modifier.width(4.dp))
+            // Transcription finishing is the one moment in the Library that says the work
+            // is done, and it was a hard if/else with no motion at all (UI-042 item 4).
+            // Same vocabulary as RecordScreen's SaveStatusCard: scale on the spatial
+            // spring, alpha on effects, plus a SizeTransform because the Transcribe button
+            // and the two chips are different widths and the row would otherwise snap to
+            // the new width under a fade.
+            val slotSpatial = HarkenMotion.spatialFast<Float>()
+            val slotEffects = HarkenMotion.effectsFast<Float>()
+            val slotResize = HarkenMotion.spatialFast<IntSize>()
+            AnimatedContent(
+                targetState = action,
+                label = "sessionCardAction",
+                transitionSpec = {
+                    if (reduced) {
+                        EnterTransition.None togetherWith ExitTransition.None
+                    } else {
+                        (
+                            (scaleIn(slotSpatial) + fadeIn(slotEffects)) togetherWith
+                                (scaleOut(slotSpatial) + fadeOut(slotEffects))
+                        ).using(SizeTransform(sizeAnimationSpec = { _, _ -> slotResize }))
                     }
-                    Text(
-                        stringResource(chipLabel),
-                        color = chipFg,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
+                },
+            ) { current ->
+                when (current) {
+                    CardAction.Transcribe ->
+                        Button(onClick = onTranscribe, enabled = transcribeEnabled, shape = PillShape) {
+                            Text(stringResource(R.string.library_action_transcribe))
+                        }
+                    CardAction.Transcribing ->
+                        StatusPill(
+                            bg = c.stateDone,
+                            fg = c.stateDoneFg,
+                            label = R.string.library_chip_transcribing,
+                            spinner = true,
+                        )
+                    CardAction.Transcribed ->
+                        StatusPill(
+                            bg = c.pillTrack,
+                            fg = c.textSecondary,
+                            label = R.string.library_chip_transcribed,
+                            spinner = false,
+                        )
                 }
             }
         }
