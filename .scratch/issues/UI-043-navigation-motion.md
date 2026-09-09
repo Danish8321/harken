@@ -119,7 +119,7 @@ land on its own.
 
 ## Resolution
 
-Items 1, 2 and 3 done; 4, 5 and 6 remain, so this stays open.
+Items 1, 2, 3 and 4 done; 5 remains and 6 is half-answered, so this stays open.
 
 **1. Chrome hoisted.** `MainHost` is deleted. `AppNav` now owns one
 `Scaffold` above the `NavHost`; its `bottomBar` is a single
@@ -146,3 +146,69 @@ largest surface that moves, so they get the slowest spring.
 
 Verified: gradle `ktlintCheck` + `assembleDebug` clean, then
 `installDebug` onto 'SM-E625F - 13'.
+
+**4. The sheet had to leave its own window first.** Item 4 as written was
+not reachable with `ModalBottomSheet`, and neither half of it was —
+confirmed by inspecting the released `material3` 1.4.0 artifact, not by
+inference:
+
+- `ModalBottomSheetKt` composes into `ModalBottomSheetDialog` (the aar
+  carries `ModalBottomSheetDialogWrapper` and
+  `ModalBottomSheetDialogLayout`). `SharedTransitionLayout` cannot span two
+  windows, so no shared element could ever have travelled from a Library
+  card into it.
+- Its show/hide runs on `SheetDefaultsKt.BottomSheetAnimationSpec`, a
+  private top-level `TweenSpec`. `ModalBottomSheet` takes no
+  `animationSpec` and neither does `rememberModalBottomSheetState`. So
+  "bind the sheet's show/hide to `HarkenMotion.spatialSlow`" had no
+  parameter to bind to — while `spatialSlow`'s own KDoc names "the session
+  sheet" as the thing it exists for.
+
+So the sheet is now a scrim plus a bottom-anchored `Surface` composed in
+the app's own window, in a private `SheetSurface` in `SessionSheet.kt`. The
+scrim fades on `effectsSlow`, the surface transforms or slides on
+`spatialSlow`; the outer `AnimatedVisibility` is `EnterTransition.None` so
+each child gets the half of the vocabulary it wants rather than both
+sharing the fade. The sheet owns its own show and hide and only calls
+`onDismiss` once the exit has settled — `onDismiss` is the caller removing
+it, so firing it when the hide *starts* cut the animation off.
+
+The transform itself: one `SharedTransitionLayout` in `AppNav` wraps both
+the graph and the sheet. `SessionCard` is the near end via
+`sharedElementWithCallerManagedVisibility` — not an
+`AnimatedVisibilityScope`, because the card is not leaving a transition of
+its own, it is standing still in a list while a sheet grows out of it. The
+sheet is the far end via `sharedBounds`. Both take their bounds spec from
+`spatialSlow` instead of the shared-transition default spring.
+
+`OpenSession` carries `fromCard`, so the transform only runs where a
+container actually exists: a `SessionCard` tap sets it, a search result and
+`RecordScreen` do not, and without it the sheet slides up as before.
+Otherwise a search result would hide a card that is nowhere on screen and
+grow the sheet out of nothing. `SearchResultCard` is therefore still a
+plain card — giving it the same treatment is a follow-up, not part of this.
+
+Re-established by hand, because the Dialog window had supplied them: a
+scrim that dismisses, `PredictiveBackHandler` shrinking the surface toward
+its own bottom edge under the finger, a drag handle that dismisses past a
+threshold or a flick and otherwise springs back on `spatialDefault`, and
+system-bar insets via `safeDrawingPadding`. Focus containment is the one
+thing composition cannot re-create, so the `Scaffold` behind the sheet
+takes `Modifier.semantics { hideFromAccessibility() }` while it is open —
+without that, TalkBack still walks the Library under the scrim.
+
+Dropped with it: the nested-scroll swallower and the disabled overscroll
+inside the transcript. Both existed solely so leftover drag could not reach
+`ModalBottomSheet`'s drag handling and wobble the sheet at the list's
+edges. Nothing above the list drags any more.
+
+Item 6 is now half-answered: `ModalBottomSheetDialogWrapper` carried its
+own `PredictiveBackOnBackPressedCallback`, so the sheet had predictive back
+before and would have lost it — hence the `PredictiveBackHandler` above.
+What still needs an on-device check is predictive back *between tabs* and
+out of the app, which is navigation's, not the sheet's.
+
+Verified: `bash .claude/scripts/check.sh` -> `== check: OK ==` (ktlint,
+assemble debug/androidTest/release, Android lint), then `installDebug` onto
+'AIN065 - 16'. The gesture and transform pass on the device itself is
+still to do — that is eyes, not a script.
