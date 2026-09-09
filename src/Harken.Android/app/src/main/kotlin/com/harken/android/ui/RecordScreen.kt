@@ -25,6 +25,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -674,11 +675,28 @@ private fun PauseButton(
     onTap: () -> Unit,
 ) {
     val c = LocalProtoColors.current
+    // The same press-scale RecordButton has (UI-042). This button sits on the ink-dark
+    // card with no elevation of its own and a ripple that barely reads against it, so a
+    // tap that landed and a tap that missed looked identical until the icon swapped —
+    // and the icon only swaps once the recorder has actually paused.
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.92f else 1f,
+        animationSpec = HarkenMotion.spatialFast(),
+        label = "pausePress",
+    )
     Box(
         Modifier
             .size(60.dp)
+            .scale(scale)
             .background(c.card, CircleShape)
-            .clickable(role = Role.Button, onClick = onTap),
+            .clickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                role = Role.Button,
+                onClick = onTap,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -696,6 +714,7 @@ private fun RecordButton(
     onTap: () -> Unit,
 ) {
     val c = LocalProtoColors.current
+    val reduced = LocalReducedMotion.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -723,6 +742,27 @@ private fun RecordButton(
     // ANR'd on the way *out* of recording — the concave tessellation cost is owed by the
     // shape on screen, not by the state the button thinks it is in.
     val recordShape = rememberRecordShape(recording)
+
+    // The app's one ambient signature (UI-042). Every other piece of motion here reacts
+    // to something the user just did; at rest the record button breathes instead — 1.5%
+    // of 88dp over a four-second cycle, under the size an eye tracks as movement and over
+    // the one where the screen reads as a photograph. Gated on the shape resting rather
+    // than on `recording`: once the morph starts, it and the meter carry the motion, and a
+    // second rhythm underneath them competes. Frozen under reduced motion, which is the
+    // setting's whole subject.
+    val idle = rememberInfiniteTransition(label = "recordIdle")
+    val breath =
+        if (reduced || !recordShape.isResting) {
+            1f
+        } else {
+            idle
+                .animateFloat(
+                    initialValue = 1f,
+                    targetValue = 1.015f,
+                    animationSpec = infiniteRepeatable(tween(2000, easing = LinearEasing), RepeatMode.Reverse),
+                    label = "recordBreath",
+                ).value
+        }
     val elevation =
         if (recordShape.isResting) {
             FloatingActionButtonDefaults.elevation(defaultElevation = 10.dp, pressedElevation = 4.dp)
@@ -731,7 +771,7 @@ private fun RecordButton(
         }
     FloatingActionButton(
         onClick = onTap,
-        modifier = Modifier.size(88.dp).scale(scale),
+        modifier = Modifier.size(88.dp).scale(scale * breath),
         shape = recordShape.shape,
         containerColor = c.accent,
         contentColor = c.onAccent,
