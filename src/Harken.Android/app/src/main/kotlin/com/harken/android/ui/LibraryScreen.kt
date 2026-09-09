@@ -39,6 +39,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateSetOf
@@ -46,9 +47,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -95,6 +100,9 @@ fun LibraryScreen(
     sharedScope: SharedTransitionScope? = null,
     /** The one card currently handing its bounds to the sheet, and so not drawing itself. */
     transformingSessionId: UUID? = null,
+    /** Hide-on-scroll for the floating tab bar (UI-043). The bar is chrome this screen does
+     *  not own, so the Library only reports which way the list is going. */
+    onBarVisibleChange: (Boolean) -> Unit = {},
     viewModel: LibraryViewModel = viewModel(factory = LibraryViewModel.Factory),
 ) {
     val c = LocalProtoColors.current
@@ -110,6 +118,10 @@ fun LibraryScreen(
             }
         }
     val longest = remember(state.sessions) { state.sessions.mapNotNull { it.durationSeconds }.maxOrNull() ?: 1 }
+
+    // Searching swaps the recording list out from under the scroll listener below, which
+    // would otherwise leave the bar hidden with nothing left on screen to scroll it back.
+    LaunchedEffect(search.isActive) { if (search.isActive) onBarVisibleChange(true) }
 
     Column(Modifier.fillMaxSize().background(c.screenBg).padding(horizontal = 20.dp, vertical = 6.dp)) {
         Text(stringResource(R.string.library_title), color = c.text, style = MaterialTheme.typography.headlineSmall)
@@ -194,7 +206,31 @@ fun LibraryScreen(
                 // only the artificial per-row delay needs its own skip.
                 val animatedIds = remember { mutableStateSetOf<UUID>() }
                 val reduced = com.harken.android.ui.theme.LocalReducedMotion.current
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
+                // Chrome yields to content: scrolling down hides the floating tab bar and any
+                // scroll back up returns it (UI-043). Read from the scroll gesture rather than
+                // from the list's own position, because hiding the bar frees the space it
+                // occupied and the list re-measures into it — off firstVisibleItemScrollOffset
+                // that re-measure read as a scroll upward and put the bar straight back, one
+                // second after every swipe. A nested-scroll delta only ever comes from a
+                // finger or a fling, so it cannot feed back.
+                val barOnScroll =
+                    remember(onBarVisibleChange) {
+                        object : NestedScrollConnection {
+                            override fun onPreScroll(
+                                available: Offset,
+                                source: NestedScrollSource,
+                            ): Offset {
+                                if (available.y < 0f) onBarVisibleChange(false)
+                                if (available.y > 0f) onBarVisibleChange(true)
+                                return Offset.Zero
+                            }
+                        }
+                    }
+                LazyColumn(
+                    modifier = Modifier.nestedScroll(barOnScroll),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
                     itemsIndexed(visible, key = { _, it -> it.id }) { index, session ->
                         val shown = rememberStaggerShown(session.id, index, animatedIds, reduced, STAGGER_CAP, STAGGER_STEP_MS)
                         AnimatedVisibility(

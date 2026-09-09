@@ -41,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -163,6 +164,13 @@ fun AppNav() {
             // at the line that matched, and everything else opens it at the top.
             var openSession by remember { mutableStateOf<OpenSession?>(null) }
 
+            // Hide-on-scroll (UI-043). The state lives here, with the bar, because the bar is
+            // chrome above the graph now — the Library only reports which way its list moved.
+            // Every route change puts it back, so a bar hidden in the Library is never still
+            // hidden on arriving somewhere with nothing to scroll.
+            var barVisible by remember { mutableStateOf(true) }
+            LaunchedEffect(currentRoute) { barVisible = true }
+
             // The tab bar is chrome, so it is hoisted above the graph rather than built
             // inside each destination (UI-043). Per-destination, it was carried by the
             // NavHost's own enter/exit transitions: the bar slid out from under the finger
@@ -188,7 +196,7 @@ fun AppNav() {
                     containerColor = MaterialTheme.colorScheme.background,
                     bottomBar = {
                         AnimatedVisibility(
-                            visible = tabOrder(currentRoute) >= 0,
+                            visible = tabOrder(currentRoute) >= 0 && barVisible,
                             enter =
                                 slideInVertically(HarkenMotion.spatialDefault()) { it } +
                                     fadeIn(HarkenMotion.effectsDefault()),
@@ -241,6 +249,7 @@ fun AppNav() {
                                 // itself. A search result opens the same sheet with no card on
                                 // screen to hand bounds over.
                                 transformingSessionId = openSession?.takeIf { it.fromCard }?.sessionId,
+                                onBarVisibleChange = { barVisible = it },
                             )
                         }
                         composable(Routes.SETTINGS) { SettingsScreen() }

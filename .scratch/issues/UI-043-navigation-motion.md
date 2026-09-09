@@ -1,7 +1,7 @@
 # UI-043 — Navigation motion: the tab bar travels with the screen, and there is no shared-element anywhere
 
 - **Severity:** medium
-- **Status:** open
+- **Status:** resolved
 - **Area:** `ui/AppNav.kt`, `ui/theme/Motion.kt`, `ui/LibraryScreen.kt`,
   `ui/SessionSheet.kt`
 
@@ -119,7 +119,7 @@ land on its own.
 
 ## Resolution
 
-Items 1, 2, 3, 4 and 6 done; 5 remains, so this stays open.
+All six items done. Closing.
 
 **1. Chrome hoisted.** `MainHost` is deleted. `AppNav` now owns one
 `Scaffold` above the `NavHost`; its `bottomBar` is a single
@@ -239,3 +239,34 @@ sample the transitions mid-flight:
 - `animator_duration_scale 0` snaps the sheet fully open in the first frame
   — `LocalReducedMotion` still reaches it
 - no exception in `logcat` across the whole pass
+
+**5. Hide-on-scroll, but not off the `LazyListState`.** The item as written
+said to drive it from the list's own scroll position, and that is what was
+tried first: compare `firstVisibleItemIndex` / `firstVisibleItemScrollOffset`
+between emissions and hide on a downward change. It hid correctly and then
+put the bar back roughly a second after every swipe. The bar is the
+`Scaffold`'s `bottomBar`, so hiding it frees the space it occupied, the
+`LazyColumn` re-measures into it, and the resulting offset change reads as a
+scroll *upward* — the chrome's own animation drives the signal that undoes
+it.
+
+So the signal is the gesture instead: a `NestedScrollConnection` on the
+recordings `LazyColumn` whose `onPreScroll` reports the sign of
+`available.y`. That delta only ever comes from a finger or a fling, never
+from a re-measure, so it cannot feed back. It also needs no `LazyListState`
+at all, which is one piece of state less than the ticket assumed.
+
+`barVisible` lives in `AppNav` next to the bar, since the bar is chrome
+above the graph now and the Library only reports which way its list moved.
+Two things put it back, because leaving it hidden would strand the user:
+every route change (`LaunchedEffect(currentRoute)`), and search becoming
+active, which swaps the recordings list out from under the listener.
+
+Verified: `bash .claude/scripts/check.sh` -> `== check: OK ==`, then
+`installDebug` onto 'AIN065 - 16' with twelve recordings to scroll:
+
+- swipe up hides the bar and it stays hidden after the fling settles
+- swipe down brings it back
+- searching with the bar hidden brings it back
+- back out of a scrolled Library and RECORD has its bar
+- no exception in `logcat`
