@@ -1,7 +1,7 @@
 # UI-042 — World-class UI/UX punch list (senior design audit, 2026-09-09)
 
 - **Severity:** medium
-- **Status:** open
+- **Status:** resolved
 - **Area:** `ui/RecordScreen.kt`, `ui/LibraryScreen.kt`, `ui/SettingsScreen.kt`,
   `ui/OnboardingScreen.kt`, `ui/theme/Theme.kt`, `ui/theme/Organic.kt`,
   `ui/components/HarkenSurfaces.kt`, `ui/components/HarkenStates.kt`
@@ -144,7 +144,8 @@ Prioritized punch list, in order:
 
 ## Resolution
 
-Items 1, 2 and 3 done; 4-9 remain, so this stays open.
+All nine items done. Item 7 turned up six real contrast failures, which are their own
+ticket (UI-044) rather than a palette change made in passing here.
 
 **1 and 3. One shape system.** Every hardcoded `RoundedCornerShape(24.dp)`
 standing in for the primary-card role now reads `MaterialTheme.shapes.large`
@@ -187,3 +188,76 @@ outside `Theme.kt`'s own `letterSpacing`, and so is every size below 12sp —
 Verified: gradle `ktlintCheck` + `assembleDebug` clean. Not yet installed —
 the device disconnected before `installDebug` ("No connected devices!"), so
 the on-device side-by-side in the checklist below is still outstanding.
+
+**4. The chip swap is a transition now.** `SessionCard`'s trailing slot ran
+through four booleans and a `Triple` of chip colours, and swapped between a
+Transcribe button and a chip with a hard `if/else`. It is one `CardAction`
+value (Transcribe / Transcribing / Transcribed) through `AnimatedContent`,
+on the vocabulary `SaveStatusCard` already proved: `scaleIn`/`scaleOut` on
+the spatial spring, fade on effects, `EnterTransition.None` under reduced
+motion, and a `SizeTransform` because the button and the chips are
+different widths — without it the row snaps to its new width under a fade.
+The two chips are one `StatusPill`.
+
+`R.string.library_chip_kept_on_device` went with it. Its branch was already
+unreachable: a failed session takes the Transcribe button, so the chip that
+said "Kept on device" could not render, and the string had no other reader.
+
+**5. One ambient signature.** At rest the record button breathes — 1.5% of
+88dp over a four-second cycle, `rememberInfiniteTransition` reversing a
+2000ms tween, multiplied into the existing press-scale. Gated on the shape
+resting rather than on `recording`: once the morph starts, it and the meter
+carry the motion and a second rhythm underneath them competes. Frozen under
+reduced motion, following `LiveDot`'s pattern of building the transition
+unconditionally and reading its value only when motion is allowed.
+
+**6. Haptics reach the other three screens.** Delete-confirm in
+`SessionSheet` fires `Confirm` as the recording is purged — the sheet leaves
+with it, so nothing on screen can report the outcome afterwards. Export in
+`SettingsScreen` fires `Confirm` on `Finished` and `Reject` on `Failed`.
+Transcription in `LibraryScreen` fires `Confirm` when a session settles to
+`Succeeded` and `Reject` when it settles to `Failed`, plus the same
+`LongPress` that acknowledges a recording starting when Transcribe is
+tapped.
+
+Both of the state-watching ones compare against the previous value and seed
+that value from the current one, so arriving at a screen that already holds
+a finished export or a failed row is silent — only a transition fires. The
+Library additionally requires the previous status to have been `Running` or
+`Pending`, so a delete or a rename cannot read as a completion.
+
+**7. The palettes were diffed, and six pairs fail.** Every
+foreground/background pair the app actually paints, measured in both
+palettes: `ProtoContrastParityTest`. The worst is `stateError` on `card` at
+2.69:1 in dark — the failure reason under a recording's title, which is the
+one place the app explains what went wrong. Full table and the options for
+fixing it are UI-044; the palette is not re-picked here, because every
+option is a visible design decision and this palette has recorded
+provenance (UI-020, UI-024).
+
+The test holds each failing pair at its measured floor rather than at AA, so
+a re-palette that makes one worse fails the build. Those floors are the
+ticket's, not a licence: raising one to hide a regression is the same as
+deleting the assertion.
+
+**8. `PauseButton` has the press-scale `RecordButton` has.** Same 0.92f on
+`spatialFast`, off its own `MutableInteractionSource`. It sits on the
+ink-dark card where the ripple barely reads, and its icon only swaps once
+the recorder has actually paused, so until now a tap that landed and a tap
+that missed looked identical.
+
+**9. The ink contract is written down.** `LocalInk` now carries it: painting
+`ink` obliges the same composable to set `onInk` as the content colour,
+because `ink` is outside `colorScheme` and `Surface` derives nothing from
+it — which is how an invisible play button on a dark card got written
+twice. `InkSurface` remains the thing to compose instead. Reading a colour
+off the local for a single `tint` is explicitly fine; it is painting the
+surface that carries the obligation.
+
+Verified: `bash .claude/scripts/check.sh` -> `== check: OK ==` and
+`bash .claude/scripts/test-fast.sh` -> `== test-fast: OK ==` (five new
+contrast assertions among them). Not yet installed: the device was gone by
+this point ("no devices/emulators found"), so the on-device pass for items
+4, 5, 6 and 8 — the chip swap firing, the idle breath reading as alive
+rather than as drift, four haptics, and the pause press — is outstanding,
+along with the one items 1-2 already owed.

@@ -109,6 +109,20 @@ data class InkColors(
     val onInkDim: Color,
 )
 
+/**
+ * Ink for anything that has to paint it by hand.
+ *
+ * Compose `InkSurface` instead wherever it fits: `ink` is outside `colorScheme`, so a
+ * `Surface` or `background` given [InkColors.ink] does NOT derive a readable content colour
+ * from it, and every icon, slider and unstyled `Text` inside falls through to whatever
+ * ambient content colour surrounds the card — near-black on a near-black card in light
+ * theme. That bug has been written twice.
+ *
+ * So: painting [InkColors.ink] obliges the same composable to set [InkColors.onInk] as the
+ * content colour, either by passing it to `Surface(contentColor = ...)` or by providing
+ * `LocalContentColor`. Reading a colour off this local for a single `tint` or `color`
+ * argument is fine — it is painting the surface that carries the obligation.
+ */
 val LocalInk = compositionLocalOf { InkColors(Organic.InkLight, Organic.OnInk, Organic.OnInk.copy(alpha = 0.6f)) }
 
 /**
