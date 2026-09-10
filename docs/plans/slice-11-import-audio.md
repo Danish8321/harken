@@ -80,7 +80,7 @@ device — `MediaCodec` does not exist on the JVM — so behavioural proof lands
 manual pass, and failure-path tests that don't need a codec go in Task 9. **Nothing here
 is yet proven to decode anything.**
 
-### Task 3 — Pre-flight size gate
+### Task 3 — Pre-flight size gate — **done**
 **Files:** `.../kotlin/com/harken/android/ingest/ImportPreflight.kt` (new),
 `.../test/kotlin/com/harken/android/ingest/ImportPreflightTest.kt` (new).
 **Change:** from `MediaFormat` `KEY_DURATION`, compute the exact output size using the
@@ -89,8 +89,20 @@ standing lesson about a constant living in three places). Compare against `StatF
 space. Returns one of: fits; needs confirmation (above a large-size threshold, ~500 MB);
 or refuses (won't fit, plus a margin). The Session Cap is deliberately not consulted
 (ADR-0016 §5).
-**Verify:** `./gradlew.bat testDebugUnitTest`. Tests cover the arithmetic and the three
-outcomes with free space injected, not read from a real filesystem.
+**Additions beyond the plan:**
+- The staged source counts toward the requirement, not just the Recording it becomes: both
+  exist at once, because the decode cannot release the source until it has read it.
+- A **free-space margin** (256 MB), separate from "does it fit". An import that technically
+  fits but leaves the phone in its own low-storage state is not a success.
+- A container that states no duration is allowed through rather than refused. Some streams
+  genuinely carry none; the decode stages in `cacheDir`, so the rare file that turns out
+  not to fit fails somewhere Android reclaims.
+
+**Verify:** `check.sh` OK, `test-fast.sh` OK, `ImportPreflightTest` 8/8. Free space and
+byte counts are injected, so none of it touches a real filesystem. Unlike Task 1's filter,
+these tests are transparent arithmetic — `an import that fits but wedges the device is
+refused too` puts 100 MB into 300 MB of free space, which is plainly a pass without the
+margin — so they were not separately falsified.
 
 ### Task 4 — Single-flight import state
 **Files:** `.../kotlin/com/harken/android/ingest/ImportCoordinator.kt` (new).
