@@ -194,9 +194,11 @@ every exit path.
 **Verify:** `check.sh` OK, `test-fast.sh` OK. Lint's `MissingClass` on the manifest entry
 was what proved the registration is real. Behaviour in Task 10.
 
-### Task 7 — Picker entry point
-**Files:** `RecordScreen.kt`, `CaptureViewModel.kt` (or a new `ImportViewModel`),
-`AppContainer.kt`, `strings.xml`, `LibraryScreen.kt`.
+### Task 7 — Picker entry point — **done**
+**Files:** `.../kotlin/com/harken/android/ingest/ImportStaging.kt` (new),
+`.../kotlin/com/harken/android/ui/ImportViewModel.kt` (new),
+`.../kotlin/com/harken/android/ui/ImportPicker.kt` (new), `RecordScreen.kt`,
+`LibraryScreen.kt`, `components/HarkenStates.kt`, `strings.xml`.
 **Change:** `ActivityResultContracts.OpenDocument` with
 `arrayOf("audio/*", "video/*")` — video containers are accepted (ADR-0016 §1). The button
 occupies the **empty `CenterEnd` slot** in the Record screen's bottom control `Box`
@@ -207,8 +209,28 @@ installing Harken is a folder of existing files is currently told only to record
 On selection the ViewModel raw-copies the stream to `cacheDir` (bytes only, no decode) and
 starts `ImportService` with that path. Same staging step as Task 8 so there is exactly one
 import path.
-**Verify:** `./gradlew.bat compileDebugKotlin`, `check.sh` (touch-target and semantics
-lint, per UI-004/UI-005). Manual in Task 10.
+
+**Deviations from plan.**
+- **No `CaptureViewModel` or `AppContainer` change.** A separate `ImportViewModel` holds the
+  pre-service flow, and `ImportStaging` — the raw copy plus the display-name lookup — is a
+  plain object both entry points call, so Task 8 can stage from an Activity that has no
+  ViewModel. Capture and import share a screen, not a state machine.
+- **The size confirmation is here, not in Task 9.** It cannot live in `ImportService`: by
+  then there is no screen in front of the user to ask. Task 9 keeps the copy revision and
+  the failure-mapping tests. Its strings came forward with it, plus `import_refused_title`
+  ("Not right now" — a refusal is not a failure) and `import_failed_copy`, because mapping
+  an unreadable stream onto "not enough space" would be naming the wrong cause.
+- **`EmptyState` gained a secondary action**, shaped like `ErrorState`'s, rather than the
+  Library composing its own second button.
+- The dialog reuses `LibraryExporter.formatBytes` rather than growing a second byte
+  formatter, and names the size of the *finished Recording* — the surprise is that it and
+  the picked file differ.
+- The ViewModel checks the refusals itself before staging. `ImportCoordinator` is still the
+  invariant; this only avoids copying a gigabyte that is about to be thrown away.
+- The button carries a busy state. Staging is the one part of an import with no
+  notification behind it — the service does not exist until the bytes are in `cacheDir`.
+
+**Verify:** `check.sh` OK, `test-fast.sh` OK. Behaviour in Task 10.
 
 ### Task 8 — Share target
 **Files:** `AndroidManifest.xml`, `MainActivity.kt`.

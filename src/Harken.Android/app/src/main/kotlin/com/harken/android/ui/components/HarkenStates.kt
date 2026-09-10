@@ -49,6 +49,8 @@ fun EmptyState(
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
+    secondaryLabel: String? = null,
+    onSecondary: (() -> Unit)? = null,
 ) {
     HarkenCard(
         modifier = modifier.fillMaxWidth(),
@@ -64,8 +66,24 @@ fun EmptyState(
         }
         Text(title, style = MaterialTheme.typography.headlineSmall)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (actionLabel != null && onAction != null) {
-            Button(onClick = onAction, shape = PillShape, modifier = Modifier.heightIn(min = 48.dp)) { Text(actionLabel) }
+        // The secondary sits beside the primary rather than under it: they are two ways to
+        // get a first recording into the Library, not a call to action and a way out of it.
+        // Nothing is emitted with no actions, or the card gains a row of empty gap.
+        if (onAction == null && onSecondary == null) return@HarkenCard
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (actionLabel != null && onAction != null) {
+                Button(onClick = onAction, shape = PillShape, modifier = Modifier.heightIn(min = 48.dp)) { Text(actionLabel) }
+            }
+            if (secondaryLabel != null && onSecondary != null) {
+                TextButton(
+                    onClick = onSecondary,
+                    shape = PillShape,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    colors =
+                        androidx.compose.material3.ButtonDefaults
+                            .textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                ) { Text(secondaryLabel, style = MaterialTheme.typography.labelLarge) }
+            }
         }
     }
 }

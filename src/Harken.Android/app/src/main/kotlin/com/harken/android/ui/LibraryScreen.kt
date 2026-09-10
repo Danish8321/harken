@@ -114,6 +114,7 @@ fun LibraryScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val search by viewModel.searchState.collectAsStateWithLifecycle()
     var filter by remember { mutableStateOf(LibraryFilter.All) }
+    val importPicker = rememberImportPicker()
 
     val visible =
         remember(state.sessions, filter) {
@@ -216,6 +217,10 @@ fun LibraryScreen(
                         },
                     actionLabel = if (filter == LibraryFilter.All) stringResource(R.string.library_empty_action) else null,
                     onAction = if (filter == LibraryFilter.All) onGoToRecord else null,
+                    // A new user whose reason for installing Harken is a folder of files
+                    // they already have was told only to record.
+                    secondaryLabel = if (filter == LibraryFilter.All) stringResource(R.string.import_action) else null,
+                    onSecondary = if (filter == LibraryFilter.All) importPicker.launch else null,
                 )
 
             else -> {
