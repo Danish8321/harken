@@ -293,13 +293,17 @@ stay as-is — they describe capture, which is still accurate.
   lives in `strings.xml` and is the translator's to change.
 
 **Verify:** `check.sh` OK (Lint's hardcoded-string and missing-translation checks included),
-`test-fast.sh` OK, `ImportMessagesTest` 5/5.
+`test-fast.sh` OK, `ImportMessagesTest` 5/5. Falsified: pointing `DecodeFailed` at
+`import_failed_no_audio` fails `no two failures share a string` and nothing else, which is
+the mistake the test exists to catch.
 
-### Task 10 — Verification pass
+### Task 10 — Verification pass — **gates done, device pass outstanding**
 **Change:** no code. Run the gates, then a real-device pass.
 **Verify:**
-- `.claude/scripts/check.sh` — OK.
-- `.claude/scripts/test-fast.sh` — OK.
+- `.claude/scripts/check.sh` — OK, on the tree committed as Task 9.
+- `.claude/scripts/test-fast.sh` — OK, same tree. The import unit tests are
+  `ImportPreflightTest`, `ImportCoordinatorTest`, `ImportTitleTest` and `ImportMessagesTest`;
+  none of them decodes anything, so **nothing below is proven by them**.
 - `test-full.sh` not required: no schema change, so no migration to assert.
 - On-device, on the arm64 test phone:
   - Import an m4a via the picker; confirm the Session is titled from the filename, plays
@@ -319,6 +323,11 @@ stay as-is — they describe capture, which is still accurate.
   - Re-open the app after a completed import and confirm exactly one Session exists.
 
 Record the result in this file the way slice-09 and UI-042 recorded theirs.
+
+**Status.** The device pass has not been run — it needs the arm64 test phone, which this
+machine is not. Until it is, the slice is unproven where it matters most: no file has been
+decoded end to end by any gate. The codec paths (`AudioImporter`), the foreground service
+lifecycle, the share grant and the notification actions are all device-only behaviour.
 
 ## Fixtures
 
