@@ -51,8 +51,10 @@ amounts to), `content above 8 kHz is attenuated, not folded down` fails with "su
 100% of its input level", and it is the only test that fails. The filter is what that test
 is measuring.
 
-### Task 2 — Decode a file to a canonical WAV
-**Files:** `.../kotlin/com/harken/android/ingest/AudioImporter.kt` (new).
+### Task 2 — Decode a file to a canonical WAV — **done**
+**Files:** `.../kotlin/com/harken/android/ingest/AudioImporter.kt` (new),
+`.../kotlin/com/harken/android/audio/Pcm16.kt`,
+`.../test/kotlin/com/harken/android/audio/Pcm16Test.kt`.
 **Change:** `MediaExtractor` selects the first audio track of the source file (a video
 container is fine — ADR-0016 §1); `MediaCodec` decodes it; each output buffer goes through
 Task 1 and into a `WavWriter` opened on a **`cacheDir`** path, never `filesDir`
@@ -61,9 +63,22 @@ presentation-time against `KEY_DURATION`. Honours an abort flag, mirroring
 `nativeSetAbort`'s role in transcription. On completion, and only then, `renameTo` the
 target `filesDir/<uuid>.wav`. On any failure or abort, delete the partial and return a
 typed failure — no Session, no file in `filesDir` (ADR-0016 §4).
-**Verify:** `./gradlew.bat compileDebugKotlin`. Real decoding needs a device, so
-behavioural proof lands in Task 10's manual pass; failure-path tests that don't need a
-codec go in Task 9.
+**Additions beyond the plan:**
+- `Pcm16.toBytes` — the decoder hands over samples and `WavWriter` appends bytes, and the
+  byte order between them belongs to `Pcm16`, which already owns that layout, not to the
+  importer. Covered by two new `Pcm16Test` cases.
+- `ImportOutcome.StorageFailed` — the plan's failure list was all decode failures, but the
+  move into place can fail too, and a Session pointing at nothing is worse than a refusal.
+  `moveIntoPlace` renames, falls back to a copy, and only then gives up.
+- Float PCM output is handled: most decoders emit 16-bit, some emit
+  `ENCODING_PCM_FLOAT`, and the output format is the only place that says which.
+- A mid-stream sample-rate change drains the old resampler before building the new one, so
+  the seam is a seam rather than a gap.
+
+**Verify:** `check.sh` OK, `test-fast.sh` OK (`Pcm16Test` 8/8). Real decoding needs a
+device — `MediaCodec` does not exist on the JVM — so behavioural proof lands in Task 10's
+manual pass, and failure-path tests that don't need a codec go in Task 9. **Nothing here
+is yet proven to decode anything.**
 
 ### Task 3 — Pre-flight size gate
 **Files:** `.../kotlin/com/harken/android/ingest/ImportPreflight.kt` (new),

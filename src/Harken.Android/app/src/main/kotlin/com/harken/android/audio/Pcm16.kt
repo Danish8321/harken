@@ -44,4 +44,24 @@ object Pcm16 {
 
     /** The same level as a fraction of full scale, which is what the meter draws. */
     fun normalized(rms: Int): Float = (rms / Short.MAX_VALUE.toFloat()).coerceIn(0f, 1f)
+
+    /**
+     * Lays [count] samples out as the little-endian bytes [WavWriter] appends.
+     *
+     * The recorder never needs this — [AudioRecordCapture] already hands over bytes in this
+     * layout — but a decoder hands over samples, and the byte order they have to end up in
+     * is this file's business rather than the importer's.
+     */
+    fun toBytes(
+        samples: ShortArray,
+        count: Int,
+        out: ByteArray,
+    ) {
+        require(out.size >= count * 2) { "out holds ${out.size}, needs ${count * 2}" }
+        for (i in 0 until count) {
+            val sample = samples[i].toInt()
+            out[i * 2] = (sample and 0xFF).toByte()
+            out[i * 2 + 1] = ((sample shr 8) and 0xFF).toByte()
+        }
+    }
 }
