@@ -104,14 +104,29 @@ these tests are transparent arithmetic — `an import that fits but wedges the d
 refused too` puts 100 MB into 300 MB of free space, which is plainly a pass without the
 margin — so they were not separately falsified.
 
-### Task 4 — Single-flight import state
-**Files:** `.../kotlin/com/harken/android/ingest/ImportCoordinator.kt` (new).
+### Task 4 — Single-flight import state — **done**
+**Files:** `.../kotlin/com/harken/android/ingest/ImportCoordinator.kt` (new),
+`.../test/kotlin/com/harken/android/ingest/ImportCoordinatorTest.kt` (new).
 **Change:** `AtomicReference` compare-and-set admitting one import at a time, mirroring
 `TranscriptionCoordinator.kt:76`. Exposes `activeImport: StateFlow<...>` for the UI.
 Refuses to start when `RecordingState` holds an in-progress capture — decode is CPU-heavy
 and would degrade live capture on a 6 GB device (ADR-0014).
-**Verify:** `./gradlew.bat testDebugUnitTest`. Tests: second concurrent start is refused;
-start during a simulated recording is refused; state clears on success and on failure.
+**Deviation from plan:** it owns no coroutine. `TranscriptionCoordinator` runs the work it
+admits; this only decides who may run, because `ImportService` (Task 6) is what holds the
+process up. Admission returns the per-import cancel flag rather than the coordinator
+holding a `Job`.
+
+**Known gap, deliberate.** The guard is one-directional: an import is refused while the
+microphone is open, but a recording started *during* an import is not refused. Blocking
+the app's primary function to protect a convenience is the wrong trade, and pausing a
+decode mid-file is more machinery than this slice should carry. What it may cost is
+capture buffer overruns while a decode saturates the CPU — added to Task 10's device pass
+to find out whether it is real on a 6 GB device.
+
+**Verify:** `check.sh` OK, `test-fast.sh` OK, `ImportCoordinatorTest` 8/8. Covers: a
+second concurrent import refused; refusal while recording, which must not claim the slot;
+a late finisher unable to clear the import that replaced it; and a cancelled import not
+poisoning the next one's flag.
 
 ### Task 5 — Session creation from an import
 **Files:** `SessionRepository.kt`, `.../kotlin/com/harken/android/ingest/ImportTitle.kt`
@@ -198,6 +213,9 @@ copy.
   - Confirm a large import shows the size confirmation with a plausible number.
   - Confirm an import is refused while recording, and a second import is refused while one
     runs.
+  - Start a **recording during an import** — the direction the coordinator deliberately
+    does not guard (Task 4). Confirm the capture is clean: no dropped audio, no gap in the
+    WAV, waveform still live.
   - Kill the app mid-import; confirm no partial WAV is adopted by `RecordingRecovery` as a
     Session (the partial lives in `cacheDir`, which is never scanned).
   - Re-open the app after a completed import and confirm exactly one Session exists.
