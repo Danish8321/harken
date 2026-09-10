@@ -23,11 +23,24 @@ private const val TAG = "RecordingRecovery"
  *
  * Runs on every launch. It is cheap (a directory listing against a list of ids) and safe
  * to repeat: a file that already has a session is left alone, and nothing is ever deleted.
+ * The one file it must not touch is the one being written this moment — see [inProgressId].
  */
 class RecordingRecovery(
     private val filesDir: File,
     private val repository: SessionRepository,
     private val knownIds: suspend () -> List<UUID>,
+    /**
+     * The capture running right now, if there is one. Its WAV has no session row yet and
+     * never looks any different from a WAV left by a process death — the row is written
+     * when the recording stops (ARC-016) — so without this it is adopted mid-capture.
+     *
+     * Reachable in normal use since the share target: an `ACTION_SEND` arriving while the
+     * microphone is open starts a second `MainActivity` in its own task, and every launch
+     * runs recovery. What it cost on the test phone was a Session dated to the moment the
+     * share arrived and 30 seconds short, and then the recorder's own save failing on the
+     * primary key it had already been given.
+     */
+    private val inProgressId: () -> UUID? = { RecordingState.recordingId },
 ) {
     suspend fun recover(): List<UUID> =
         withContext(Dispatchers.IO) {
@@ -36,7 +49,7 @@ class RecordingRecovery(
                     Log.e(TAG, "Could not read known session ids; skipping recovery", it)
                     return@withContext emptyList()
                 }
-            val orphans = orphanRecordings(filesDir.listFiles()?.toList().orEmpty(), known)
+            val orphans = orphanRecordings(filesDir.listFiles()?.toList().orEmpty(), known, inProgressId())
 
             orphans.mapNotNull { orphan ->
                 runCatching {
@@ -79,12 +92,13 @@ class RecordingRecovery(
         fun orphanRecordings(
             files: List<File>,
             knownIds: Set<UUID>,
+            inProgressId: UUID? = null,
         ): List<Orphan> =
             files
                 .filter { it.isFile && it.extension.equals("wav", ignoreCase = true) }
                 .mapNotNull { file ->
                     val id = runCatching { UUID.fromString(file.nameWithoutExtension) }.getOrNull() ?: return@mapNotNull null
-                    if (id in knownIds) return@mapNotNull null
+                    if (id in knownIds || id == inProgressId) return@mapNotNull null
 
                     // Header-only files are a start that captured nothing. Left on disk rather
                     // than deleted — recovery's job is to lose nothing, not to tidy up.
