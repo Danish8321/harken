@@ -314,5 +314,10 @@ and out between onboarding and the tabs, which is what it was for before item 5
 borrowed it.
 
 Verified: `bash .claude/scripts/check.sh` -> `== check: OK ==`,
-`bash .claude/scripts/test-fast.sh` -> `== test-fast: OK ==`. Not verified on
-device — none attached (see UI-045).
+`bash .claude/scripts/test-fast.sh` -> `== test-fast: OK ==`, then `installDebug`
+onto 'AIN065' with the same twelve recordings:
+
+- two slow drags down the Library and the bar is still there
+- two fast flings to the bottom of the list and it is still there, with the
+  last card clearing it
+- RECORD and SETTINGS unchanged

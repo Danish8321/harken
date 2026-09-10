@@ -1,7 +1,7 @@
 # UI-045 — The launcher mark reads as a lump, not a microphone
 
 - **Severity:** low
-- **Status:** open — implemented, on-device verification pending a connected device
+- **Status:** fixed
 - **Area:** `res/drawable/ic_launcher_foreground.xml`, `res/drawable/ic_launcher_monochrome.xml`
 
 ## Problem
@@ -54,13 +54,18 @@ Geometry (108dp viewport): head 22x34dp at (43,27), r11 · slits at x 45.75 / 50
   inside the 72-of-108dp visible circle, so what was checked is the shipped path data and
   not a transcription of it. The slits are holes in both layers; the silhouette reads as a
   microphone at every size.
-- **Not done: the home-screen check.** No device was attached (`adb devices` empty) after
-  the change, and this is precisely the mark whose four previous revisions were each
-  argued from a desktop preview. Nothing here is confirmed until it is seen on a launcher.
-- When that runs, it needs an **uninstall + reinstall**, not an update-install: UI-041
-  found that the Nothing Launcher caches one rendered adaptive-icon bitmap per package and
-  does not invalidate it on a same-versionCode update, so an update-install shows the old
-  icon and looks like the change did nothing.
+- **On device**, which is the only check that counts here — the four previous revisions
+  were each argued from a desktop preview. `installDebug` onto 'AIN065', app drawer at its
+  real size: the mark reads as a microphone, the cradle and the stem are separate shapes
+  with air between them, and all four slits render as holes in the head. Screenshot cropped
+  at 3x; nothing about it is a lump. Same install, no uninstall needed — the Nothing
+  Launcher re-rendered the icon on a plain update this time, unlike the same-versionCode
+  update UI-041 hit, so that cache behaviour is not reliable in either direction. If a
+  future icon change appears to do nothing, uninstall + reinstall before believing it.
+- **Not checked: the themed (monochrome) layer.** Turning on themed icons is a launcher
+  setting with no adb route, so `ic_launcher_monochrome.xml` was only verified by rendering
+  its own path data. The slits are cut, not painted, which is the one thing that would have
+  broken there.
 
 ## Found by
 

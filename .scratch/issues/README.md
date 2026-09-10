@@ -43,7 +43,7 @@ relative-luminance formula.
 | [UI-042](UI-042-world-class-punch-list.md) | World-class UI/UX punch list: two parallel type/shape systems, motion and haptics gaps, latent contrast-parity risk | medium | resolved |
 | [UI-043](UI-043-navigation-motion.md) | Navigation motion: the tab bar travels with the screen, and there is no shared-element anywhere | medium | resolved |
 | [UI-044](UI-044-dark-palette-contrast-debt.md) | Six colour roles sit below WCAG AA, five of them only in dark (error split done, four remain) | medium | open |
-| [UI-045](UI-045-launcher-mark-has-no-microphone-cue.md) | The launcher mark reads as a lump, not a microphone (v5 written, home-screen check pending a device) | low | open |
+| [UI-045](UI-045-launcher-mark-has-no-microphone-cue.md) | The launcher mark reads as a lump, not a microphone | low | fixed |
 
 UI-019..UI-027 were driven by direct interactive requests and have no
 ticket files of their own — [UI-030](UI-030-interactive-pass-backfill.md)
