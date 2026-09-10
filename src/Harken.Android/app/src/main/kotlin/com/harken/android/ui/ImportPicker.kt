@@ -11,12 +11,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
 import com.harken.android.export.LibraryExporter
+import com.harken.android.ingest.PendingImport
 import com.harken.android.ui.components.HarkenErrorDialog
 
 /** What a screen needs to offer an import: something to call, and whether it is busy. */
@@ -45,6 +47,15 @@ fun rememberImportPicker(viewModel: ImportViewModel = viewModel()): ImportPicker
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             viewModel.pick(uri)
         }
+
+    // A file arriving from the share sheet joins the flow here rather than beside it, so a
+    // share gets the same size question and the same refusals a pick does. MainActivity
+    // reads the Uri while its grant is still good and leaves it in [PendingImport]; this is
+    // the first composition able to do anything with it.
+    val shared by PendingImport.uri.collectAsStateWithLifecycle()
+    LaunchedEffect(shared) {
+        if (shared != null) PendingImport.take()?.let(viewModel::pick)
+    }
 
     when (val current = state) {
         is ImportUiState.Failed ->

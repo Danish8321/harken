@@ -232,8 +232,9 @@ import path.
 
 **Verify:** `check.sh` OK, `test-fast.sh` OK. Behaviour in Task 10.
 
-### Task 8 — Share target
-**Files:** `AndroidManifest.xml`, `MainActivity.kt`.
+### Task 8 — Share target — **done**
+**Files:** `AndroidManifest.xml`, `MainActivity.kt`,
+`.../kotlin/com/harken/android/ingest/PendingImport.kt` (new), `ui/ImportPicker.kt`.
 **Change:** an `ACTION_SEND` intent filter on `MainActivity` for `audio/*` and `video/*`.
 **No `ACTION_VIEW`** — that is a playback verb, and claiming it would put Harken in the
 open-with list for every audio file on the phone. `MainActivity` (already `singleTop`, so
@@ -241,7 +242,22 @@ handle both `onCreate` and `onNewIntent`) raw-copies the incoming stream to `cac
 starts `ImportService`, then routes to the Record screen. A share arriving while a
 recording is in progress, or while another import runs, is refused with a message rather
 than queued (Task 4).
-**Verify:** `./gradlew.bat compileDebugKotlin`, `check.sh`. Manual in Task 10.
+
+**Deviations from plan.**
+- **The Activity does not stage or start the service.** It reads the Uri — the one thing
+  only it can do, while the grant is alive — and leaves it in `PendingImport` for
+  `ImportViewModel` to pick up on the next composition. A share then gets the same size
+  question and the same refusal dialogs a picked file does, instead of a second path where
+  a refusal could only be a notification and a large import could not be declined at all.
+  The Uri is taken exactly once.
+- The `EXTRA_STREAM` is removed as it is read. Without that a rotation re-delivers the same
+  intent and imports the file twice — two Sessions of the same audio, at twice the storage.
+- **No routing to the Record screen.** A cold-start share already lands there, and pulling
+  someone off the Library — the screen where the imported Session actually appears — to the
+  one screen that shows neither the import nor its result would be worse than leaving them
+  where they are. The progress notification is the import's surface.
+
+**Verify:** `check.sh` OK, `test-fast.sh` OK. Behaviour in Task 10.
 
 ### Task 9 — Copy and failure surface
 **Files:** `strings.xml`, plus the screens touched above.
