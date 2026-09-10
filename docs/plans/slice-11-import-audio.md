@@ -297,7 +297,7 @@ stay as-is — they describe capture, which is still accurate.
 `import_failed_no_audio` fails `no two failures share a string` and nothing else, which is
 the mistake the test exists to catch.
 
-### Task 10 — Verification pass — **gates done, device pass outstanding**
+### Task 10 — Verification pass — **done**
 **Change:** no code. Run the gates, then a real-device pass.
 **Verify:**
 - `.claude/scripts/check.sh` — OK, on the tree committed as Task 9.
@@ -324,10 +324,73 @@ the mistake the test exists to catch.
 
 Record the result in this file the way slice-09 and UI-042 recorded theirs.
 
-**Status.** The device pass has not been run — it needs the arm64 test phone, which this
-machine is not. Until it is, the slice is unproven where it matters most: no file has been
-decoded end to end by any gate. The codec paths (`AudioImporter`), the foreground service
-lifecycle, the share grant and the notification actions are all device-only behaviour.
+**Device pass — run 2026-09-10.** Nothing Phone (2), Android 16, arm64, 7270 MB
+(`device_capability belowMinimum=false`), `com.harken.android.debug` 0.1.0-debug (242),
+`gitSha=231cee1` — the tree committed as Task 9. Driven over adb: `input tap` against
+`uiautomator dump` bounds, `screencap` for the copy, `logcat` for telemetry, `run-as` for
+`filesDir`, `cacheDir` and the database.
+
+- **m4a via the picker.** No true audio-only m4a exists on the phone — the stock recorder
+  keeps its files app-private — so the fixture was an `.m4a`-named copy of an AAC track:
+  imported in 484 ms, Session titled `harken-aac` from the filename, plays, and
+  transcribes when tapped.
+- **Share sheet, Opus voice note.** `import_shared_in mimeType=audio/ogg` then
+  `import_finished outcome=Imported sourceBytes=24296 elapsedMs=417`; Session
+  `harken-voice-note`, 10 s. This is the path the share target exists for and it is the
+  one that found the bug in Task 11.
+- **Audio from an mp4.** Both a short clip (`VID-20240108-WA0009`, 7 s) and a 53-minute
+  one (`091 Final Office Hours - Morning`, 3225 s, a 103,204,384-byte WAV).
+- **Cancel from the Live Update notification.** `import_finished outcome=Cancelled`, no
+  session row, `cacheDir` cleared, nothing left in `filesDir`.
+- **Large import.** A 5.24-hour WAV raised "That's a long one … about 576 MB"; **Not now**
+  deleted the 604 MB staged copy. Accepting it instead produced an 18,874 s Session, so
+  the number on the dialog is the one the import actually costs.
+- **Refusals.** A second import while one runs: "Not right now / One import at a time."
+  Refusal *while recording* is unreachable from inside the app — the import button is
+  hidden while the microphone is open — so the only route is a share arriving mid-capture:
+  sharing an Opus from the Files app during a recording gave "Not right now / Finish the
+  recording first — importing while the microphone is open would compete with it.", with
+  no staging attempted and the capture running on untouched.
+- **Recording started during an import** (the direction Task 4 deliberately does not
+  guard): `recording_stopped chunks=283 bytes=1446400 maxChunkWriteMs=1 slowChunks=0` —
+  no slow chunk, no gap — while the import finished normally at `elapsedMs=109193`. The
+  known gap costs nothing measurable on this phone.
+- **Killed mid-import.** No Session, no partial in `filesDir`; the `*.partial.wav` stayed
+  in `cacheDir`, which recovery never scans.
+- **Re-open after a completed import.** The Library holds exactly the imports that
+  finished, and no others.
+- **Unreadable stream** (a Uri whose grant had lapsed): "Import failed / That file could
+  not be read."
+
+**One bug found, fixed in Task 11:** a share arriving while the microphone is open starts
+a second `MainActivity`, whose launch-time `RecordingRecovery` adopted the *live*
+recording's WAV. The audio survived intact (header 248.42 s, matching the bytes), but the
+Library got a Session dated to the share and 30 s short, and the recorder's own save then
+failed — `recording_save_failed error=UNIQUE_constraint_failed:_sessions.id`.
+
+**Two follow-ups, neither in this slice:** `cacheDir` is never swept at startup, so a
+killed import leaves its staged source and `*.partial.wav` there until Android reclaims
+them; and a `transcribing` notification (id 1002) was still posted after transcription had
+finished.
+
+### Task 11 — Recovery must not adopt the recording in progress — **done**
+**Files:** `.../kotlin/com/harken/android/recording/RecordingRecovery.kt`,
+`.../test/kotlin/com/harken/android/recording/RecordingRecoveryTest.kt`.
+**Why:** found by Task 10's device pass. `RecordingRecovery` runs on every launch and
+identifies an orphan as "a WAV in `filesDir` whose id has no session row". A capture in
+progress is exactly that — the row is only written when the recording stops (ARC-016) — so
+until now the only thing keeping recovery off it was that nothing started a fresh
+`MainActivity` mid-recording. The share target does: an `ACTION_SEND` from another app
+lands in its own task and runs the launch path again.
+**Change:** `orphanRecordings` takes the in-progress recording id and never returns it;
+`RecordingRecovery` reads it from `RecordingState.recordingId` through a default-argument
+seam, the same shape as `ImportCoordinator.isRecording`. Not a `RecordingState.isRecording`
+check: the question is which *file* is being written, and excluding one id keeps recovery
+doing its job for every other orphan on disk while a capture runs.
+
+**Verify:** `check.sh` OK, `test-fast.sh` OK, `RecordingRecoveryTest` 6/6. Falsified:
+dropping the `id == inProgressId` clause fails `the recording being written right now is
+not adopted` and nothing else.
 
 ## Fixtures
 
