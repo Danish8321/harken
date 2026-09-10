@@ -291,3 +291,28 @@ to "zebra" through the sheet to get a hit. At `animator_duration_scale 10`:
   bounds, same as from the Library list
 - back dismisses and the result card is drawn again, with the tab bar back
 - no exception in `logcat`
+
+**Item 5 reverted, 2026-09-10.** The user hit it on their own device — "while
+scrolling down navigation buttons disappears" — and chose an always-visible bar
+over tuning the trigger.
+
+The mechanism worked exactly as verified above; that was the problem. Item 5 was
+argued from the bar's side ("the floating bar never reacts to scroll, so it
+permanently occupies space"), which treats 88dp of a 2412px screen as a cost
+worth paying for. From the user's side the trade is the other way round: the
+Library is the one screen you scroll, so hide-on-scroll takes Record and
+Settings away precisely where they are most likely to be wanted, and gives back
+space nobody asked for. There was also no threshold — any downward delta hid it,
+so the bar reacted to a nudge.
+
+Deleted, not disabled: the `NestedScrollConnection` and its `LazyColumn`
+`nestedScroll` modifier, `LibraryScreen`'s `onBarVisibleChange` parameter and
+the search-active reset that existed only to undo it, and `AppNav`'s
+`barVisible` state plus the `LaunchedEffect(currentRoute)` that put it back. The
+`AnimatedVisibility` around `FloatingTabBar` stays — it still carries the bar in
+and out between onboarding and the tabs, which is what it was for before item 5
+borrowed it.
+
+Verified: `bash .claude/scripts/check.sh` -> `== check: OK ==`,
+`bash .claude/scripts/test-fast.sh` -> `== test-fast: OK ==`. Not verified on
+device — none attached (see UI-045).
