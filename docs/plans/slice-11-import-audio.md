@@ -128,20 +128,31 @@ second concurrent import refused; refusal while recording, which must not claim 
 a late finisher unable to clear the import that replaced it; and a cancelled import not
 poisoning the next one's flag.
 
-### Task 5 — Session creation from an import
+### Task 5 — Session creation from an import — **done**
 **Files:** `SessionRepository.kt`, `.../kotlin/com/harken/android/ingest/ImportTitle.kt`
 (new), `.../test/kotlin/com/harken/android/ingest/ImportTitleTest.kt` (new).
-**Change:** `ImportTitle.from(sourceFileName)` strips the extension, trims, collapses
-whitespace and caps length; returns null when nothing usable remains. A new repository
-entry point creates the Session with `startedAt = endedAt = Instant.now()` minus the
-audio duration for `startedAt` (same derivation the recorder uses,
-`RecordingForegroundService.kt:296`), `durationSeconds` from
-`WavFormat.durationSeconds(File)` on the finished canonical WAV — the same authority the
-recorder uses, now legitimately, because the file is canonical — `localTitle` from
-`ImportTitle`, and `transcriptionStatus = "Recorded"`. When `ImportTitle` returns null,
-leave `localTitle` null so the existing `PartOfDay` derivation applies as the fallback.
-**Verify:** `./gradlew.bat testDebugUnitTest`. Title tests cover extension stripping,
-whitespace, length cap, and the empty→null fallback.
+**Change:** `ImportTitle.from(fileName)` strips the last extension, collapses whitespace,
+caps length, and returns null when nothing usable remains — which is what hands the
+Library back its existing `PartOfDay` derivation. Only the extension is removed:
+underscores and capitalisation are the user's own naming, and prettifying them would be
+inventing a title rather than reading one.
+
+**Deviation from plan:** no new repository entry point. `createLocalSession` took an
+optional `localTitle` instead. A second creation method would have been a near-duplicate
+of an eight-line insert, and the glossary is explicit that an imported Session is a
+Session — one creation path says that in code. `SessionRepository.createLocalSession`
+remains the only writer of a session row.
+
+**Clarification on `startedAt`.** Q3 settled on import time; the row uses the recorder's
+own convention for that — `endedAt = now`, `startedAt = now - durationSeconds`
+(`RecordingForegroundService.kt:296`). The import *ends* now, so the row stays internally
+coherent instead of claiming a Session with four hours of audio and no elapsed time, and
+any realistic import still sorts to the top of the Library. Duration itself is never
+derived from this span: `durationSeconds` is the authority (ARC-009).
+
+**Verify:** `check.sh` OK, `test-fast.sh` OK, `ImportTitleTest` 9/9 — extension stripping,
+multi-dot names, no-extension names, whitespace, the length cap, and all three routes to
+the null fallback (extension-only, blank, and a Uri carrying no display name at all).
 
 ### Task 6 — ImportService
 **Files:** `.../kotlin/com/harken/android/ingest/ImportService.kt` (new),

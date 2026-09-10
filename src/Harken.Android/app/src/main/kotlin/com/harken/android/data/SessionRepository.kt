@@ -130,6 +130,7 @@ class SessionRepository(
         endedAt: String,
         filePath: String,
         durationSeconds: Int,
+        localTitle: String? = null,
     ) {
         dao.insertLocalOnly(
             SessionRow(
@@ -143,6 +144,10 @@ class SessionRepository(
                 // null, every un-transcribed session read "0m 00s" in the Library.
                 durationSeconds = durationSeconds,
                 audioPath = filePath,
+                // A capture leaves this null and is named from the clock. An import arrives
+                // with a name of its own (ADR-0016), and passes it here rather than through
+                // a second creation path — an imported Session is a Session.
+                localTitle = localTitle,
             ),
         )
     }
