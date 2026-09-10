@@ -154,6 +154,80 @@ object LiveUpdateNotification {
                 }
             }.build()
 
+    /**
+     * An import in flight.
+     *
+     * [percent] below zero draws an indeterminate bar, and it stays there for a container
+     * that carries no duration — some genuinely do not, and a decode cannot invent one. A
+     * bar frozen at 0% would read as a stalled job; a moving indeterminate one reads as
+     * work with an unknown end, which is what it is.
+     */
+    fun importing(
+        context: Context,
+        channelId: String,
+        percent: Int,
+        cancelIntent: PendingIntent,
+        contentIntent: PendingIntent,
+    ): Notification =
+        NotificationCompat
+            .Builder(context, channelId)
+            .setContentTitle(context.getString(R.string.notification_importing_title))
+            .setContentText(context.getString(R.string.notification_importing_body))
+            .setSmallIcon(R.drawable.ic_notification_mic)
+            .setOngoing(true)
+            .setColorized(true)
+            .setColor(DONE_ACCENT)
+            .setProgress(100, percent.coerceIn(0, 100), percent < 0)
+            .setCategory(Notification.CATEGORY_PROGRESS)
+            .setContentIntent(contentIntent)
+            .addAction(0, context.getString(R.string.notification_importing_cancel), cancelIntent)
+            .also { builder ->
+                if (android.os.Build.VERSION.SDK_INT >= 36) {
+                    builder.extras.putBoolean("android.requestPromotedOngoing", true)
+                }
+            }.build()
+
+    /**
+     * A finished import, carrying the action that starts its transcription.
+     *
+     * Not ongoing and not promoted: the work is done. The action is here because a user who
+     * arrived through the share sheet is not in Harken — without it, "read this instead of
+     * listening to it" ends at a Library row they have to go and find.
+     */
+    fun imported(
+        context: Context,
+        channelId: String,
+        title: String,
+        transcribeIntent: PendingIntent,
+        contentIntent: PendingIntent,
+    ): Notification =
+        NotificationCompat
+            .Builder(context, channelId)
+            .setContentTitle(context.getString(R.string.notification_imported_title, title))
+            .setContentText(context.getString(R.string.notification_imported_body))
+            .setSmallIcon(R.drawable.ic_notification_mic)
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .addAction(0, context.getString(R.string.notification_imported_transcribe), transcribeIntent)
+            .build()
+
+    /** An import that could not be done, saying which of the ways it failed. */
+    fun importFailed(
+        context: Context,
+        channelId: String,
+        message: String,
+        contentIntent: PendingIntent,
+    ): Notification =
+        NotificationCompat
+            .Builder(context, channelId)
+            .setContentTitle(context.getString(R.string.notification_import_failed_title))
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setSmallIcon(R.drawable.ic_notification_mic)
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .build()
+
     // ProtoDarkColors.accent and .success as ARGB ints — the notification API predates
     // Compose Color, so these are the one place a literal is unavoidable. Keep in step
     // with ui/theme/ProtoColors.kt; they named the deleted Organic palette until UI-028

@@ -224,6 +224,22 @@ class TranscriptionService : Service() {
         private const val EXTRA_TITLE = "title"
 
         /**
+         * The intent that starts a transcription, for a caller that has to wrap it rather
+         * than fire it — the Transcribe action on the finished-import notification builds a
+         * PendingIntent out of this. Exists so the extra keys stay private to this file.
+         */
+        fun intent(
+            context: Context,
+            sessionId: UUID,
+            filePath: String,
+            title: String,
+        ): Intent =
+            Intent(context, TranscriptionService::class.java)
+                .putExtra(EXTRA_SESSION_ID, sessionId.toString())
+                .putExtra(EXTRA_FILE_PATH, filePath)
+                .putExtra(EXTRA_TITLE, title)
+
+        /**
          * Starts a transcription. [title] is what the notification calls the recording, so
          * it is the display title the Library row shows rather than the session id.
          */
@@ -233,12 +249,7 @@ class TranscriptionService : Service() {
             filePath: String,
             title: String,
         ) {
-            val intent =
-                Intent(context, TranscriptionService::class.java)
-                    .putExtra(EXTRA_SESSION_ID, sessionId.toString())
-                    .putExtra(EXTRA_FILE_PATH, filePath)
-                    .putExtra(EXTRA_TITLE, title)
-            context.startForegroundService(intent)
+            context.startForegroundService(intent(context, sessionId, filePath, title))
         }
     }
 }

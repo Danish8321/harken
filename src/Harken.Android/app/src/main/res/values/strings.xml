@@ -193,6 +193,24 @@
     <string name="notification_exporting_body">%1$d of %2$d</string>
     <string name="notification_exporting_cancel">Cancel</string>
 
+    <!-- Import. The done and failed notifications are not Live Updates: an import that has
+         finished is not ongoing, and the user may well be in another app by then. -->
+    <string name="notification_importing_channel">Importing</string>
+    <string name="notification_importing_title">Importing audio</string>
+    <string name="notification_importing_body">Converting on this phone. Nothing is uploaded.</string>
+    <string name="notification_importing_cancel">Cancel</string>
+    <string name="notification_imported_title">Imported “%1$s”</string>
+    <string name="notification_imported_body">Ready to transcribe.</string>
+    <string name="notification_imported_transcribe">Transcribe</string>
+    <string name="notification_import_failed_title">Import failed</string>
+    <string name="import_failed_no_audio">There is no audio in that file.</string>
+    <string name="import_failed_unsupported">This phone can’t decode that file.</string>
+    <string name="import_failed_decode">That file is damaged — only part of it could be read, so nothing was imported.</string>
+    <string name="import_failed_storage">There isn’t enough space to import that.</string>
+    <string name="import_failed_unknown">Something went wrong importing that file.</string>
+    <string name="import_refused_recording">Finish the recording first — importing while the microphone is open would compete with it.</string>
+    <string name="import_refused_busy">One import at a time. Try again when this one finishes.</string>
+
     <string name="settings_capture_note">Both limits end the recording and save it, so a forgotten session becomes a finished one instead of running all day.</string>
     <string name="settings_model_header">SPEECH MODEL</string>
     <string name="settings_model_ready">Ready — used for on-device transcription</string>

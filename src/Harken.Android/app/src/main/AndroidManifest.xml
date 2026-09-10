@@ -68,6 +68,15 @@
             android:foregroundServiceType="dataSync"
             android:exported="false" />
 
+        <!-- dataSync again: decoding an imported file into a canonical Recording is finite
+             work the user asked for, and losing it because they switched apps mid-decode
+             would be ARC-003 a third time. It cannot be `microphone` — no microphone is
+             involved, which is the whole point of an import (ADR-0016). -->
+        <service
+            android:name=".ingest.ImportService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
         <!-- Sharing a recording is the only way a user can keep their own copy: with
              allowBackup off (ARC-002) there is no Auto Backup, so a lost phone is
              otherwise every recording gone (ARC-033). exported=false with

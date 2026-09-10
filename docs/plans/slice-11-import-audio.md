@@ -154,19 +154,45 @@ derived from this span: `durationSeconds` is the authority (ARC-009).
 multi-dot names, no-extension names, whitespace, the length cap, and all three routes to
 the null fallback (extension-only, blank, and a Uri carrying no display name at all).
 
-### Task 6 — ImportService
+### Task 6 — ImportService — **done**
 **Files:** `.../kotlin/com/harken/android/ingest/ImportService.kt` (new),
-`AndroidManifest.xml`, `strings.xml`.
+`LiveUpdateNotification.kt`, `TranscriptionService.kt`, `AndroidManifest.xml`,
+`strings.xml`.
 **Change:** a `dataSync` foreground service in the shape of `ExportService`
-(manifest `:66-69`), `exported=false`. New notification channel `"importing"` and a new
-notification id (1003 — 1001 and 1002 are taken). Determinate progress from Task 2, a
-Cancel action mirroring `CANCEL_TRANSCRIPTION`, and on success a **Transcribe** action so
-a share-sheet import doesn't dead-end. Takes a plain file path, never a `content://` Uri —
-an `ACTION_SEND` grant is one-shot and activity-scoped, so it cannot survive the handoff.
-Orchestrates: preflight (Task 3) → decode (Task 2) → rename → create Session (Task 5),
-releasing the coordinator (Task 4) on every exit path.
-**Verify:** `./gradlew.bat compileDebugKotlin` and `check.sh` (Lint will catch a missing
-`foregroundServiceType` or a channel mistake). Behaviour in Task 10.
+(manifest `:66-69`), `exported=false`. New notification channel `"importing"` and
+notification id **1004** — 1003 is `ExportService`, correcting this plan's earlier claim.
+Determinate progress from Task 2, a Cancel action mirroring `CANCEL_TRANSCRIPTION`, and on
+success a **Transcribe** action so a share-sheet import doesn't dead-end. Takes a plain
+file path, never a `content://` Uri — an `ACTION_SEND` grant is one-shot and
+activity-scoped, so it cannot survive the handoff. Orchestrates: preflight (Task 3) →
+decode (Task 2) → rename → create Session (Task 5), releasing the coordinator (Task 4) on
+every exit path.
+
+**Deviations from plan.**
+- Progress is **indeterminate when the container carries no duration**, rather than
+  always determinate: `MediaFormat.KEY_DURATION` is optional, and a bar pinned at 0% reads
+  as a stall.
+- Three notification ids, not one. 1004 is the ongoing import and dies with
+  `stopForeground(STOP_FOREGROUND_REMOVE)`; failures use 1005; a completion uses an id
+  derived from the session, so a second import's Transcribe action cannot displace a
+  first's — that action is the only route back for someone who arrived from the share
+  sheet and is not in the app.
+- A refused start still calls `startForeground` before refusing, because
+  `startForegroundService` gives every start five seconds to produce a notification. It
+  posts to the same id and only tears the foreground down when no decode is running, or an
+  `AlreadyImporting` refusal would demote the service out from under the import it
+  refused for.
+- `TranscriptionService` gained an `intent(...)` factory so the Transcribe action can wrap
+  it in a `PendingIntent`; `start` now goes through it, and the extra keys stay private.
+- One new string beyond the planned set, `import_failed_unknown`: the Session insert is the
+  last step, and an exception there leaves a whole Recording in `filesDir` for
+  `RecordingRecovery` to adopt — calling that "damaged" would be a lie.
+- `notification_imported_untitled` was written and then deleted unused: an untitled import
+  gets its name from `recordingTitle(null, PartOfDay.now())`, the same derivation the
+  Library row will show, so the notification and the row cannot disagree.
+
+**Verify:** `check.sh` OK, `test-fast.sh` OK. Lint's `MissingClass` on the manifest entry
+was what proved the registration is real. Behaviour in Task 10.
 
 ### Task 7 — Picker entry point
 **Files:** `RecordScreen.kt`, `CaptureViewModel.kt` (or a new `ImportViewModel`),
