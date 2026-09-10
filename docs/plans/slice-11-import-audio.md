@@ -27,19 +27,29 @@ a manual on-device pass recorded the way UI-042 and UI-045 were.
 
 ## Tasks
 
-### Task 1 — Downmix and decimation
+### Task 1 — Downmix and decimation — **done**
 **Files:** `.../kotlin/com/harken/android/audio/Resampling.kt` (new),
 `.../test/kotlin/com/harken/android/audio/ResamplingTest.kt` (new).
-**Change:** pure functions over `ShortArray`/`FloatArray`, no Android dependencies.
-`downmixToMono(interleaved, channels)` averages channels. `resampleTo16k(samples,
-sourceRate)` low-passes below 8 kHz then decimates — a windowed-sinc or simple FIR, sized
-for the common 44100 and 48000 cases without special-casing them. Bare linear
-interpolation is explicitly not acceptable here (ADR-0016 §2). Handle the already-16 kHz
-case as a pass-through.
-**Verify:** `./gradlew.bat testDebugUnitTest` green. Tests: a synthetic 12 kHz sine at
-44.1 kHz must come out **attenuated**, not folded down to 4 kHz — this is the test that
-actually proves anti-aliasing and is the reason this task exists. Plus a 1 kHz sine
-surviving with amplitude intact, stereo downmix arithmetic, and pass-through at 16 kHz.
+**Change:** `Downmix.toMono` averages channels into a caller-supplied buffer (ARC-013).
+`Resampler16k(sourceRate)` low-passes below 8 kHz then resamples — a 96-tap windowed sinc
+over 512 precomputed phases, cutoff 7 kHz, no special-casing of 44100 vs 48000. Bare
+linear interpolation is explicitly not acceptable here (ADR-0016 §2). Already-16 kHz is a
+pass-through; below 16 kHz the cutoff drops to the source's own Nyquist, since there is
+nothing to fold.
+
+**Deviation from plan:** specified as pure functions; shipped as a *stateful* class. A
+decoder delivers one buffer at a time and a 96-tap filter needs samples either side of
+each seam, so resampling buffers independently would put a discontinuity — an audible
+click — every few milliseconds. History crosses the boundary and the caller calls
+`drain()` for the tail. `ResamplingTest.buffer boundaries do not change the result` is
+what holds this: chunked input must produce a byte-identical result to one-shot.
+
+**Verify:** `check.sh` OK, `test-fast.sh` OK. `ResamplingTest` 8/8.
+The anti-aliasing test was falsified before being trusted — with the cutoff widened to the
+source's own Nyquist (i.e. no anti-alias filter, which is what linear interpolation
+amounts to), `content above 8 kHz is attenuated, not folded down` fails with "survived at
+100% of its input level", and it is the only test that fails. The filter is what that test
+is measuring.
 
 ### Task 2 — Decode a file to a canonical WAV
 **Files:** `.../kotlin/com/harken/android/ingest/AudioImporter.kt` (new).
