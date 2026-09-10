@@ -26,6 +26,13 @@ by start offset.
 The full stored text of a Session — its ordered Transcript Segments joined. The durable
 artifact the user owns. The product's hero.
 
+## Import
+Turning an audio file the user already has into a Session. The file is converted into a
+Recording on the way in, so an imported Session is a Session like any other — nothing
+downstream can tell it from a captured one, and nothing records where it came from (see
+**Source** under Retired terms). An imported Session is named from its source filename
+rather than the part of day, because unlike a capture it arrives with a name.
+
 ## Silence Timeout
 The period without detected speech after which capture stops on its own. Bounds battery
 and device storage. Measured against a noise floor estimated from the recording itself,
