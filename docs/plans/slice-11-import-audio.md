@@ -259,8 +259,10 @@ than queued (Task 4).
 
 **Verify:** `check.sh` OK, `test-fast.sh` OK. Behaviour in Task 10.
 
-### Task 9 — Copy and failure surface
-**Files:** `strings.xml`, plus the screens touched above.
+### Task 9 — Copy and failure surface — **done**
+**Files:** `strings.xml`, `.../kotlin/com/harken/android/ingest/ImportMessages.kt` (new),
+`ImportCoordinator.kt`, `ImportService.kt`, `ui/ImportViewModel.kt`,
+`.../test/kotlin/com/harken/android/ingest/ImportMessagesTest.kt` (new).
 **Change:** new strings for the import button, progress, cancel, the size confirmation
 (naming the actual megabytes), and each typed failure: no audio track, unsupported or
 DRM-protected codec, decode failed part-way, not enough space, recording in progress,
@@ -268,9 +270,30 @@ import already running. Revise two existing strings that assert microphone-only:
 `library_empty_body` "Recordings appear here as soon as you **stop** one" (`:86`) and
 `library_empty_action` "Record something" (`:87`). The format lines (`:54`, `:71`, `:164`)
 stay as-is — they describe capture, which is still accurate.
-**Verify:** `check.sh` (Lint flags hardcoded strings and missing translations).
-Unit tests for the failure-to-message mapping, so a new failure type can't ship without
-copy.
+
+**Deviations from plan.**
+- **The mapping is one file, not a test.** Both callers — `ImportService`, which has only a
+  notification, and `ImportViewModel`, which asks the same question before copying anything
+  — had grown their own copy of it. They are now one `ImportOutcome.messageRes()` and one
+  `ImportAdmission.messageRes()` in `ImportMessages.kt`, both exhaustive `when`s with **no
+  `else`**. That, not the test, is what makes a new failure type unable to ship without
+  copy: it is a compile error rather than a silent fall-through to "something went wrong".
+  The tests then cover what exhaustiveness cannot — a case added by copying the line above
+  it, which compiles fine and tells the user the wrong cause.
+- `ImportCoordinator.refusalNow()` was added so the ViewModel asks the coordinator why an
+  import would be refused instead of re-deriving it from `RecordingState`. It claims
+  nothing; `begin` still decides, and still asks again.
+- **`library_empty_action` was left as "Record something".** The plan called for revising
+  it, but it now labels the *primary* of two buttons, with "Import a file" beside it — it
+  names that button correctly, and a generic verb covering both would name neither.
+  `library_empty_title` was revised instead ("Nothing recorded yet" was the assertion),
+  along with `library_empty_body`.
+- Tests assert distinctness and non-zero ids, not wording. These are plain JVM tests with no
+  Robolectric in the project, so there is no resource table to read text from; the wording
+  lives in `strings.xml` and is the translator's to change.
+
+**Verify:** `check.sh` OK (Lint's hardcoded-string and missing-translation checks included),
+`test-fast.sh` OK, `ImportMessagesTest` 5/5.
 
 ### Task 10 — Verification pass
 **Change:** no code. Run the gates, then a real-device pass.

@@ -10,7 +10,6 @@ import android.content.Intent
 import android.os.IBinder
 import android.os.SystemClock
 import android.util.Log
-import androidx.annotation.StringRes
 import com.harken.android.MainActivity
 import com.harken.android.R
 import com.harken.android.container
@@ -99,7 +98,7 @@ class ImportService : Service() {
         startForeground(NOTIFICATION_ID, importingNotification(lastPercent))
 
         if (admission !is ImportAdmission.Admitted) {
-            notifyFailed(refusalMessage(admission))
+            admission.messageRes()?.let { notifyFailed(getString(it)) }
             source.delete()
             Telemetry.event("import_refused", "reason" to admission::class.simpleName.orEmpty())
             // Only tear the foreground down if it is ours to tear down. An AlreadyImporting
@@ -267,12 +266,6 @@ class ImportService : Service() {
         )
     }
 
-    private fun refusalMessage(admission: ImportAdmission): String =
-        when (admission) {
-            ImportAdmission.RecordingInProgress -> getString(R.string.import_refused_recording)
-            else -> getString(R.string.import_refused_busy)
-        }
-
     private fun openApp(): PendingIntent =
         PendingIntent.getActivity(
             this,
@@ -336,15 +329,3 @@ class ImportService : Service() {
         }
     }
 }
-
-/** What to tell the user about an import that did not happen. */
-@StringRes
-fun ImportOutcome.messageRes(): Int =
-    when (this) {
-        ImportOutcome.NoAudioTrack -> R.string.import_failed_no_audio
-        ImportOutcome.UnsupportedFormat -> R.string.import_failed_unsupported
-        ImportOutcome.DecodeFailed -> R.string.import_failed_decode
-        ImportOutcome.StorageFailed -> R.string.import_failed_storage
-        // Neither ends in a message: one succeeded, and the other the user asked for.
-        else -> R.string.import_failed_unknown
-    }

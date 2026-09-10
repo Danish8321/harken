@@ -11,7 +11,7 @@ import com.harken.android.ingest.ImportPreflight
 import com.harken.android.ingest.ImportService
 import com.harken.android.ingest.ImportStaging
 import com.harken.android.ingest.PreflightOutcome
-import com.harken.android.recording.RecordingState
+import com.harken.android.ingest.messageRes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -64,7 +64,7 @@ class ImportViewModel(
     /** [uri] is null when the user backed out of the picker, which is not an event. */
     fun pick(uri: Uri?) {
         if (uri == null) return
-        refusal()?.let {
+        ImportCoordinator.refusalNow()?.messageRes()?.let {
             _state.value = ImportUiState.Failed(R.string.import_refused_title, it)
             return
         }
@@ -116,12 +116,4 @@ class ImportViewModel(
         (_state.value as? ImportUiState.Confirm)?.let { File(it.path).delete() }
         _state.value = ImportUiState.Idle
     }
-
-    @StringRes
-    private fun refusal(): Int? =
-        when {
-            RecordingState.isRecording.value -> R.string.import_refused_recording
-            ImportCoordinator.activeImportId.value != null -> R.string.import_refused_busy
-            else -> null
-        }
 }

@@ -58,6 +58,20 @@ object ImportCoordinator {
     @VisibleForTesting
     internal var isRecording: () -> Boolean = { RecordingState.isRecording.value }
 
+    /**
+     * Why an import started right now would be refused, or null if it would be admitted.
+     *
+     * Claims nothing — it is the same question [begin] asks, for a caller that wants the
+     * answer before doing expensive work rather than after. The answer can go stale between
+     * the two, which is why [begin] asks again and is the one that decides.
+     */
+    fun refusalNow(): ImportAdmission? =
+        when {
+            isRecording() -> ImportAdmission.RecordingInProgress
+            _activeImportId.value != null -> ImportAdmission.AlreadyImporting
+            else -> null
+        }
+
     /** Claims the one import slot for [importId], or says why it cannot be had. */
     fun begin(importId: UUID): ImportAdmission {
         // Checked before the claim, so a refusal does not have to hand the slot back.

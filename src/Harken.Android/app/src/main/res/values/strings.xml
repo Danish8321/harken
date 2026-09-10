@@ -82,8 +82,8 @@
     <string name="library_filter_meetings">Meetings</string>
     <string name="library_filter_field">Field</string>
     <string name="library_filter_ideas">Ideas</string>
-    <string name="library_empty_title">Nothing recorded yet</string>
-    <string name="library_empty_body">Recordings appear here as soon as you stop one. Everything is transcribed on this phone — nothing leaves it.</string>
+    <string name="library_empty_title">Nothing here yet</string>
+    <string name="library_empty_body">Record something, or import a file you already have. Either way it is transcribed on this phone — nothing leaves it.</string>
     <string name="library_empty_action">Record something</string>
     <string name="library_empty_filtered_title">Nothing tagged %1$s</string>
     <string name="library_empty_filtered_body">Tags are local to this phone. Open a recording to add one.</string>
