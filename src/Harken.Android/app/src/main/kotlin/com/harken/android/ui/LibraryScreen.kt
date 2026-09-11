@@ -15,6 +15,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -284,6 +285,9 @@ private fun SearchField(
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .background(c.pillTrack, PillShape)
+            // The fill alone is 1.41:1 on the ground in dark and does not hold an edge;
+            // the outline is what says "this is a field you can type in" (UI-044).
+            .border(1.dp, c.cardBorder, PillShape)
             .padding(start = 16.dp, end = if (query.isEmpty()) 16.dp else 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -520,9 +524,14 @@ private fun StatusPill(
     fg: Color,
     @StringRes label: Int,
     spinner: Boolean,
+    /** Drawn only where [bg] is too close to the card to read as a pill (UI-044). */
+    border: Color = Color.Transparent,
 ) {
     Row(
-        Modifier.background(bg, PillShape).padding(horizontal = 10.dp, vertical = 5.dp),
+        Modifier
+            .background(bg, PillShape)
+            .border(1.dp, border, PillShape)
+            .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (spinner) {
@@ -669,6 +678,7 @@ private fun SessionCard(
                             fg = c.textSecondary,
                             label = R.string.library_chip_transcribed,
                             spinner = false,
+                            border = c.cardBorder,
                         )
                 }
             }

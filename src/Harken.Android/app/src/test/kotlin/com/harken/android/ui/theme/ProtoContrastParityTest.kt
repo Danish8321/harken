@@ -12,10 +12,9 @@ import org.junit.Test
  * and nothing compares them. Every pair below is a foreground actually painted on that
  * background somewhere in the app, checked in BOTH palettes at once.
  *
- * Ratios are WCAG 2.1: 4.5:1 for normal text, 3:1 for large text and UI components. Three
- * pairs are below 4.5 today and are asserted against their measured floor instead, each
- * marked DEBT with the number it currently reads — see UI-044, which records what fixing
- * them would cost. A floor here is a ratchet, not a pass: it fails the build if a re-palette
+ * Ratios are WCAG 2.1: 4.5:1 for normal text, 3:1 for large text and UI components. One
+ * pair is below 4.5 today and is asserted against its measured floor instead, marked DEBT
+ * with the number it currently reads — see UI-044, which records what fixing it would cost. A floor here is a ratchet, not a pass: it fails the build if a re-palette
  * makes one of them worse, and none of them may be raised without the ticket being closed.
  */
 class ProtoContrastParityTest {
@@ -82,9 +81,11 @@ class ProtoContrastParityTest {
         // and every nav label sat on it. #B4BAC1 clears AA on both surfaces.
         bothThemes("textSecondary on card", aa) { it.textSecondary to it.card }
         bothThemes("textSecondary on navBg", aa) { it.textSecondary to it.navBg }
-        // DEBT (UI-044): 4.37:1 in dark, up from 3.48:1 with the same lift. The "Transcribed"
-        // chip's own label — the last of the pair, and it needs pillTrack to move, not the ink.
-        bothThemes("textSecondary on pillTrack", 4.3) { it.textSecondary to it.pillTrack }
+        // Needed pillTrack to move, not the ink: darkening it to #414851 took this from
+        // 4.37:1 to 4.73:1 in dark (UI-044 option 3). Four roles ride this pair — search
+        // field, Transcribed chip, inactive segmented label, unchecked switch — and all
+        // four gained a cardBorder edge to pay for the fainter fill.
+        bothThemes("textSecondary on pillTrack", aa) { it.textSecondary to it.pillTrack }
     }
 
     @Test
@@ -100,9 +101,10 @@ class ProtoContrastParityTest {
         }
         // stateLive is the same value as accent in both palettes today, and its foreground
         // pairs with it the same way — asserted separately so splitting them later is caught.
-        // DEBT (UI-044): 4.12:1 in light.
-        bothThemes("onAccent on accent", 4.1) { it.onAccent to it.accent }
-        bothThemes("stateLiveFg on stateLive", 4.1) { it.stateLiveFg to it.stateLive }
+        // Was 4.12:1 in light, and no foreground fixed it — a pure-white onAccent only
+        // reaches 4.49:1. Deepening the light accent to #836E46 took it to 4.50:1 (UI-044).
+        bothThemes("onAccent on accent", aa) { it.onAccent to it.accent }
+        bothThemes("stateLiveFg on stateLive", aa) { it.stateLiveFg to it.stateLive }
     }
 
     @Test
@@ -117,9 +119,12 @@ class ProtoContrastParityTest {
         // errorInk is also Material's `error` role, so it has to survive its own fill's
         // foreground — a Button(containerColor = error) with onError content.
         bothThemes("stateErrorFg on errorInk", aa) { it.stateErrorFg to it.errorInk }
-        // DEBT (UI-044): 4.45:1 dark / 4.49:1 light — a rounding away from AA on both sides.
+        // DEBT (UI-044): the light side is fixed — #836E46 reads 4.90:1 on white — but dark's
+        // #BFA789 on #3C414A is 4.45:1, so the floor is now dark's alone. The remaining move
+        // is a deeper dark accent, which is the one palette change that also repaints the
+        // record button, so it is a decision and not a ratchet.
         bothThemes("accent on card", 4.4) { it.accent to it.card }
-        bothThemes("accent on screenBg", 4.1) { it.accent to it.screenBg }
+        bothThemes("accent on screenBg", aa) { it.accent to it.screenBg }
     }
 
     @Test
