@@ -1,7 +1,12 @@
 # Slice 11: Import audio
 
 Implements [ADR-0016](../adr/0016-transcode-imports-to-the-canonical-recording.md).
-Branch: new, off `master`.
+Branch: `feat/import-audio`, off `master`.
+
+**Status (2026-09-11): merged to `master` as `1157353`.** All eleven tasks done, both
+gates green, and the on-device pass recorded under Task 10. The two follow-ups that pass
+turned up (ARC-055, ARC-056) were fixed on the same branch rather than left open, so the
+merge carries them.
 
 Bringing an audio file the user already has into Harken as a Session, by decoding it into
 a canonical Recording. Two entry points — an in-app picker and an `ACTION_SEND` share
@@ -368,11 +373,14 @@ recording's WAV. The audio survived intact (header 248.42 s, matching the bytes)
 Library got a Session dated to the share and 30 s short, and the recorder's own save then
 failed — `recording_save_failed error=UNIQUE_constraint_failed:_sessions.id`.
 
-**Two follow-ups, neither in this slice, now ticketed:** `cacheDir` is never swept at
-startup, so a killed import leaves its staged source and `*.partial.wav` there until
-Android reclaims them (ARC-055); and a `transcribing` notification (id 1002) was still
-posted after transcription had finished (ARC-056 — a late progress callback re-posting it
-after the service stopped).
+**Two follow-ups, ticketed here and since fixed on this branch:** `cacheDir` was never
+swept at startup, so a killed import left its staged source and `*.partial.wav` there
+until Android reclaimed them (ARC-055 — now swept on launch, and skipped while an import
+holds the coordinator slot, the same guard `RecordingRecovery` uses); and a `transcribing`
+notification (id 1002) could still be posted after transcription had finished (ARC-056 — a
+late progress callback re-posting it after the service stopped, closed with a lock rather
+than a flag, since a flag only narrows the window). Neither has had an on-device pass;
+both tickets say so.
 
 ### Task 11 — Recovery must not adopt the recording in progress — **done**
 **Files:** `.../kotlin/com/harken/android/recording/RecordingRecovery.kt`,

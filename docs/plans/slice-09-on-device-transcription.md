@@ -4,9 +4,9 @@ Implements [ADR-0011](../adr/0011-on-device-transcription.md). Branch:
 `feat/on-device-transcription` (off `master`, independent of the unmerged
 `feat/azure-batch-transcription`).
 
-**Status (2026-08-26):** Tasks 1–6 committed and pushed to `origin/feat/on-device-transcription`.
-Not merged — the full gate below (real-device manual checks) is still outstanding.
-[Slice 10](slice-10-organic-design-system.md) is blocked on this merging to `master`.
+**Status (2026-08-28): merged.** Tasks 1–6 landed on `master` via `4fe8ef5`, after the
+full gate below (real-device manual checks) was run. [Slice 10](slice-10-organic-design-system.md)
+was blocked on this and is unblocked.
 
 Room already exists as a full local mirror (ADR-0010 in the Android tree,
 `HarkenDatabase`/`SessionDao`/`SessionRepository`) — this slice does NOT introduce a new

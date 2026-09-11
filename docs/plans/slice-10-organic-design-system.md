@@ -4,9 +4,9 @@ Implements [ADR-0013](../adr/0013-organic-design-system-adoption.md). Branch: ne
 off `master`, started only after `feat/on-device-transcription` (slice-09) merges —
 both touch `SessionSheet.kt`, `RecordScreen.kt`, and Library.
 
-**Blocked (2026-08-26):** slice-09 is pushed to `origin/feat/on-device-transcription`
-but not merged — its manual on-device gate is still outstanding. Do not start this
-slice's branch until slice-09 lands on `master`.
+**Status (2026-08-29): merged to `master` as `3346f53`.** The block this note used to
+carry — slice-09 unmerged, and both slices touching `SessionSheet.kt`, `RecordScreen.kt`
+and Library — cleared when slice-09 landed the day before.
 
 Reference: `docs/design/claude-design-modernization/` (pulled mocks + token sheet).
 
