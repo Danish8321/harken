@@ -20,6 +20,10 @@ instead of re-listening to it.
 
 - **Record** through a foreground service, so it keeps going with the screen locked. A
   live notification carries the elapsed time and a Stop button.
+- **Import** audio the phone already has — a voice memo, a call recording, the audio
+  track of a video — from the Record screen or by sharing it to Harken from any other
+  app. It is decoded to the same WAV a recording is, so nothing afterwards can tell the
+  two apart ([ADR-0016](docs/adr/0016-transcode-imports-to-the-canonical-recording.md)).
 - **Transcribe** on the device. The first run downloads a ~140 MB model once; after that
   the app works in airplane mode.
 - **Read** the transcript in a session sheet with a player, and title and tag the
@@ -65,14 +69,35 @@ Three tabs: **Record**, **Library**, **Settings**.
 | Format | 16 kHz / 16-bit / mono WAV | What whisper.cpp wants natively. No encoder dependency. |
 | Storage | ~115 MB per hour | The cost of uncompressed WAV. Opus would be ~10 MB/hour; revisit when device storage actually hurts. |
 | Silence timeout | 5 minutes | Below an adaptive noise floor for that long ends the recording. |
-| Session cap | 3 hours | Hard bound on any one recording. |
+| Session cap | 3 hours | Hard bound on any one recording. Bounds a capture only — an import's length is known before it starts, so a four-hour lecture is a legitimate import and an impossible recording. |
+| Import confirmation | above 500 MB | About four and a half hours of WAV. Past any voice note, so an ordinary import is never interrupted by a dialog. |
 
-Both limits end the recording **and save it**, so a forgotten session becomes a finished
-one rather than running all day.
+The silence timeout and the session cap both end the recording **and save it**, so a
+forgotten session becomes a finished one rather than running all day.
 
 The microphone permission is requested the first time you tap Record, not at launch — a
 prompt means something to someone who just tapped Record and nothing to someone who just
 opened the app. Notification permission is asked for too but never blocks recording.
+
+### Importing a file you already have
+
+Two ways in: **Import a file** on the Record screen, which opens the system picker, or the
+share sheet in any other app with Harken as the target. Both land in the same place — the
+file is copied into the app, decoded to 16 kHz mono WAV by the platform's own codecs, and
+becomes a Session titled after the filename. No format list to check: whatever the phone
+can play, it can import, including the audio track of a video.
+
+What the app asks of you, and why:
+
+- **The WAV is the price.** A 40-minute m4a is 5 MB in the share sheet and 75 MB once it
+  lands, so anything that would land above 500 MB (about four and a half hours) asks
+  first, and anything that would not fit is refused before a byte is written.
+- **One at a time, and never while recording.** A decode saturates the CPU and a dropped
+  capture buffer is audio nobody gets back — a refused import is a file you still have.
+  Sharing into Harken mid-recording says so rather than queueing.
+
+The import runs in a foreground service with its own notification and a Cancel, so it
+survives leaving the app, and a cancelled or failed import leaves nothing behind.
 
 ## Verification gates
 
