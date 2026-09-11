@@ -399,7 +399,10 @@ private fun protoSwitchColors(c: ProtoColors) =
         checkedBorderColor = Color.Transparent,
         uncheckedThumbColor = c.textSecondary,
         uncheckedTrackColor = c.pillTrack,
-        uncheckedBorderColor = Color.Transparent,
+        // The off state is the one that has to be visible without being read — an unbordered
+        // track at 1.11:1 on the card is a thumb floating in nothing (UI-044). The on state
+        // keeps no border: the accent fill is its own edge.
+        uncheckedBorderColor = c.cardBorder,
     )
 
 @Composable

@@ -74,8 +74,9 @@ data class ProtoColors(
 // flat, authored color, so it's the spec; the per-role values below come from the
 // rendered mockup screens where they agree with it. Two roles deliberately don't:
 //   - inactive nav (#828A94 in the mockup) is only 3.7:1 on the new ground, which passes
-//     for an icon but not for the label sitting under it — nav uses textSecondary
-//     (#A0A6AD, 5.3:1) instead, and #828A94 survives as the skeleton/ink tone.
+//     for an icon but not for the label sitting under it — nav uses textSecondary instead
+//     (the strip's #A0A6AD then, #B4BAC1 since UI-044), and #828A94 survives as the
+//     skeleton/ink tone.
 //   - the ink ramp's alphas step up across the board: the same 0.28 that read as a
 //     visible hairline on #0E1316 nearly vanishes against a ground this light, which
 //     would have quietly erased the idle meter's waveform bars.
@@ -88,9 +89,22 @@ val ProtoDarkColors =
         card = Color(0xFF3C414A),
         cardBorder = Color(0xFF464D56),
         text = Color(0xFFD1C9BE),
-        textSecondary = Color(0xFFA0A6AD),
+        // Lifted off the reference strip's #A0A6AD (UI-044 option 2): that value was reasoned
+        // about on the ground (5.3:1), but most of the app's secondary text sits on a card,
+        // where it read 4.18:1. This is 5.24:1 there, and it costs a step of the ink
+        // hierarchy — the gap to `text` narrows from 1.50:1 to 1.19:1, so the two now
+        // separate on hue and weight more than on brightness.
+        textSecondary = Color(0xFFB4BAC1),
         navBg = Color(0xFF3C414A),
-        pillTrack = Color(0xFF464D56),
+        // A step below cardBorder, which it used to equal (UI-044 option 3). Four roles
+        // paint textSecondary on this — search field, the Transcribed chip, the inactive
+        // segmented label, the unchecked switch thumb — and at #464D56 all four read
+        // 4.37:1. This is 4.73:1. The fill pays for it: the track goes from 1.20:1 to
+        // 1.11:1 against card and 1.53:1 to 1.41:1 against the ground, which is too faint
+        // to hold a shape on its own. So the shape moved to the edge — every one of those
+        // surfaces now draws a cardBorder outline, and cardBorder on card is the same
+        // 1.20:1 the fill used to carry.
+        pillTrack = Color(0xFF414851),
         skeleton = Color(0xFF828A94),
         accent = Color(0xFFBFA789),
         onAccent = Color(0xFF2B2016),
@@ -125,9 +139,16 @@ val ProtoLightColors =
         navBg = Color(0xFFFFFFFF),
         pillTrack = Color(0xFFE4EAEC),
         skeleton = Color(0xFFDDE6E8),
-        accent = Color(0xFF8A744A),
+        // Deepened from #8A744A (UI-044). That tan was three pairs short at once and no
+        // foreground fixed them, because two of the three are the accent reading as text on
+        // a surface rather than something reading on the accent: onAccent on accent 4.12:1,
+        // accent on card 4.49:1, accent on the ground 4.12:1. A pure-white onAccent was
+        // measured and rejected — it only reaches 4.49:1 and leaves the other two. This one
+        // value clears all three: 4.50:1, 4.90:1, 4.51:1. The cost is a visibly deeper tan
+        // in light mode; dark's #BFA789 is untouched, so the brand still reads as one hue.
+        accent = Color(0xFF836E46),
         onAccent = Color(0xFFFDF4E8),
-        stateLive = Color(0xFF8A744A),
+        stateLive = Color(0xFF836E46),
         stateLiveFg = Color(0xFFFDF4E8),
         stateDone = Color(0xFFDCEBDF),
         stateDoneFg = Color(0xFF1F4A2B),

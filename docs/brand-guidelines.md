@@ -9,7 +9,7 @@
 
 | Element | Value |
 |---------|-------|
-| Accent Color | `#BFA789` (dark) / `#8A744A` (light) — one warm tan, two lightnesses |
+| Accent Color | `#BFA789` (dark) / `#836E46` (light) — one warm tan, two lightnesses |
 | Primary Font (display) | Space Grotesk |
 | Primary Font (body/UI) | Figtree |
 | Numeric/technical readouts | IBM Plex Mono |
@@ -26,7 +26,11 @@ Harken is dual-themed (dark default, light variant, or follows system) — there
 
 | Name | Dark | Light | Usage |
 |------|------|-------|-------|
-| Accent | `#BFA789` | `#8A744A` | Record button, active nav tab, waveform bars, live/recording state |
+| Accent | `#BFA789` | `#836E46` | Record button, active nav tab, waveform bars, live/recording state |
+
+The light tan was `#8A744A` until UI-044. It was deepened because it is read as text as often
+as it is used as a fill — a tag label, an active nav label, the ETA — and at the old value it
+sat at 4.12:1 on the ground. No foreground fixed that; the fill itself had to move.
 | Accent On (text/icon on accent) | `#2B2016` | `#FDF4E8` | Content sitting on the accent fill |
 
 The accent doubles as the live/recording fill (`stateLive`). That is deliberate: idle and live are the same instrument, so they are the same colour, not two colour systems.
@@ -38,9 +42,10 @@ The accent doubles as the live/recording fill (`stateLive`). That is deliberate:
 | Screen BG | `#2C313A` | App background |
 | Sheet BG | `#333944` | Bottom sheets — one step up so a sheet reads as lifted |
 | Card / Nav | `#3C414A` | Cards, rows, the floating nav bar |
-| Card Border | `#464D56` | Card/segment hairlines, pill tracks, row highlight |
+| Card Border | `#464D56` | Card/segment hairlines, row highlight, and the outline on every pill track |
+| Pill Track | `#414851` | Search field, status chips, segmented and switch tracks (was `#464D56`; UI-044) |
 | Text | `#D1C9BE` | Primary text |
-| Text Secondary | `#A0A6AD` | Captions, metadata, inactive nav |
+| Text Secondary | `#B4BAC1` | Captions, metadata, inactive nav (was `#A0A6AD`; UI-044) |
 | Skeleton | `#828A94` | Loading placeholders |
 | Done Fill (sage) | `#2E3D33` / on `#8FBF9A` | "Connected", "Summarized" states |
 | Danger Fill | `#E74C3C` / on `#2B0B08` | Upload failed, destructive states |
