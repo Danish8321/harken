@@ -12,7 +12,7 @@ import org.junit.Test
  * and nothing compares them. Every pair below is a foreground actually painted on that
  * background somewhere in the app, checked in BOTH palettes at once.
  *
- * Ratios are WCAG 2.1: 4.5:1 for normal text, 3:1 for large text and UI components. Four
+ * Ratios are WCAG 2.1: 4.5:1 for normal text, 3:1 for large text and UI components. Three
  * pairs are below 4.5 today and are asserted against their measured floor instead, each
  * marked DEBT with the number it currently reads — see UI-044, which records what fixing
  * them would cost. A floor here is a ratchet, not a pass: it fails the build if a re-palette
@@ -78,13 +78,13 @@ class ProtoContrastParityTest {
     fun `secondary text is legible on every surface it is painted on`() {
         bothThemes("textSecondary on screenBg", aa) { it.textSecondary to it.screenBg }
         bothThemes("textSecondary on meterBg", aa) { it.textSecondary to it.meterBg }
-        // DEBT (UI-044): 4.18:1 in dark. Every card meta line — the timestamp and duration
-        // under a recording's title — sits here.
-        bothThemes("textSecondary on card", 4.1) { it.textSecondary to it.card }
-        bothThemes("textSecondary on navBg", 4.1) { it.textSecondary to it.navBg }
-        // DEBT (UI-044): 3.48:1 in dark. The "Transcribed" chip's own label. Clears the 3:1
-        // a UI component needs, not the 4.5:1 its text size asks for.
-        bothThemes("textSecondary on pillTrack", 3.4) { it.textSecondary to it.pillTrack }
+        // Was the pair UI-044 option 2 is about: 4.18:1 in dark while every card meta line
+        // and every nav label sat on it. #B4BAC1 clears AA on both surfaces.
+        bothThemes("textSecondary on card", aa) { it.textSecondary to it.card }
+        bothThemes("textSecondary on navBg", aa) { it.textSecondary to it.navBg }
+        // DEBT (UI-044): 4.37:1 in dark, up from 3.48:1 with the same lift. The "Transcribed"
+        // chip's own label — the last of the pair, and it needs pillTrack to move, not the ink.
+        bothThemes("textSecondary on pillTrack", 4.3) { it.textSecondary to it.pillTrack }
     }
 
     @Test

@@ -40,7 +40,7 @@ The accent doubles as the live/recording fill (`stateLive`). That is deliberate:
 | Card / Nav | `#3C414A` | Cards, rows, the floating nav bar |
 | Card Border | `#464D56` | Card/segment hairlines, pill tracks, row highlight |
 | Text | `#D1C9BE` | Primary text |
-| Text Secondary | `#A0A6AD` | Captions, metadata, inactive nav |
+| Text Secondary | `#B4BAC1` | Captions, metadata, inactive nav (was `#A0A6AD`; UI-044) |
 | Skeleton | `#828A94` | Loading placeholders |
 | Done Fill (sage) | `#2E3D33` / on `#8FBF9A` | "Connected", "Summarized" states |
 | Danger Fill | `#E74C3C` / on `#2B0B08` | Upload failed, destructive states |

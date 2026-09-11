@@ -74,8 +74,9 @@ data class ProtoColors(
 // flat, authored color, so it's the spec; the per-role values below come from the
 // rendered mockup screens where they agree with it. Two roles deliberately don't:
 //   - inactive nav (#828A94 in the mockup) is only 3.7:1 on the new ground, which passes
-//     for an icon but not for the label sitting under it — nav uses textSecondary
-//     (#A0A6AD, 5.3:1) instead, and #828A94 survives as the skeleton/ink tone.
+//     for an icon but not for the label sitting under it — nav uses textSecondary instead
+//     (the strip's #A0A6AD then, #B4BAC1 since UI-044), and #828A94 survives as the
+//     skeleton/ink tone.
 //   - the ink ramp's alphas step up across the board: the same 0.28 that read as a
 //     visible hairline on #0E1316 nearly vanishes against a ground this light, which
 //     would have quietly erased the idle meter's waveform bars.
@@ -88,7 +89,12 @@ val ProtoDarkColors =
         card = Color(0xFF3C414A),
         cardBorder = Color(0xFF464D56),
         text = Color(0xFFD1C9BE),
-        textSecondary = Color(0xFFA0A6AD),
+        // Lifted off the reference strip's #A0A6AD (UI-044 option 2): that value was reasoned
+        // about on the ground (5.3:1), but most of the app's secondary text sits on a card,
+        // where it read 4.18:1. This is 5.24:1 there and 4.37:1 on pillTrack, and it costs a
+        // step of the ink hierarchy — the gap to `text` narrows from 1.50:1 to 1.19:1, so the
+        // two now separate on hue and weight more than on brightness.
+        textSecondary = Color(0xFFB4BAC1),
         navBg = Color(0xFF3C414A),
         pillTrack = Color(0xFF464D56),
         skeleton = Color(0xFF828A94),
