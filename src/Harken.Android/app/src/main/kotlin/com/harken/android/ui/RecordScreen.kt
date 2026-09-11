@@ -46,11 +46,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -120,6 +122,7 @@ fun RecordScreen(
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
+    val importPicker = rememberImportPicker()
 
     // Fires exactly once per genuine upload-status transition, not on every recomposition —
     // LaunchedEffect only restarts when the key (state.saveStatus) itself changes.
@@ -312,6 +315,20 @@ fun RecordScreen(
                 PauseButton(paused = state.isPaused) {
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     viewModel.togglePause()
+                }
+            }
+            // Import is Pause's counterpart at the other end of the row, and the two are
+            // never on screen together: one belongs to a recording in progress and the
+            // other to there not being one. The record button stays centred either way.
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !state.isRecording,
+                enter = fadeIn(fade),
+                exit = fadeOut(fade),
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
+                ImportButton(busy = importPicker.busy) {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    importPicker.launch()
                 }
             }
             RecordButton(state.isRecording) {
@@ -705,6 +722,55 @@ private fun PauseButton(
             tint = c.text,
             modifier = Modifier.size(26.dp),
         )
+    }
+}
+
+/**
+ * Pause's counterpart at the other end of the control row: the same 60 dp disc and the same
+ * press-scale, because they are the same kind of control — the thing beside the record
+ * button, not a second record button.
+ *
+ * [busy] covers the copy, which is the one part of an import with no notification behind it
+ * yet: the service does not exist until the bytes are in the cache directory, and a
+ * gigabyte of video takes long enough that a button that looked idle would be tapped twice.
+ */
+@Composable
+private fun ImportButton(
+    busy: Boolean,
+    onTap: () -> Unit,
+) {
+    val c = LocalProtoColors.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.92f else 1f,
+        animationSpec = HarkenMotion.spatialFast(),
+        label = "importPress",
+    )
+    Box(
+        Modifier
+            .size(60.dp)
+            .scale(scale)
+            .background(c.card, CircleShape)
+            .clickable(
+                enabled = !busy,
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                role = Role.Button,
+                onClick = onTap,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (busy) {
+            CircularProgressIndicator(color = c.text, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+        } else {
+            Icon(
+                Icons.Filled.LibraryMusic,
+                contentDescription = stringResource(R.string.import_action),
+                tint = c.text,
+                modifier = Modifier.size(26.dp),
+            )
+        }
     }
 }
 

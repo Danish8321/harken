@@ -1,5 +1,6 @@
 package com.harken.android.audio
 
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -48,6 +49,25 @@ class Pcm16Test {
     fun `an empty window is silent, not a crash`() {
         assertEquals(0, Pcm16.rms(ByteArray(0), 0, 0))
         assertEquals(0, Pcm16.rms(ByteArray(2), 0, 1))
+    }
+
+    @Test
+    fun `samples are laid out in the byte order the recorder already writes`() {
+        // An importer's decoder hands over samples; WavWriter appends bytes. Get the order
+        // wrong and every recording still plays — as noise.
+        val out = ByteArray(6)
+        Pcm16.toBytes(shortArrayOf(300, -1, Short.MAX_VALUE), 3, out)
+
+        assertEquals(300, Pcm16.rms(out, 0, 2))
+        assertArrayEquals(tone(1, 300) + byteArrayOf(-1, -1) + byteArrayOf(-1, 127), out)
+    }
+
+    @Test
+    fun `only the samples asked for are written`() {
+        val out = ByteArray(6)
+        Pcm16.toBytes(shortArrayOf(300, 300, 300), 1, out)
+
+        assertArrayEquals(tone(1, 300) + ByteArray(4), out)
     }
 
     @Test

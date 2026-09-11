@@ -1,5 +1,7 @@
 package com.harken.android
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -7,15 +9,21 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.core.content.IntentCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.harken.android.device.DeviceCapability
+import com.harken.android.ingest.ImportCoordinator
+import com.harken.android.ingest.ImportStaging
+import com.harken.android.ingest.PendingImport
 import com.harken.android.recording.RecordingRecovery
 import com.harken.android.telemetry.Telemetry
 import com.harken.android.ui.AppNav
 import com.harken.android.ui.ThemeMode
 import com.harken.android.ui.theme.HarkenTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,6 +51,7 @@ class MainActivity : ComponentActivity() {
         // And one more: a decode that never returned means whisper.cpp took the process
         // down. Reported here because a native crash gets no chance to report itself.
         application.container.decodeBreadcrumb.reportCrashIfAny()
+        acceptSharedAudio(intent)
         setContent {
             val settings = remember { application.container.settings }
             val themeMode by settings.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.System)
@@ -59,6 +68,35 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // singleTop, so a share arriving while Harken is already open lands here rather
+        // than in onCreate. setIntent keeps getIntent() honest for anything that reads it.
+        setIntent(intent)
+        acceptSharedAudio(intent)
+    }
+
+    /**
+     * Takes the file behind an `ACTION_SEND` and leaves it for the app to import.
+     *
+     * The activity reads the Uri and does nothing else with it: the grant is alive now and
+     * dead once this activity is, so the only useful thing to do with it is hand it on
+     * while it still works. Staging, the size question and the refusals all live one
+     * composition away in `ImportViewModel`, which a share reaches through [PendingImport] —
+     * the same path a picked file takes, rather than a second one beside it.
+     *
+     * The extra is removed once read. Without that, a rotation re-delivers the same intent
+     * and imports the file a second time, which is two Sessions of the same audio and twice
+     * the storage.
+     */
+    private fun acceptSharedAudio(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_SEND) return
+        val uri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java) ?: return
+        intent.removeExtra(Intent.EXTRA_STREAM)
+        Telemetry.event("import_shared_in", "mimeType" to (intent.type ?: "unknown"))
+        PendingImport.offer(uri)
+    }
+
     /**
      * A capture killed mid-recording (process death, low memory) leaves its WAV on disk
      * with no session row. Reconciled here, on every launch, rather than left for the user
@@ -68,6 +106,15 @@ class MainActivity : ComponentActivity() {
         val repository = application.container.repository
         lifecycleScope.launch {
             RecordingRecovery(filesDir, repository, repository::sessionIds).recover()
+            // The same reconciliation for the import side, and the same care about what is
+            // live: an import killed mid-flight leaves a copy of the user's file in the
+            // cache, which is as big as the file they picked (ARC-055). The sweep cannot
+            // tell that from an import writing right now, so it only runs when none is —
+            // a share lands in its own task and gets here while an earlier import is still
+            // going, and skipping that launch costs nothing.
+            if (ImportCoordinator.activeImportId.value == null) {
+                withContext(Dispatchers.IO) { ImportStaging.sweep(cacheDir) }
+            }
             // A transcription cannot outlive the process, so anything still marked running
             // died with it. Left alone the session shows "Transcribing" forever and offers
             // the user no way to start it again.

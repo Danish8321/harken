@@ -82,8 +82,8 @@
     <string name="library_filter_meetings">Meetings</string>
     <string name="library_filter_field">Field</string>
     <string name="library_filter_ideas">Ideas</string>
-    <string name="library_empty_title">Nothing recorded yet</string>
-    <string name="library_empty_body">Recordings appear here as soon as you stop one. Everything is transcribed on this phone — nothing leaves it.</string>
+    <string name="library_empty_title">Nothing here yet</string>
+    <string name="library_empty_body">Record something, or import a file you already have. Either way it is transcribed on this phone — nothing leaves it.</string>
     <string name="library_empty_action">Record something</string>
     <string name="library_empty_filtered_title">Nothing tagged %1$s</string>
     <string name="library_empty_filtered_body">Tags are local to this phone. Open a recording to add one.</string>
@@ -192,6 +192,34 @@
     <string name="notification_exporting_title">Exporting your recordings</string>
     <string name="notification_exporting_body">%1$d of %2$d</string>
     <string name="notification_exporting_cancel">Cancel</string>
+
+    <!-- Import. The done and failed notifications are not Live Updates: an import that has
+         finished is not ongoing, and the user may well be in another app by then. -->
+    <string name="notification_importing_channel">Importing</string>
+    <string name="notification_importing_title">Importing audio</string>
+    <string name="notification_importing_body">Converting on this phone. Nothing is uploaded.</string>
+    <string name="notification_importing_cancel">Cancel</string>
+    <string name="notification_imported_title">Imported “%1$s”</string>
+    <string name="notification_imported_body">Ready to transcribe.</string>
+    <string name="notification_imported_transcribe">Transcribe</string>
+    <string name="notification_import_failed_title">Import failed</string>
+    <string name="import_failed_no_audio">There is no audio in that file.</string>
+    <string name="import_failed_unsupported">This phone can’t decode that file.</string>
+    <string name="import_failed_decode">That file is damaged — only part of it could be read, so nothing was imported.</string>
+    <string name="import_failed_storage">There isn’t enough space to import that.</string>
+    <string name="import_failed_unknown">Something went wrong importing that file.</string>
+    <string name="import_failed_copy">That file could not be read.</string>
+    <string name="import_refused_title">Not right now</string>
+    <string name="import_refused_recording">Finish the recording first — importing while the microphone is open would compete with it.</string>
+    <string name="import_refused_busy">One import at a time. Try again when this one finishes.</string>
+
+    <!-- Import entry points. The size confirmation names the size of the finished recording,
+         not of the file picked: the whole surprise is that the two differ. -->
+    <string name="import_action">Import a file</string>
+    <string name="import_confirm_title">That’s a long one</string>
+    <string name="import_confirm_body">Converting it will use about %1$s on this phone. Your own copy of the file stays where it is.</string>
+    <string name="import_confirm_action">Import anyway</string>
+    <string name="import_confirm_cancel">Not now</string>
 
     <string name="settings_capture_note">Both limits end the recording and save it, so a forgotten session becomes a finished one instead of running all day.</string>
     <string name="settings_model_header">SPEECH MODEL</string>

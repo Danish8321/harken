@@ -50,6 +50,19 @@ class RecordingRecoveryTest {
     }
 
     @Test
+    fun `the recording being written right now is not adopted`() {
+        // It looks exactly like a file left by a process death — the row is only written
+        // when the recording stops — and adopting it dates the Session to this moment and
+        // takes the id the recorder is about to insert under.
+        val recording = UUID.randomUUID()
+        wav(recording, seconds = 218)
+
+        val orphans = RecordingRecovery.orphanRecordings(folder.root.listFiles()!!.toList(), emptySet(), recording)
+
+        assertTrue(orphans.isEmpty())
+    }
+
+    @Test
     fun `a header-only file captured nothing and is not resurrected`() {
         val id = UUID.randomUUID()
         wav(id, seconds = 0)

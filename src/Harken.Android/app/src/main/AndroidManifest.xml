@@ -43,6 +43,19 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Share, and only share. ACTION_VIEW is deliberately absent: it is a playback
+                 verb, and claiming it would put Harken in the open-with list for every audio
+                 file on the phone, offering to import files the user only wanted to hear.
+                 SEND is the verb for "do something with this", which is what an import is.
+                 No SEND_MULTIPLE either — there is no transcription queue, so three shared
+                 voice notes would silently drop two (ADR-0016). -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="audio/*" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
         </activity>
 
         <service
@@ -65,6 +78,15 @@
              leave a folder of half-written files that looks like a backup (ARC-033). -->
         <service
             android:name=".export.ExportService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
+        <!-- dataSync again: decoding an imported file into a canonical Recording is finite
+             work the user asked for, and losing it because they switched apps mid-decode
+             would be ARC-003 a third time. It cannot be `microphone` — no microphone is
+             involved, which is the whole point of an import (ADR-0016). -->
+        <service
+            android:name=".ingest.ImportService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
 
