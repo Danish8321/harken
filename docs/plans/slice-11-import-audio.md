@@ -392,6 +392,18 @@ doing its job for every other orphan on disk while a capture runs.
 dropping the `id == inProgressId` clause fails `the recording being written right now is
 not adopted` and nothing else.
 
+**On-device, same phone, build 244 `gitSha=8cd53ea`:** shared the same Opus into Harken
+12 seconds into a capture. No `RecordingRecovery: Recovered` line, no import, the refusal
+dialog instead, and the waveform still live behind it. Stopping the capture gave
+`recording_stopped session=c436164c elapsedMs=82031 bytes=2621440` with no
+`recording_save_failed`, and the row the recorder wrote reads 81 s between its own
+`startedAt` and `endedAt` — the arithmetic the adopted row got wrong.
+
+The pass also took three tries to stage, which is worth knowing for the next one: the
+capture auto-stops after 5 minutes of silence (`reason=SilenceTimeout`), and in a quiet
+room that expires while adb is still walking the file picker. Driving the whole
+record-switch-share sequence in one shell pass is what made it land.
+
 ## Fixtures
 
 Tests needing real encoded audio use the existing `app/src/test/resources/
