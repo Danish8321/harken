@@ -1,7 +1,7 @@
 # ARC-056 — A late progress update re-posts the transcribing notification after the service stops
 
 - **Severity:** medium
-- **Status:** open
+- **Status:** fixed
 - **Area:** `speech/TranscriptionService.kt`
 
 ## Problem
@@ -44,15 +44,30 @@ device run.
 
 ## The fix
 
-Make the two paths agree on one piece of state — the service's own "am I still the one
-rendering this" flag, set false where the collector stops it, and checked in
-`publishProgress` before it notifies. Both touch it from different threads, so it wants to
-be an `AtomicBoolean` or `@Volatile`, not a plain `var`.
+`ProgressGate` (`speech/ProgressGate.kt`): a one-way gate both paths go through.
+`publishProgress` notifies inside `gate.render { }`, and the collector removes the
+notification inside `gate.close { }`.
 
-A cancel in `onDestroy` is not enough on its own: the late `notify` can land after
-`onDestroy` has already run, and the ordering the flag fixes is the same one either way.
+A flag was the first idea and is not enough. A thread can read a flag as "still open",
+be descheduled, and post after the other thread has written it and removed the
+notification — the flag narrows the window rather than closing it, whether it is
+`@Volatile` or an `AtomicBoolean`. The gate takes one lock on both sides instead, so a
+render either finishes before the removal or never runs.
+
+The gate does not re-open: a service instance renders one transcription and then stops, so
+re-opening could only ever mean the wrong session's progress under the same id.
+
+`onDestroy` was the other candidate and has the same hole — the late `notify` can land
+after `onDestroy` has run.
 
 ## Evidence
 
-Not yet fixed. The mechanism is read off the code; the symptom was observed once on device
-during slice 11's Task 10 pass and is noted in `docs/plans/slice-11-import-audio.md`.
+`check.sh` OK, `test-fast.sh` OK, `ProgressGateTest` 5/5. Falsified: swapping the gate for
+the plain flag this ticket first proposed fails `a render that arrives while the close is
+removing the notification waits, and is skipped`, and nothing else (203 tests completed, 1
+failed).
+
+Not re-run on a device. The symptom was seen once during slice 11's Task 10 pass
+(`docs/plans/slice-11-import-audio.md`); the mechanism is read off the code, and what a
+phone would show is a "Transcribing…" notification with a progress bar, dismissible,
+for a decode the Library already lists as done or cancelled.

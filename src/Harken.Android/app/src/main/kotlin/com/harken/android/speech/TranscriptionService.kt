@@ -58,6 +58,12 @@ class TranscriptionService : Service() {
     private lateinit var modelDownloadManager: ModelDownloadManager
     private lateinit var onDeviceTranscriber: OnDeviceTranscriber
 
+    /**
+     * Held between the decode thread's progress updates and the main thread's teardown, so
+     * the notification cannot come back after it has been removed (ARC-056).
+     */
+    private val gate = ProgressGate()
+
     /** Wall-clock start of the decode, for the ETA. Monotonic, so a clock change cannot move it. */
     private var startedAtElapsedMs = 0L
     private var notificationTitle = ""
@@ -141,7 +147,9 @@ class TranscriptionService : Service() {
             // forever. Comparing against our own id is correct whichever order they run in.
             TranscriptionCoordinator.activeSessionId.collect { active ->
                 if (active != sessionId) {
-                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    // Under the gate, so a span callback still in flight on the decode
+                    // thread cannot re-post the notification behind this (ARC-056).
+                    gate.close { stopForeground(STOP_FOREGROUND_REMOVE) }
                     stopSelf()
                 }
             }
@@ -158,10 +166,15 @@ class TranscriptionService : Service() {
      * Called from the decode thread, once per span. `notify` is safe there, and spans run
      * 30 to 300 seconds, so this is a handful of updates over the whole job rather than
      * anything that needs rate limiting.
+     *
+     * Through the gate, because a cancelled decode can deliver one more span after the
+     * coordinator has gone idle and the service has already taken its notification down.
      */
     private fun publishProgress(fraction: Float) {
         val percent = (fraction * 100).roundToInt().coerceIn(0, 100)
-        getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, notification(percent))
+        gate.render {
+            getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, notification(percent))
+        }
     }
 
     private fun notification(percent: Int): Notification =
