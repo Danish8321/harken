@@ -368,10 +368,11 @@ recording's WAV. The audio survived intact (header 248.42 s, matching the bytes)
 Library got a Session dated to the share and 30 s short, and the recorder's own save then
 failed — `recording_save_failed error=UNIQUE_constraint_failed:_sessions.id`.
 
-**Two follow-ups, neither in this slice:** `cacheDir` is never swept at startup, so a
-killed import leaves its staged source and `*.partial.wav` there until Android reclaims
-them; and a `transcribing` notification (id 1002) was still posted after transcription had
-finished.
+**Two follow-ups, neither in this slice, now ticketed:** `cacheDir` is never swept at
+startup, so a killed import leaves its staged source and `*.partial.wav` there until
+Android reclaims them (ARC-055); and a `transcribing` notification (id 1002) was still
+posted after transcription had finished (ARC-056 — a late progress callback re-posting it
+after the service stopped).
 
 ### Task 11 — Recovery must not adopt the recording in progress — **done**
 **Files:** `.../kotlin/com/harken/android/recording/RecordingRecovery.kt`,

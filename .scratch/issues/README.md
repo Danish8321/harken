@@ -123,3 +123,5 @@ inferred.
 | [ARC-052](ARC-052-recording-channel-name-hardcoded.md) | Recording notification channel name is hardcoded | low | fixed |
 | [ARC-053](ARC-053-duration-formatting-duplicated.md) | Duration formatting is reimplemented ad hoc in three places | low | fixed |
 | [ARC-054](ARC-054-session-cap-hardcoded-thrice.md) | The 3-hour session cap is hardcoded independently in three files | low | fixed |
+| [ARC-055](ARC-055-cachedir-never-swept.md) | A killed import leaves its staged copy in the cache forever | medium | open |
+| [ARC-056](ARC-056-progress-notification-outlives-the-decode.md) | A late progress update re-posts the transcribing notification after the service stops | medium | open |
