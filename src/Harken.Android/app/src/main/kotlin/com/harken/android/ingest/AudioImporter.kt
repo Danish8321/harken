@@ -107,7 +107,7 @@ class AudioImporter(
 
         extractor.selectTrack(track)
 
-        val partial = File(stagingDir, "${target.nameWithoutExtension}.partial.wav")
+        val partial = File(stagingDir, "${target.nameWithoutExtension}${ImportStaging.PARTIAL_SUFFIX}")
         partial.delete() // WavWriter requires a fresh file, and a previous run may have died here.
 
         return try {

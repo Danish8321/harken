@@ -13,13 +13,17 @@ import androidx.core.content.IntentCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.harken.android.device.DeviceCapability
+import com.harken.android.ingest.ImportCoordinator
+import com.harken.android.ingest.ImportStaging
 import com.harken.android.ingest.PendingImport
 import com.harken.android.recording.RecordingRecovery
 import com.harken.android.telemetry.Telemetry
 import com.harken.android.ui.AppNav
 import com.harken.android.ui.ThemeMode
 import com.harken.android.ui.theme.HarkenTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,6 +106,15 @@ class MainActivity : ComponentActivity() {
         val repository = application.container.repository
         lifecycleScope.launch {
             RecordingRecovery(filesDir, repository, repository::sessionIds).recover()
+            // The same reconciliation for the import side, and the same care about what is
+            // live: an import killed mid-flight leaves a copy of the user's file in the
+            // cache, which is as big as the file they picked (ARC-055). The sweep cannot
+            // tell that from an import writing right now, so it only runs when none is —
+            // a share lands in its own task and gets here while an earlier import is still
+            // going, and skipping that launch costs nothing.
+            if (ImportCoordinator.activeImportId.value == null) {
+                withContext(Dispatchers.IO) { ImportStaging.sweep(cacheDir) }
+            }
             // A transcription cannot outlive the process, so anything still marked running
             // died with it. Left alone the session shows "Transcribing" forever and offers
             // the user no way to start it again.

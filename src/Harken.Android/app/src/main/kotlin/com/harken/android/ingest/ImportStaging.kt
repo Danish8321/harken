@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import java.io.File
 import java.util.UUID
 
@@ -57,6 +58,45 @@ object ImportStaging {
     }
 
     /**
+     * Deletes the files an import owns in [cacheDir] and did not live to clean up.
+     *
+     * Every path an import controls deletes both of its own files — the staged copy and the
+     * `.partial.wav` — but a process death controls nothing, and Android reclaims a cache
+     * directory only when the device is already low on storage. A staged copy is the size of
+     * the file the user picked, so what is left behind is not a stray kilobyte (ARC-055).
+     *
+     * The caller must know that no import is running: this cannot tell a file abandoned by a
+     * dead process from one an import is writing this second, and both entry points can start
+     * one before the first frame — a share arrives in its own task, so the launch path runs
+     * again while an earlier import is still going. Skipping a launch costs nothing; the next
+     * one sweeps.
+     *
+     * Only [cacheDir]. A WAV in `filesDir` is either a Session's audio or an orphan
+     * [com.harken.android.recording.RecordingRecovery] is about to adopt, and deleting there
+     * on a guess loses a recording.
+     */
+    fun sweep(cacheDir: File): Int {
+        val leftovers = leftovers(cacheDir.listFiles()?.toList().orEmpty())
+        val deleted = leftovers.count { it.delete() }
+        if (leftovers.isNotEmpty()) {
+            Log.i(TAG, "Swept $deleted of ${leftovers.size} import leftovers from the cache")
+        }
+        return deleted
+    }
+
+    /**
+     * The files in [files] that an import wrote: the staged source copy and the decode's
+     * partial output. Named by prefix and suffix because that is all an import leaves to
+     * recognise them by — the cache also holds other components' files, and this must never
+     * reach one of those.
+     */
+    @VisibleForTesting
+    internal fun leftovers(files: List<File>): List<File> =
+        files.filter {
+            it.isFile && (it.name.startsWith(STAGED_PREFIX) || it.name.endsWith(PARTIAL_SUFFIX))
+        }
+
+    /**
      * The name the file arrived under, which becomes the Session's title (ADR-0016).
      *
      * A content Uri does not have to carry one. `lastPathSegment` is the fallback and is
@@ -78,4 +118,7 @@ object ImportStaging {
 
     private const val STAGED_PREFIX = "import-"
     private const val BUFFER_BYTES = 64 * 1024
+
+    /** [AudioImporter]'s half-written decode. Named here because [sweep] has to recognise it. */
+    const val PARTIAL_SUFFIX = ".partial.wav"
 }

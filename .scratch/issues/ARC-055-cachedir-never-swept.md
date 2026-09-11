@@ -1,7 +1,7 @@
 # ARC-055 — A killed import leaves its staged copy in the cache forever
 
 - **Severity:** medium
-- **Status:** open
+- **Status:** fixed
 - **Area:** `ingest/ImportStaging.kt`, `ingest/AudioImporter.kt`, `HarkenApplication` / `MainActivity`
 
 ## Problem
@@ -28,28 +28,33 @@ and the slice's own test material included a 576 MB one.
 
 ## The fix
 
-A startup sweep, in the same shape as `RecordingRecovery`: a directory listing against a
-prefix, run once per launch, deleting nothing it does not recognise.
+`ImportStaging.sweep(cacheDir)`, called from `MainActivity`'s launch path right after
+`RecordingRecovery` — the same shape as recovery, and guarded the same way. `leftovers` is
+the pure half and the test seam: the files whose name starts `import-` or ends
+`.partial.wav`, directories excluded, everything else in the cache left alone.
 
-```kotlin
-// Cache files an import owns, left by a process death. Anything older than the
-// launch is safe: an import in this process has not started yet.
-cacheDir.listFiles()
-    ?.filter { it.name.startsWith("import-") || it.name.endsWith(".partial.wav") }
-    ?.forEach { it.delete() }
-```
+The guard is the part that matters. The sweep cannot tell a file abandoned by a dead
+process from one an import is writing this second, so it only runs when
+`ImportCoordinator.activeImportId.value` is null. A share lands in its own task and runs
+the launch path again while an earlier import is still going — the same route that let
+recovery adopt a live recording (slice 11 task 11) — and there the sweep is skipped
+entirely. Skipping costs nothing: the next launch sweeps.
 
-The one thing it must not do is run while an import is live — a second `MainActivity` in
-its own task is reachable through the share target, and that is precisely how ARC-056's
-sibling bug (recovery adopting the live recording, slice 11 task 11) was found. Either the
-sweep runs before any import can be admitted, or it takes the in-flight staged path the way
-`RecordingRecovery` takes the in-progress recording id.
+`.partial.wav` was a literal in `AudioImporter` and is now `ImportStaging.PARTIAL_SUFFIX`,
+because the sweep has to recognise the same name the importer writes and two copies of it
+would drift.
 
-`filesDir` is not swept: a WAV there is either a session's audio or an orphan
+`filesDir` is still never swept: a WAV there is either a Session's audio or an orphan
 `RecordingRecovery` is about to adopt, and deleting on a guess there loses a recording.
 
 ## Evidence
 
-Not yet fixed. Reproduced on the device pass by killing the app mid-import
-(`am force-stop`) and listing `cacheDir` afterwards; see the Task 10 record in
-`docs/plans/slice-11-import-audio.md`.
+`check.sh` OK, `test-fast.sh` OK, `ImportStagingSweepTest` 5/5. Falsified: dropping the
+`isFile` guard fails `a directory is never swept, whatever it is called` and nothing else
+(208 tests completed, 1 failed).
+
+Not re-run on a device. The leftovers this is about were real — a 541 MB `import-…` and a
+20 MB `…partial.wav` on the test phone after an import was killed on purpose, recorded in
+the Task 10 pass in `docs/plans/slice-11-import-audio.md` — but they were deleted by hand
+over adb before this existed, so what a phone would now show is an empty cache after the
+next launch.
