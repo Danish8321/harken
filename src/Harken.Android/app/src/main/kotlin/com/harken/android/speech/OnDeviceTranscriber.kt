@@ -188,7 +188,10 @@ class OnDeviceTranscriber(
                             }
                         // An aborted whisper_full returns an empty result rather than
                         // throwing, so the cancellation has to be raised here or the loop
-                        // would quietly record the rest of the recording as silence.
+                        // would quietly record the rest of the recording as silence. Still
+                        // true after ARC-058: a *failed* decode now throws, but a cancelled
+                        // one deliberately does not — it is not a decoder fault and the
+                        // coordinator reports the two differently.
                         decodeJob.ensureActive()
                         val spanDecodeMs = Telemetry.elapsedMsSince(decodeStartNs)
                         decodeMs += spanDecodeMs
@@ -336,6 +339,13 @@ class OnDeviceTranscriber(
         @JvmStatic
         external fun nativeLoadModel(path: String): Long
 
+        /**
+         * Decodes one span. Returns the segment JSON, or throws `IllegalStateException` if
+         * the decode failed — an empty array means whisper heard nothing in this span and
+         * never that something went wrong. It used to mean both, which is how a failed
+         * `whisper_full` reached the user as a transcript with a silent hole in it and a
+         * session marked Succeeded (ARC-058).
+         */
         @JvmStatic
         external fun nativeTranscribe(
             handle: Long,
