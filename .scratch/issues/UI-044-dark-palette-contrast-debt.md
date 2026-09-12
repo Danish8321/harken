@@ -157,17 +157,37 @@ the thing the on-device pass should look at.
   device 'AIN065' in Dark, and so do `SessionSheet`'s delete icon and the delete
   dialog's filled button, which read the same role through Material's `error`. See
   UI-042's on-device pass.
-- **Owed: an on-device pass for options 2, 3 and 4**, deferred because phone work is off
-  for now. Each is the kind of change a measurement can call fine and an eye can call
-  wrong, and each has a specific thing to look at:
-  - option 2 — every meta line and nav label in dark, for whether the 1.19:1 step to
-    `text` reads as flat;
-  - option 3 — the Library search field and the unchecked Settings switches in dark, for
-    whether the `cardBorder` outline really does carry the shape the fill gave up;
-  - option 4 — the light theme generally, for whether the deeper tan still reads as the
-    same brand as dark's;
-  - option 5 — a screen with a filled `Button` and the record button in view at once, for
-    whether `accentInk` and `accent` read as one tan; and any `TextButton` label in dark.
+- On-device pass for options 2, 3, 4 and 5, on 'AIN065' (Nothing Phone (2), Android 16)
+  after `test-full.sh` (11 instrumented tests, 0 failures) and `installDebug`. Every hex
+  below is sampled off the framebuffer with PIL, not read off a screenshot by eye, and
+  every one sampled off the glyphs rather than through them — a first read of the light
+  Continue button gave #917D57, which was the label's antialiasing and not the fill.
+  - option 2, dark — the Settings "3 hours" value on a #3C414A card measures #B4BAC1, as
+    does the nav's inactive "Record" label; primary text beside them measures #D1C9BE.
+    The 1.19:1 step is small but the two tiers do separate, because weight and hue carry
+    what brightness no longer does.
+  - option 3, dark — the segmented control's inactive track measures #414851 with a
+    #464D56 edge at y=1509–1511; the unchecked Settings switch is the same pair, border
+    at y=1732, thumb #B4BAC1; the Library search field is #414851 with a #464D56 outline
+    on every edge sampled (y=295 top, y=403 bottom, x=47 left) and #B4BAC1 placeholder
+    and icon. The outline does carry the shape: the fill alone at 1.41:1 on the ground
+    does not, which is the whole reason it was added.
+  - option 4, light — the onboarding progress bar, the Continue button's fill sampled off
+    its label, and the record screen's mic circle all measure #836E46. Deeper than the
+    old tan, and still legibly the same hue as dark's #BFA789.
+  - option 5, dark — the session sheet's "+ Tag" `TextButton` label measures #C5AE91 on
+    #2C313A, and the delete dialog's "Keep it" measures #C5AE91 on the dialog's #2B2930.
+    In the same frames the segmented control's selected fill and the nav's selected pill
+    both measure #BFA789, named directly as `accent`. Ink and fill do not read as two
+    tans; the six-step lift is invisible at this size, which is what it was chosen for.
 
-**This ticket is fixed, not verified.** All six rows are closed and `test-fast.sh` is
-green, but every one of those four on-device passes is still owed.
+**This ticket is fixed and verified.** All six rows are closed, `test-fast.sh` is green,
+and every colour it moved has been measured on a device.
+
+One thing the pass turned up that is not a UI-044 defect: `SessionSheet`'s delete
+confirmation sets `ButtonDefaults.buttonColors(containerColor = colorScheme.error)` and
+nothing else, so its content colour falls through to `onPrimary` (`onAccent`, #2B2016)
+rather than `onError` (`stateErrorFg`, #2B0B08). The glyph measures #2B2016 on device,
+confirming it. #2B2016 on `errorInk` is 7.99:1, so nothing is illegible — but the parity
+test asserts `stateErrorFg on errorInk`, a pair that button does not actually paint.
+Ticketed as UI-046.

@@ -53,8 +53,27 @@ would drift.
 `isFile` guard fails `a directory is never swept, whatever it is called` and nothing else
 (208 tests completed, 1 failed).
 
-Not re-run on a device. The leftovers this is about were real — a 541 MB `import-…` and a
-20 MB `…partial.wav` on the test phone after an import was killed on purpose, recorded in
-the Task 10 pass in `docs/plans/slice-11-import-audio.md` — but they were deleted by hand
-over adb before this existed, so what a phone would now show is an empty cache after the
-next launch.
+Device pass on 'AIN065' (Nothing Phone (2), Android 16). The original leftovers — a 541 MB
+`import-…` and a 20 MB `…partial.wav`, recorded in the Task 10 pass in
+`docs/plans/slice-11-import-audio.md` — were deleted by hand before this existed, so the
+pass plants the same four shapes instead and drives a cold launch:
+
+```
+$ adb shell run-as com.harken.android.debug sh -c 'cd .../cache && ls -la'
+abc123.partial.wav      harken-local.db.lck     import-deadbeef
+import-dir/             keepme.txt
+$ adb shell am force-stop com.harken.android.debug
+$ adb shell monkey -p com.harken.android.debug -c android.intent.category.LAUNCHER 1
+$ adb shell run-as com.harken.android.debug sh -c 'cd .../cache && ls -la'
+harken-local.db.lck     import-dir/             keepme.txt
+```
+
+Both matching files gone after one launch. The three non-matching entries survived, and
+they are the three ways the sweep could have been too greedy: `import-dir` is a directory
+whose name starts `import-` (the `isFile` guard), `keepme.txt` matches neither rule, and
+`harken-local.db.lck` is Room's lock — a file the sweep deleting would be worse than the
+bug it fixes. Planted files removed afterwards.
+
+The guard's other half — the sweep skipped entirely while `activeImportId` is non-null —
+is covered by `ImportStagingSweepTest` and is not reachable from adb without racing a live
+import against a launch, so it stays unit-tested only.

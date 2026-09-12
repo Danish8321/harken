@@ -67,7 +67,15 @@ the plain flag this ticket first proposed fails `a render that arrives while the
 removing the notification waits, and is skipped`, and nothing else (203 tests completed, 1
 failed).
 
-Not re-run on a device. The symptom was seen once during slice 11's Task 10 pass
+**Still owed a device pass, and blocked on one thing.** Reproducing it means running a
+real transcription, which means the 148 MB `ggml-base.en.bin`, which this phone does not
+currently have and which its only live network is metered LTE — no Wi-Fi reachable in the
+session that would otherwise have done it. Deferred rather than paid for out of the user's
+cellular data; it is a fifteen-minute pass the next time the phone is on Wi-Fi, and the
+thing to watch is the notification shade in the seconds after the Library flips the
+session to done.
+
+The symptom was seen once during slice 11's Task 10 pass
 (`docs/plans/slice-11-import-audio.md`); the mechanism is read off the code, and what a
 phone would show is a "Transcribing…" notification with a progress bar, dismissible,
 for a decode the Library already lists as done or cancelled.
