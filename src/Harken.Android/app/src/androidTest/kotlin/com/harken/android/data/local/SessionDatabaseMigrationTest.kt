@@ -137,12 +137,13 @@ class SessionDatabaseMigrationTest {
     }
 
     /**
-     * The upgrade a phone that has never been updated actually performs. Running the two
-     * migrations separately proves each in isolation; only the chain proves they compose,
-     * which is what Room will do on that device.
+     * The upgrade a phone that has never been updated actually performs. Running each
+     * migration separately proves it in isolation; only the chain proves they compose, which
+     * is what Room will do on that device — so this runs to the current version, not to
+     * whatever version was current when it was written.
      */
     @Test
-    fun migration1To3RunsTheWholeChainAndKeepsTheRow() {
+    fun migration1To5RunsTheWholeChainAndKeepsTheRow() {
         val existingId = "44444444-4444-4444-4444-444444444444"
         val path = "/data/user/0/com.harken.android/files/recordings/44444444.wav"
 
@@ -159,14 +160,23 @@ class SessionDatabaseMigrationTest {
             )
         }
 
-        val migrated = helper.runMigrationsAndValidate(DB_NAME, 3, true, MIGRATION_1_2, MIGRATION_2_3)
+        val migrated =
+            helper.runMigrationsAndValidate(
+                DB_NAME,
+                5,
+                true,
+                MIGRATION_1_2,
+                MIGRATION_2_3,
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+            )
 
         migrated
             .query(
                 "SELECT audioPath, localTitle FROM sessions WHERE id = ?",
                 arrayOf(existingId),
             ).use { cursor ->
-                assertTrue("a version 1 row should reach version 3 intact", cursor.moveToFirst())
+                assertTrue("a version 1 row should reach version 5 intact", cursor.moveToFirst())
                 assertEquals(path, cursor.getString(cursor.getColumnIndexOrThrow("audioPath")))
                 assertEquals("Board review", cursor.getString(cursor.getColumnIndexOrThrow("localTitle")))
             }
@@ -218,6 +228,54 @@ class SessionDatabaseMigrationTest {
         migrated.query("SELECT text FROM segments WHERE id = ?", arrayOf(segmentId)).use { cursor ->
             assertTrue("the segment row must survive", cursor.moveToFirst())
             assertEquals("hello", cursor.getString(cursor.getColumnIndexOrThrow("text")))
+        }
+        migrated.close()
+    }
+
+    /**
+     * The only migration here that adds no column and copies no row — `CREATE INDEX` on a
+     * populated table (ARC-057). What it still has to prove is that the index arrives under
+     * the name Room derives from the `@Index` annotation: `runMigrationsAndValidate` compares
+     * indexes by name, so the right index under a different one fails validation, and the
+     * index existing at all is the whole point of the change.
+     */
+    @Test
+    fun migration4To5IndexesSegmentsBySessionIdAndKeepsEveryTranscriptLine() {
+        val sessionId = "77777777-7777-7777-7777-777777777777"
+        val segmentId = "88888888-8888-8888-8888-888888888888"
+
+        helper.createDatabase(DB_NAME, 4).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO sessions (
+                    id, startedAt, endedAt, segmentCount, transcriptionStatus,
+                    transcriptionFailureReason, durationSeconds, localTitle, localTags, audioPath
+                ) VALUES ('$sessionId', '2026-04-01T00:00:00Z', NULL, 1, 'Succeeded', NULL, 90,
+                    'Retro', 'work', '/data/user/0/com.harken.android/files/recordings/77777777.wav')
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                INSERT INTO segments (id, sessionId, offsetSeconds, text, voiceIndex)
+                VALUES ('$segmentId', '$sessionId', 4, 'the part worth keeping', 1)
+                """.trimIndent(),
+            )
+        }
+
+        val migrated = helper.runMigrationsAndValidate(DB_NAME, 5, true, MIGRATION_4_5)
+
+        migrated
+            .query("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='segments'")
+            .use { cursor ->
+                val names = buildList { while (cursor.moveToNext()) add(cursor.getString(0)) }
+                assertTrue("the sessionId index should exist after the migration, found: $names", "index_segments_sessionId" in names)
+            }
+        // Indexing rewrites nothing, but a migration that silently emptied the table would
+        // also pass an index-name check, so the row is asserted too.
+        migrated.query("SELECT text, voiceIndex FROM segments WHERE id = ?", arrayOf(segmentId)).use { cursor ->
+            assertTrue("the transcript line must survive", cursor.moveToFirst())
+            assertEquals("the part worth keeping", cursor.getString(cursor.getColumnIndexOrThrow("text")))
+            assertEquals(1, cursor.getInt(cursor.getColumnIndexOrThrow("voiceIndex")))
         }
         migrated.close()
     }

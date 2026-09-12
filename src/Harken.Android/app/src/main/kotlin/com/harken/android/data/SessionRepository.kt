@@ -90,9 +90,13 @@ class SessionRepository(
      * name of an untitled one — the caller supplies it, because the file names this
      * produces are read by a person and this layer does not know their language (ARC-017).
      *
-     * Read in one pass and held in memory: transcripts are text, so a few hundred
-     * recordings is a couple of megabytes, and the audio — the part that is gigabytes — is
-     * streamed from its path rather than loaded here.
+     * Held in memory rather than streamed: transcripts are text, so a few hundred recordings
+     * is a couple of megabytes, and the audio — the part that is gigabytes — is read from its
+     * path by the caller rather than loaded here.
+     *
+     * One query for the sessions and one per session for its lines, not one query overall.
+     * That is N+1 and it is affordable now only because `segments.sessionId` is indexed
+     * (ARC-057) — before that each of those N was a scan of every transcript on the device.
      */
     suspend fun exportItems(displayTitle: (localTitle: String?, partOfDay: PartOfDay) -> String): List<ExportItem> =
         dao.allSessions().map { row ->

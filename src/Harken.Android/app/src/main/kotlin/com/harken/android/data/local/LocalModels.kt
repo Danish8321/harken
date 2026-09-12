@@ -1,6 +1,7 @@
 package com.harken.android.data.local
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.util.UUID
 
@@ -33,7 +34,13 @@ data class SessionRow(
     val audioPath: String? = null,
 )
 
-@Entity(tableName = "segments")
+// Indexed on sessionId because that is the only way anything reads this table — a session's
+// segments for the sheet, for an export, or to clear before rewriting them — and `segments`
+// is the one table with no ceiling on its size (ARC-057). Not a covering index on
+// (sessionId, offsetSeconds): once the rows are found there are a few hundred of them, and
+// sorting those is nothing against the scan this removes, while the wider index would cost
+// write time on every transcription.
+@Entity(tableName = "segments", indices = [Index("sessionId")])
 data class SegmentRow(
     @PrimaryKey val id: UUID,
     val sessionId: UUID,

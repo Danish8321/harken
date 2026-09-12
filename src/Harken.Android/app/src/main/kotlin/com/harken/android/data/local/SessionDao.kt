@@ -280,7 +280,26 @@ val MIGRATION_3_4 =
         }
     }
 
-@Database(entities = [SessionRow::class, SegmentRow::class], version = 4, exportSchema = true)
+/**
+ * Indexes `segments.sessionId`, which every read of a transcript filters on and none of them
+ * could use (ARC-057).
+ *
+ * The name is not decorative. Room derives `index_<table>_<column>` from the `@Index`
+ * annotation and `runMigrationsAndValidate` compares the index by that name, so a migration
+ * that creates the right index under a different one fails validation on a database that is
+ * in every other respect correct.
+ *
+ * Unlike [MIGRATION_2_3] this touches no column and copies no row: `CREATE INDEX` reads the
+ * table once and writes a new b-tree beside it. There is nothing here that can lose data.
+ */
+val MIGRATION_4_5 =
+    object : androidx.room.migration.Migration(4, 5) {
+        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_segments_sessionId` ON `segments` (`sessionId`)")
+        }
+    }
+
+@Database(entities = [SessionRow::class, SegmentRow::class], version = 5, exportSchema = true)
 @TypeConverters(UuidConverters::class)
 abstract class HarkenDatabase : RoomDatabase() {
     abstract fun sessions(): SessionDao
@@ -292,7 +311,7 @@ abstract class HarkenDatabase : RoomDatabase() {
             instance ?: synchronized(this) {
                 instance ?: androidx.room.Room
                     .databaseBuilder(context.applicationContext, HarkenDatabase::class.java, "harken-local.db")
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { instance = it }
             }
