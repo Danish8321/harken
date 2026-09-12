@@ -130,3 +130,4 @@ inferred.
 | [ARC-058](ARC-058-native-decode-failure-reads-as-silence.md) | A failed native decode is recorded as silence, and the transcription reports success | high | fixed |
 | [ARC-059](ARC-059-second-start-abandons-the-first-capture.md) | A second Record tap abandons the first capture with the microphone still open | high | fixed |
 | [ARC-060](ARC-060-cancelled-export-leaves-half-a-recording.md) | Cancelling an export leaves half a recording in the backup folder | high | fixed |
+| [ARC-061](ARC-061-a-keystroke-blanks-the-search-results.md) | Typing the next letter blanks the search results to "No matches" | medium | fixed |

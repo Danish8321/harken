@@ -15,7 +15,6 @@ import com.harken.android.data.SessionRepository
 import com.harken.android.recordingTitle
 import com.harken.android.speech.TranscriptionCoordinator
 import com.harken.android.speech.TranscriptionService
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -83,19 +82,10 @@ class LibraryViewModel(
         }
         // collectLatest, so a keystroke cancels both the debounce and any query already
         // running for the term before it — the last thing typed is the only thing queried.
+        // What a cancelled run must then do is in [runLibrarySearch], where it can be tested.
         viewModelScope.launch {
             _searchState.map { it.query }.distinctUntilChanged().collectLatest { query ->
-                if (query.trim().length < SearchQuery.MIN_LENGTH) {
-                    _searchState.value = _searchState.value.copy(results = emptyList(), isSearching = false)
-                    return@collectLatest
-                }
-                delay(SEARCH_DEBOUNCE_MS)
-                _searchState.value = _searchState.value.copy(isSearching = true)
-                val hits =
-                    runCatching { repository.search(query) }
-                        .onFailure { Log.e(TAG, "Search failed", it) }
-                        .getOrDefault(emptyList())
-                _searchState.value = _searchState.value.copy(results = hits, isSearching = false)
+                runLibrarySearch(_searchState, query, SEARCH_DEBOUNCE_MS, repository::search)
             }
         }
     }
