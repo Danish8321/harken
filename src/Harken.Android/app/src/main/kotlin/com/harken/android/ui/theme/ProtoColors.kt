@@ -38,6 +38,23 @@ data class ProtoColors(
     /** Theme-aware solid accent — the only true brand primitive; same hex in both themes today. */
     val accent: Color,
     val onAccent: Color,
+    /**
+     * The accent as ink rather than as fill — accent-coloured text and icons sitting
+     * directly on [card] or [screenBg] — the counterpart [errorInk] already is for
+     * [stateError].
+     *
+     * Split for the same reason, one theme over: dark's #BFA789 reads 4.45:1 as text on a
+     * card. It is fine as a fill, where the 3:1 a UI component needs is the bar and every
+     * accent surface in the app is large, but it is not fine at label size. Every
+     * `TextButton` in the app is exactly that — Material renders the label in `primary` —
+     * as is the Library's bold search-match highlight (UI-044).
+     *
+     * [accent] itself could not move: the same hex is painted into
+     * `res/drawable/ic_launcher_foreground.xml` and `LiveUpdateNotification`'s
+     * `RECORDING_ACCENT`, neither of which this palette reaches, so shifting it here would
+     * split the brand across the launcher, the recording notification and the app.
+     */
+    val accentInk: Color,
     /** Warm fill: "live / active" — the recording pill, the capturing badge. */
     val stateLive: Color,
     val stateLiveFg: Color,
@@ -108,6 +125,11 @@ val ProtoDarkColors =
         skeleton = Color(0xFF828A94),
         accent = Color(0xFFBFA789),
         onAccent = Color(0xFF2B2016),
+        // A lift off the fill, not a new hue: 4.80:1 on card and 6.12:1 on the ground,
+        // against the fill's 4.45 and 5.66. Small enough that a Button's container and the
+        // record button beside it still read as one tan, large enough to clear AA at label
+        // size (UI-044).
+        accentInk = Color(0xFFC5AE91),
         // Recording-live now rides the same accent as everything else (UI-020) — same
         // solid-tan-fill / dark-brown-icon pattern as the resting mic circle, so "live"
         // and "idle" read as the same instrument rather than two different color systems.
@@ -148,6 +170,10 @@ val ProtoLightColors =
         // in light mode; dark's #BFA789 is untouched, so the brand still reads as one hue.
         accent = Color(0xFF836E46),
         onAccent = Color(0xFFFDF4E8),
+        // The same value as the fill here, because deepening the fill already fixed the ink
+        // reading: 4.90:1 on white and 4.51:1 on the ground. The role exists so the two
+        // themes can differ where they have to, not so they must.
+        accentInk = Color(0xFF836E46),
         stateLive = Color(0xFF836E46),
         stateLiveFg = Color(0xFFFDF4E8),
         stateDone = Color(0xFFDCEBDF),

@@ -12,9 +12,10 @@ import org.junit.Test
  * and nothing compares them. Every pair below is a foreground actually painted on that
  * background somewhere in the app, checked in BOTH palettes at once.
  *
- * Ratios are WCAG 2.1: 4.5:1 for normal text, 3:1 for large text and UI components. One
- * pair is below 4.5 today and is asserted against its measured floor instead, marked DEBT
- * with the number it currently reads — see UI-044, which records what fixing it would cost. A floor here is a ratchet, not a pass: it fails the build if a re-palette
+ * Ratios are WCAG 2.1: 4.5:1 for normal text, 3:1 for large text and UI components. Every
+ * text pair clears 4.5 since UI-044 closed. One pair is asserted below it — `accent` on
+ * `card`, at its measured 4.45 — and that one is a fill, not text, so its real bar is 3:1
+ * and the floor is there only to stop a re-palette dropping it further. A floor here is a ratchet, not a pass: it fails the build if a re-palette
  * makes one of them worse, and none of them may be raised without the ticket being closed.
  */
 class ProtoContrastParityTest {
@@ -105,6 +106,9 @@ class ProtoContrastParityTest {
         // reaches 4.49:1. Deepening the light accent to #836E46 took it to 4.50:1 (UI-044).
         bothThemes("onAccent on accent", aa) { it.onAccent to it.accent }
         bothThemes("stateLiveFg on stateLive", aa) { it.stateLiveFg to it.stateLive }
+        // accentInk is Material's `primary`, which is a Button's container as well as a
+        // TextButton's label, so onPrimary has to survive on it too.
+        bothThemes("onAccent on accentInk", aa) { it.onAccent to it.accentInk }
     }
 
     @Test
@@ -119,10 +123,15 @@ class ProtoContrastParityTest {
         // errorInk is also Material's `error` role, so it has to survive its own fill's
         // foreground — a Button(containerColor = error) with onError content.
         bothThemes("stateErrorFg on errorInk", aa) { it.stateErrorFg to it.errorInk }
-        // DEBT (UI-044): the light side is fixed — #836E46 reads 4.90:1 on white — but dark's
-        // #BFA789 on #3C414A is 4.45:1, so the floor is now dark's alone. The remaining move
-        // is a deeper dark accent, which is the one palette change that also repaints the
-        // record button, so it is a decision and not a ratchet.
+        // accentInk is the accent split the same way stateError was (UI-044): every
+        // TextButton label in the app is rendered in it through Material's `primary`, as is
+        // the Library's bold search-match highlight.
+        bothThemes("accentInk on card", aa) { it.accentInk to it.card }
+        bothThemes("accentInk on screenBg", aa) { it.accentInk to it.screenBg }
+        // Kept at its measured 4.45:1 rather than raised or deleted. This is not debt any
+        // more: `accent` is a fill here — the record button, the waveform, the nav tab —
+        // and 4.45 is well past the 3:1 a UI component needs. The assertion stays as a
+        // ratchet so a future re-palette cannot quietly take the fill below that.
         bothThemes("accent on card", 4.4) { it.accent to it.card }
         bothThemes("accent on screenBg", aa) { it.accent to it.screenBg }
     }

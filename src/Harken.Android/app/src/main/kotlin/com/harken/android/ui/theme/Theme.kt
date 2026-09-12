@@ -39,7 +39,13 @@ private fun protoColorScheme(
 ): ColorScheme {
     val base = if (darkTheme) darkColorScheme() else lightColorScheme()
     return base.copy(
-        primary = c.accent,
+        // Same reading as `error` below, and taken for the same reason: Material renders
+        // every TextButton label in `primary`, so this role is ink as often as it is fill,
+        // and the ink is the value legible in both readings — onPrimary on it is 7.45:1 in
+        // dark. The fill stays `accent` wherever the app names it directly (the record
+        // button, the waveform, the nav tab), so the two never appear far enough apart to
+        // read as different tans (UI-044).
+        primary = c.accentInk,
         onPrimary = c.onAccent,
         // Selected-tab / chip container — a decorative "selected" tint, not the live/
         // recording signal, so it rides the brand accent rather than stateLive (UI-020).

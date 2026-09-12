@@ -28,10 +28,18 @@ Harken is dual-themed (dark default, light variant, or follows system) — there
 |------|------|-------|-------|
 | Accent | `#BFA789` | `#836E46` | Record button, active nav tab, waveform bars, live/recording state |
 
+The accent is two values in dark, not one, for the reason the error colour is: a fill and
+a label are different readings. `#BFA789` as 12sp text on a card is 4.45:1, so accent-coloured
+*text* takes Accent Ink instead. The fill keeps `#BFA789` — it is also painted into the
+launcher mark and the recording notification, neither of which the theme reaches, so moving
+it would split the brand across three surfaces. Material's `primary` maps to the ink, since
+it renders every `TextButton` label.
+
 The light tan was `#8A744A` until UI-044. It was deepened because it is read as text as often
 as it is used as a fill — a tag label, an active nav label, the ETA — and at the old value it
 sat at 4.12:1 on the ground. No foreground fixed that; the fill itself had to move.
 | Accent On (text/icon on accent) | `#2B2016` | `#FDF4E8` | Content sitting on the accent fill |
+| Accent Ink (accent as text) | `#C5AE91` | `#836E46` | The accent read as a label on a card or the ground |
 
 The accent doubles as the live/recording fill (`stateLive`). That is deliberate: idle and live are the same instrument, so they are the same colour, not two colour systems.
 

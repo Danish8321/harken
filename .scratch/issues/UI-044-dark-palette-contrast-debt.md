@@ -1,7 +1,7 @@
 # UI-044 — Six colour roles sit below WCAG AA, five of them only in dark
 
 - **Severity:** medium
-- **Status:** open
+- **Status:** fixed
 - **Area:** `ui/theme/ProtoColors.kt`
 
 ## Problem
@@ -19,7 +19,7 @@ palettes, and is now a unit test (`ProtoContrastParityTest`). Six pairs are belo
 | ~~`stateError` on `screenBg`~~ | ~~**3.42**~~ | ~~4.77~~ | fixed below — now `errorInk`, 6.57 / 5.98 |
 | ~~`textSecondary` on `pillTrack`~~ | ~~**3.48**~~ | ~~4.80~~ | fixed below — `pillTrack` #414851, 4.73 / 4.80 |
 | ~~`textSecondary` on `card` / `navBg`~~ | ~~**4.18**~~ | ~~5.83~~ | fixed below — now `#B4BAC1`, 5.24 / 5.83 |
-| `accent` on `card` | **4.45** | ~~**4.49**~~ | light fixed below (4.90); **dark is now the floor** |
+| ~~`accent` on `card`~~ | ~~**4.45**~~ | ~~**4.49**~~ | fixed below — light `accent` 4.90, dark split into `accentInk`, 4.80 |
 | ~~`onAccent` on `accent`~~ | ~~6.89~~ | ~~**4.12**~~ | fixed below — light `accent` #836E46, 4.50 |
 
 Everything else clears AA in both themes, including all three status fills with their own
@@ -100,26 +100,45 @@ on `card` 4.49 -> 4.90, `accent` on `screenBg` 4.12 -> 4.51. Pure white as `onAc
 measured and rejected: 4.49, and it leaves the other two untouched. Dark's #BFA789 is not
 touched, so the two lightnesses of the one tan still read as one hue.
 
-**One pair left, and it is a decision rather than a number:**
+Option 5 closes the last one, and it is option 1's shape a second time. `accent` on `card`
+in dark is 4.45:1 — but the pair was mis-stated in this ticket twice over. It is not one row
+across both themes (the light half closed with option 4), and it is not one reading: `accent`
+in dark is overwhelmingly a *fill* — the record button, the waveform bars, the active nav
+tab, the selected chip — all large surfaces, all well past the 3:1 a UI component needs.
+4.45 is only a problem where the accent is *text*.
 
-`accent` on `card` in **dark** — #BFA789 on #3C414A, 4.45:1. This was recorded as
-"4.45 / 4.49" and treated as one row that a single fix would close; it is two, and the
-light half is the half that just closed. Fixing the dark half means a deeper dark tan,
-which is not a text tweak: `accent` in dark is the record button's fill, the active nav
-tab, the waveform bars and the live-recording state. Every one of those is a large,
-non-text surface that already clears the 3:1 a UI component needs. What is actually below
-AA is the small accent-coloured *text* on a card. Two shapes, then — darken the dark
-accent and repaint the record button with it, or split dark `accent` into a fill and an
-ink the way `stateError` was split into `stateError`/`errorInk` in option 1. The second
-has precedent in this same ticket.
+The first survey of that said one site, the Library's bold search-match highlight, and that
+was wrong: Material renders every `TextButton` label in `colorScheme.primary`, and the app
+has eight — the import 500 MB confirmation and its cancel, the delete dialog's Keep, Add
+tag, the error-state dismiss and retry. All of them are label-sized accent text on a card
+or a dialog surface.
+
+So `accent` splits into a fill and an ink, exactly as `stateError` split into
+`stateError`/`errorInk` in option 1. `accentInk` is #C5AE91 in dark — 4.80:1 on card,
+6.12:1 on the ground, against the fill's 4.45 and 5.66 — and the same #836E46 as the fill
+in light, where option 4 already fixed the ink reading. Material's `primary` takes the ink
+for the reason `error` does: the role is read both ways and the ink is legible in both
+(`onPrimary` on it is 7.45:1). `primaryContainer` stays the fill.
+
+Moving `accent` itself was the obvious alternative and is the one thing that could not be
+done. The same hex is painted into `res/drawable/ic_launcher_foreground.xml` and
+`LiveUpdateNotification.RECORDING_ACCENT`, neither of which this palette reaches, so a
+shift here would have left the launcher mark and the recording notification on the old tan
+— the brand split across three surfaces to fix a label. It would also have put the palette
+a second swatch away from UI-024's reference strip.
+
+The visible cost is that a filled Material `Button`'s container is now `accentInk` while
+the record button beside it stays `accent`. That is a six-step lift on one channel and is
+the thing the on-device pass should look at.
 
 ## Verification
 
-- `ProtoContrastParityTest` holds each of the six at its measured floor today, so a
-  re-palette that makes one worse fails `test-fast.sh`. Those floors may only be raised as
-  this ticket is closed — raising one to hide a regression is the same as deleting the
-  assertion. Five now assert the full 4.5; only `accent` on `card` is still a floor, and
-  its comment names dark as the side holding it there.
+- `ProtoContrastParityTest` holds every text pair at the full 4.5 now. One assertion is
+  still below it — `accent` on `card`, at its measured 4.45 — and it is deliberately left
+  there rather than raised or deleted: that pair is a fill, whose real bar is 3:1, and the
+  floor stops a future re-palette dropping it further. Two assertions were added for the
+  new role (`accentInk` on `card` and on `screenBg`, both at 4.5) and one for the Button
+  reading (`onAccent` on `accentInk`).
 - Option 2, falsified: putting #A0A6AD back fails `secondary text is legible on every
   surface it is painted on` and nothing else (157 tests completed, 1 failed).
 - Option 3, falsified separately from the accent so each change answers for itself:
@@ -129,6 +148,9 @@ has precedent in this same ticket.
   fill, survive on the surfaces under them`, and nothing else (5 tests completed, 2
   failed) — two tests because the accent is asserted in both roles.
 - `bash .claude/scripts/test-fast.sh` green with both in place.
+- Option 5, falsified: pointing `accentInk` back at the fill's #BFA789 fails `status
+  colours used as ink, not as fill, survive on the surfaces under them` and nothing else
+  (5 tests completed, 1 failed).
 - `bash .claude/scripts/test-fast.sh` after any palette change.
 - On-device dark-theme pass over a failed transcription in the Library, which is what
   pair 1 is about. Done: the failure reason measures #FF9E93 on the card's #3C414A on
@@ -143,4 +165,9 @@ has precedent in this same ticket.
   - option 3 — the Library search field and the unchecked Settings switches in dark, for
     whether the `cardBorder` outline really does carry the shape the fill gave up;
   - option 4 — the light theme generally, for whether the deeper tan still reads as the
-    same brand as dark's.
+    same brand as dark's;
+  - option 5 — a screen with a filled `Button` and the record button in view at once, for
+    whether `accentInk` and `accent` read as one tan; and any `TextButton` label in dark.
+
+**This ticket is fixed, not verified.** All six rows are closed and `test-fast.sh` is
+green, but every one of those four on-device passes is still owed.

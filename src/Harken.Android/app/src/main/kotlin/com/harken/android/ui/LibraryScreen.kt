@@ -404,13 +404,15 @@ private fun SearchResultCard(
 ) {
     val snippet = remember(hit.snippet, term) { hit.snippet?.let { SearchQuery.snippet(it, term) } }
     val highlighted =
-        remember(snippet, c.accent) {
+        remember(snippet, c.accentInk) {
             val window = snippet ?: return@remember null
             buildAnnotatedString {
                 append(window.text)
                 if (window.hasMatch) {
                     addStyle(
-                        SpanStyle(color = c.accent, fontWeight = FontWeight.Bold),
+                        // Ink, not the fill: this is 12sp bold on a card, which is the one
+                        // size the fill's 4.45:1 is not good enough for (UI-044).
+                        SpanStyle(color = c.accentInk, fontWeight = FontWeight.Bold),
                         window.matchStart,
                         window.matchEnd.coerceAtMost(window.text.length),
                     )
