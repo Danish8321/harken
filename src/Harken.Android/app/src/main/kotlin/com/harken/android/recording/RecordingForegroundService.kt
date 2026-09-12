@@ -136,6 +136,22 @@ class RecordingForegroundService : Service() {
             return START_NOT_STICKY
         }
 
+        // The start path below assigns over `writer`, `silenceDetector` and `capture` without
+        // stopping or closing what was there. Doing that to a live recording leaves an
+        // AudioRecord nobody holds a reference to — its loop is a `while (isRunning)` around a
+        // blocking read, so even cancelling captureScope will not end it — and a WavWriter
+        // whose file handle is never closed and whose length header is never patched (ARC-059).
+        //
+        // RecordingController's claim already makes this unreachable from the Record button.
+        // The guard stays because this service owns the microphone and the file handle, and an
+        // Intent can be delivered to it by something that never went through the controller.
+        val active = activeRecordingId
+        if (active != null) {
+            Log.w(TAG, "Ignoring a start for $recordingId; $active is already recording")
+            Telemetry.event("recording_start_ignored", "session" to sessionTag)
+            return START_NOT_STICKY
+        }
+
         createNotificationChannelIfNeeded()
         activeTitle = recordingTitle(localTitle = null, partOfDay = PartOfDay.now())
         try {
@@ -354,6 +370,13 @@ class RecordingForegroundService : Service() {
                 durationSeconds = WavFormat.durationSeconds(File(filePath))
                 saveError = saveSession(recordingId, filePath, durationSeconds)
             }
+            // Released before the state is, so the window where RecordingState says idle and
+            // this service still says busy does not exist. Otherwise the guard in
+            // onStartCommand would refuse the next recording — the controller's claim would
+            // be granted, the UI would show a capture, and no microphone would be open
+            // (ARC-059).
+            activeRecordingId = null
+            activeFilePath = null
             RecordingState.markStopped(stopReason, durationSeconds, saveError)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()

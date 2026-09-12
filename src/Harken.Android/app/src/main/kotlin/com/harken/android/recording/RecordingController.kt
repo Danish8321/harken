@@ -9,11 +9,19 @@ import java.util.UUID
 // RecordingState started here so the UI sees "recording" the instant it asks rather than
 // after the service is scheduled.
 object RecordingController {
-    fun startRecording(context: Context): UUID {
+    /**
+     * Starts a recording, or returns null if one is already running.
+     *
+     * The claim is what decides, not a read of [RecordingState.recordingId]: a tap that lands
+     * before the button has flipped to Stop used to overwrite the running recording's id and
+     * path here, and then start a second capture the service had no way to tell from the
+     * first (ARC-059).
+     */
+    fun startRecording(context: Context): UUID? {
         val recordingId = UUID.randomUUID()
         val filePath = File(context.filesDir, "$recordingId.wav").absolutePath
 
-        RecordingState.markStarted(recordingId, filePath)
+        if (!RecordingState.markStarted(recordingId, filePath)) return null
         RecordingForegroundService.start(context, recordingId, filePath)
         return recordingId
     }

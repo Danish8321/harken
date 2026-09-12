@@ -106,13 +106,35 @@ object RecordingState {
         return until - progress.startedAtElapsedMs - progress.pausedTotalMs
     }
 
+    /**
+     * Claims the recorder for [recordingId], returning false if another recording already
+     * holds it.
+     *
+     * A claim rather than an assignment because this used to be `current.set(...)`, and a
+     * second Record tap that landed before the button had flipped to Stop overwrote the
+     * running recording's id and path — after which its completion was reported under the
+     * second recording's name and the on-screen counter restarted from zero (ARC-059).
+     *
+     * Re-claiming the *same* id is granted and re-anchors the clock, because one recording
+     * claims twice by design: [RecordingController] on the tap, so the UI flips before the
+     * service is even scheduled, and the service when capture actually begins. The second
+     * one is what keeps the counter honest — nothing between the tap and
+     * `AudioRecord.startRecording()` captured any audio, and the number on screen has to
+     * agree with the length of the WAV.
+     */
     fun markStarted(
         recordingId: UUID,
         filePath: String,
-    ) {
-        current.set(InProgress(recordingId, filePath, elapsedRealtime()))
+    ): Boolean {
+        val claimed = InProgress(recordingId, filePath, elapsedRealtime())
+        val granted =
+            current.updateAndGet { progress ->
+                if (progress == null || progress.recordingId == recordingId) claimed else progress
+            } === claimed
+        if (!granted) return false
         _isPaused.value = false
         _isRecording.value = true
+        return true
     }
 
     /** No-op if there is no recording, or if it is already paused. */

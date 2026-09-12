@@ -128,3 +128,4 @@ inferred.
 | [ARC-056](ARC-056-progress-notification-outlives-the-decode.md) | A late progress update re-posts the transcribing notification after the service stops | medium | fixed |
 | [ARC-057](ARC-057-segments-sessionid-is-unindexed.md) | `segments.sessionId` has no index, so opening a recording scans every transcript on the phone | medium | fixed |
 | [ARC-058](ARC-058-native-decode-failure-reads-as-silence.md) | A failed native decode is recorded as silence, and the transcription reports success | high | fixed |
+| [ARC-059](ARC-059-second-start-abandons-the-first-capture.md) | A second Record tap abandons the first capture with the microphone still open | high | fixed |

@@ -106,6 +106,59 @@ class RecordingStateTest {
         }
 
     @Test
+    fun `a second start under a different id is refused and the first recording survives`() =
+        runTest {
+            // A Record tap that lands before the button has flipped to Stop. It used to
+            // overwrite the running recording's id and path, after which the capture on disk
+            // was reported under the second recording's name (ARC-059).
+            val first = UUID.randomUUID()
+            val completed = async { RecordingState.completed.first() }
+            yield()
+
+            assertTrue(RecordingState.markStarted(first, "/tmp/first.wav"))
+            now += 4_000
+            assertFalse(
+                "the second tap was allowed to claim the recorder",
+                RecordingState.markStarted(UUID.randomUUID(), "/tmp/second.wav"),
+            )
+
+            assertEquals(first, RecordingState.recordingId)
+            // Not re-anchored either: refusing has to leave the clock where it was, or the
+            // counter on screen restarts and stops agreeing with the length of the WAV.
+            assertEquals(4_000, RecordingState.elapsedMs())
+
+            RecordingState.markStopped(durationSeconds = 4)
+            val result = completed.await()
+            assertEquals(first, result.recordingId)
+            assertEquals("/tmp/first.wav", result.filePath)
+        }
+
+    @Test
+    fun `the recorder re-anchoring the same recording is not a second start`() {
+        // One recording claims twice by design: the controller on the tap, then the service
+        // when capture actually begins. The second claim is what stops the counter from
+        // including the microphone acquisition, which captured nothing.
+        val id = UUID.randomUUID()
+        assertTrue(RecordingState.markStarted(id, "/tmp/same.wav"))
+        now += 300
+
+        assertTrue("the recorder's own claim was refused", RecordingState.markStarted(id, "/tmp/same.wav"))
+        now += 1_000
+
+        assertEquals(1_000, RecordingState.elapsedMs())
+    }
+
+    @Test
+    fun `a start after the previous recording stopped is granted`() {
+        assertTrue(RecordingState.markStarted(UUID.randomUUID(), "/tmp/a.wav"))
+        RecordingState.markStopped()
+
+        val next = UUID.randomUUID()
+        assertTrue("the recorder stayed claimed after it stopped", RecordingState.markStarted(next, "/tmp/b.wav"))
+        assertEquals(next, RecordingState.recordingId)
+    }
+
+    @Test
     fun `the counter freezes while paused`() {
         // The number on screen has to agree with the length of the WAV, and no audio is
         // written while paused (ARC-034).
