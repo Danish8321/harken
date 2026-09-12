@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.UUID
@@ -68,7 +69,48 @@ data class SessionSheetUiState(
     /** The transcript as text, formatted the same way an exported .txt is. */
     val plainText: String
         get() = TranscriptText.body(segments.map { TranscriptText.Line(it.offsetSeconds, it.text) })
+
+    /**
+     * Applies a database emission. Only fields a `SessionContent` owns move; `isPlaying`,
+     * `positionMs` and `toast` are main-thread-owned and untouched here (ARC-062) —
+     * `SessionContent` has nowhere to carry them, so this can't accidentally clobber them.
+     */
+    fun withContent(content: SessionContent) =
+        copy(
+            title = content.title,
+            hasLocalTitle = content.hasLocalTitle,
+            meta = content.meta,
+            tags = content.tags,
+            segments = content.segments,
+            transcriptMeta = content.transcriptMeta,
+            voiceCount = content.voiceCount,
+            durationSeconds = content.durationSeconds,
+            status = content.status,
+            loadError = null,
+            audioPath = content.audioPath,
+            // UI-040: only replace a nonzero value, and read it off the state being
+            // written (inside this update{} retry), not one captured off-thread.
+            playbackDurationMs = playbackDurationMs.takeIf { it > 0 } ?: (content.durationSeconds * 1000),
+        )
 }
+
+/**
+ * What a database emission contributes to [SessionSheetUiState]. Deliberately excludes
+ * `isPlaying`, `positionMs` and `toast` — those belong to the main thread, and a type that
+ * cannot carry them can't be used to overwrite them (ARC-062).
+ */
+data class SessionContent(
+    val title: String,
+    val hasLocalTitle: Boolean,
+    val meta: String,
+    val tags: List<String>,
+    val segments: List<TranscriptRowModel>,
+    val transcriptMeta: String,
+    val voiceCount: Int,
+    val durationSeconds: Int,
+    val status: String?,
+    val audioPath: String?,
+)
 
 class SessionSheetViewModel(
     application: Application,
@@ -103,7 +145,7 @@ class SessionSheetViewModel(
                     val rows = segments.map { TranscriptRowModel(it.id, it.offsetSeconds, it.text, it.voiceIndex) }
                     val voices = SpeakerHeuristic.voiceCount(rows.map { it.voiceIndex })
                     val duration = session?.durationSeconds ?: rows.lastOrNull()?.offsetSeconds ?: 0
-                    _uiState.value.copy(
+                    SessionContent(
                         title = session?.let { app.recordingTitle(it.localTitle, it.partOfDay) }.orEmpty(),
                         hasLocalTitle = session?.localTitle != null,
                         meta = buildMeta(session, duration, rows.isNotEmpty()),
@@ -111,19 +153,15 @@ class SessionSheetViewModel(
                         segments = rows,
                         transcriptMeta = transcriptMeta(rows.size, voices),
                         voiceCount = voices,
-                        status = session?.status,
                         durationSeconds = duration,
-                        loadError = null,
+                        status = session?.status,
                         audioPath = session?.audioPath?.takeIf { java.io.File(it).exists() },
-                        playbackDurationMs =
-                            _uiState.value.playbackDurationMs.takeIf { it > 0 }
-                                ?: (duration * 1000),
                     )
                 }.flowOn(Dispatchers.Default)
                     .catch { e ->
                         Log.e(TAG, "Failed loading session $id", e)
-                        _uiState.value = _uiState.value.copy(loadError = e.message)
-                    }.collect { _uiState.value = it }
+                        _uiState.update { it.copy(loadError = e.message) }
+                    }.collect { content -> _uiState.update { it.withContent(content) } }
             }
     }
 
