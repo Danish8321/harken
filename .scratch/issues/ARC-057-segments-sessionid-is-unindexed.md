@@ -103,6 +103,23 @@ failures). `SegmentIndexTest` still passes there, correctly — it builds from t
 so it proves the index exists on a fresh install and the migration tests prove it arrives on
 an upgrade. Neither substitutes for the other.
 
+The shipped database on the phone, pulled with its WAL and read with sqlite3:
+
+```
+user_version 5
+index: index_segments_sessionId
+EXPLAIN QUERY PLAN SELECT * FROM segments WHERE sessionId=? ORDER BY offsetSeconds ASC
+  -> SEARCH segments USING INDEX index_segments_sessionId (sessionId=?)
+```
+
+Read that for exactly what it is: a **fresh** version-5 database, not an upgraded one. The
+app's uid moved from `u0_a390` to `u0_a398` between the two checks, because
+`connectedDebugAndroidTest` uninstalls the APKs when it finishes and `installDebug` then put
+a new install down. So this confirms the index is there on a first install and that SQLite
+uses it on the real device's own SQLite build — and it says nothing about the migration
+running over existing rows, which is `SessionDatabaseMigrationTest`'s job and is why that
+test asserts the surviving segment as well as the index name.
+
 `migration1To3RunsTheWholeChainAndKeepsTheRow` was renamed to `…1To5…` and now runs to the
 current version. It had stopped at 3 while the database was at 4, so the test named for the
 upgrade a never-updated phone performs was not performing it.
