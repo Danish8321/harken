@@ -96,7 +96,7 @@ class ExportService : Service() {
 
                     val report =
                         withContext(Dispatchers.IO) {
-                            LibraryExporter(contentResolver).export(tree, items) { progress ->
+                            LibraryExporter(SafDestination(contentResolver, tree)).export(items) { progress ->
                                 ExportStatus.set(ExportState.Running(progress.done, progress.total))
                                 publish(progress.done, progress.total)
                             }
