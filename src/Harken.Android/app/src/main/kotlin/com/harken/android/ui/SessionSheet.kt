@@ -430,7 +430,16 @@ fun SessionSheet(
                         hide()
                     },
                     shape = PillShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    // Both, not just the container: buttonColors defaults contentColor to
+                    // `onPrimary`, so naming only the fill painted this label in the accent's
+                    // foreground on the error fill. It measured legible by luck — both inks
+                    // are near-black — and would have followed `onAccent` anywhere it moved
+                    // (UI-046).
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        ),
                 ) { Text(stringResource(R.string.session_delete_confirm)) }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.session_delete_keep)) } },

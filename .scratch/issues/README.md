@@ -44,6 +44,7 @@ relative-luminance formula.
 | [UI-043](UI-043-navigation-motion.md) | Navigation motion: the tab bar travels with the screen, and there is no shared-element anywhere | medium | resolved |
 | [UI-044](UI-044-dark-palette-contrast-debt.md) | Six colour roles sit below WCAG AA, five of them only in dark | medium | fixed |
 | [UI-045](UI-045-launcher-mark-has-no-microphone-cue.md) | The launcher mark reads as a lump, not a microphone | low | fixed |
+| [UI-046](UI-046-delete-button-content-colour-falls-through.md) | The delete button's label is painted in `onPrimary`, not `onError` | low | fixed |
 
 UI-019..UI-027 were driven by direct interactive requests and have no
 ticket files of their own — [UI-030](UI-030-interactive-pass-backfill.md)
