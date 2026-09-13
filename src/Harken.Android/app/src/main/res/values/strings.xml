@@ -111,6 +111,23 @@
         <item quantity="one">%1$d recording matches</item>
         <item quantity="other">%1$d recordings match</item>
     </plurals>
+    <string name="library_selection_close">Cancel selecting</string>
+    <string name="library_selection_delete">Delete selected</string>
+    <plurals name="library_selection_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+    <plurals name="library_selection_delete_confirm_title">
+        <item quantity="one">Delete this recording?</item>
+        <item quantity="other">Delete %1$d recordings?</item>
+    </plurals>
+    <string name="library_selection_delete_confirm_body">The audio, the transcript and its segments are removed from this phone. This cannot be undone.</string>
+    <string name="library_selection_delete_confirm">Delete</string>
+    <string name="library_selection_delete_keep">Keep them</string>
+    <plurals name="library_selection_delete_partial">
+        <item quantity="one">%1$d of %2$d deleted</item>
+        <item quantity="other">%1$d of %2$d deleted</item>
+    </plurals>
 
     <!-- Session sheet -->
     <string name="session_delete">Delete recording</string>

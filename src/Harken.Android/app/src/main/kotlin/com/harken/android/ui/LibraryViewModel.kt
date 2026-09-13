@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -35,7 +36,36 @@ data class LibraryUiState(
     // Transcribe is disabled on every OTHER "Recorded" row while this is set, since only
     // one on-device transcription runs at a time app-wide.
     val transcribingSessionId: UUID? = null,
+    // True from the long-press that starts multi-select to the Close (X) or a completed
+    // delete. Kept separate from `selectedIds.isNotEmpty()` so deselecting every row (Delete
+    // disabled at zero) does not silently drop the user back to the normal Library header.
+    val selecting: Boolean = false,
+    val selectedIds: Set<UUID> = emptySet(),
+    val toast: String? = null,
 )
+
+/** A session mid-transcription cannot be queued for delete: its row and file are being
+ *  written by the running decode, and deleting out from under that races it (ARC-062's
+ *  neighbourhood of bugs is what this guards against — see the multi-select grill). */
+private fun isSelectable(session: SessionRepository.SessionView) = session.status != "Pending" && session.status != "Running"
+
+/**
+ * The long-press that opens selection. A no-op on a row [isSelectable] refuses.
+ *
+ * Kept out of the ViewModel, like [runLibrarySearch], so the guard on a destructive action is
+ * testable: the window where a row is actually mid-transcription is too short to drive from a
+ * UI test, so this is the only place the rule can be held to.
+ */
+internal fun LibraryUiState.startingSelection(session: SessionRepository.SessionView) =
+    if (!isSelectable(session)) this else copy(selecting = true, selectedIds = setOf(session.id))
+
+/** A tap on a card while already selecting. Refused on the same rows, for the same reason. */
+internal fun LibraryUiState.togglingSelection(session: SessionRepository.SessionView) =
+    if (!selecting || !isSelectable(session)) {
+        this
+    } else {
+        copy(selectedIds = if (session.id in selectedIds) selectedIds - session.id else selectedIds + session.id)
+    }
 
 /**
  * What the search field is showing.
@@ -117,6 +147,58 @@ class LibraryViewModel(
             filePath = filePath,
             title = getApplication<Application>().recordingTitle(session.localTitle, session.partOfDay),
         )
+    }
+
+    /** Long-press on a card. */
+    fun startSelecting(session: SessionRepository.SessionView) {
+        _uiState.update { it.startingSelection(session) }
+    }
+
+    /** A tap on a card while already selecting. */
+    fun toggleSelection(session: SessionRepository.SessionView) {
+        _uiState.update { it.togglingSelection(session) }
+    }
+
+    /** The Close (X) in the selection header. Filter and search are untouched — selection
+     *  is an overlay on top of them, not a replacement for them. */
+    fun clearSelection() {
+        _uiState.update { it.copy(selecting = false, selectedIds = emptySet()) }
+    }
+
+    /**
+     * The confirmed Delete. Each [SessionRepository.purge] runs independently — one file
+     * missing on disk must not stop the rest of the batch from going — and any failures are
+     * reported together once the batch finishes, on the vocabulary [SessionSheetViewModel]
+     * already uses for a single delete's failures.
+     */
+    fun deleteSelected() {
+        val ids = _uiState.value.selectedIds
+        viewModelScope.launch {
+            var failures = 0
+            ids.forEach { id ->
+                repository.purge(id).onFailure { e ->
+                    Log.e(TAG, "Failed deleting session $id", e)
+                    failures++
+                }
+            }
+            val toast =
+                if (failures > 0) {
+                    getApplication<Application>().resources.getQuantityString(
+                        R.plurals.library_selection_delete_partial,
+                        failures,
+                        ids.size - failures,
+                        ids.size,
+                    )
+                } else {
+                    null
+                }
+            _uiState.update { it.copy(selecting = false, selectedIds = emptySet(), toast = toast) }
+        }
+    }
+
+    /** Consumed by the Library's Snackbar host once shown, so it doesn't replay on recomposition. */
+    fun toastShown() {
+        _uiState.update { it.copy(toast = null) }
     }
 
     /**

@@ -14,10 +14,13 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,10 +38,15 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -46,7 +54,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -132,6 +143,13 @@ fun LibraryScreen(
     // arriving at a screen that already holds a failed row is silent — as is a rename, a
     // delete, or the first list Room hands over.
     val haptics = LocalHapticFeedback.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(state.toast) {
+        val message = state.toast ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        viewModel.toastShown()
+    }
+    var confirmDelete by remember { mutableStateOf(false) }
     val statuses = remember(state.sessions) { state.sessions.associate { it.id to it.status } }
     var previousStatuses by remember { mutableStateOf(statuses) }
     LaunchedEffect(statuses) {
@@ -144,128 +162,211 @@ fun LibraryScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize().background(c.screenBg).padding(horizontal = 20.dp, vertical = 6.dp)) {
-        Text(stringResource(R.string.library_title), color = c.text, style = MaterialTheme.typography.headlineSmall)
-        Text(
-            if (search.isActive) {
-                pluralStringResource(R.plurals.library_search_result_count, search.results.size, search.results.size)
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().background(c.screenBg).padding(horizontal = 20.dp, vertical = 6.dp)) {
+            if (state.selecting) {
+                // Search and the filter chips act on a list the user is no longer browsing —
+                // selection is its own mode, not a filter of the normal one, so they hide
+                // rather than sit above a header that no longer matches what they narrow.
+                SelectionHeader(
+                    c = c,
+                    count = state.selectedIds.size,
+                    onClose = viewModel::clearSelection,
+                    onDeleteRequested = { confirmDelete = true },
+                )
             } else {
-                viewModel.subtitle(state, visible)
-            },
-            color = c.textSecondary,
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 1,
-            modifier = Modifier.padding(top = 2.dp, bottom = 14.dp),
-        )
+                Text(stringResource(R.string.library_title), color = c.text, style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    if (search.isActive) {
+                        pluralStringResource(R.plurals.library_search_result_count, search.results.size, search.results.size)
+                    } else {
+                        viewModel.subtitle(state, visible)
+                    },
+                    color = c.textSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 14.dp),
+                )
 
-        SearchField(
-            c = c,
-            query = search.query,
-            onQueryChange = viewModel::onSearchQueryChange,
-            onClear = viewModel::clearSearch,
-        )
+                SearchField(
+                    c = c,
+                    query = search.query,
+                    onQueryChange = viewModel::onSearchQueryChange,
+                    onClear = viewModel::clearSearch,
+                )
 
-        // The tag filters narrow the list behind the search, not the results in front of
-        // it — showing both would offer two ways to reduce one list and answer neither
-        // question well.
-        if (!search.isActive) {
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LibraryFilter.entries.forEach { option ->
-                    FilterChipProto(c, selected = filter == option, label = option.label) { filter = option }
+                // The tag filters narrow the list behind the search, not the results in front of
+                // it — showing both would offer two ways to reduce one list and answer neither
+                // question well.
+                if (!search.isActive) {
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LibraryFilter.entries.forEach { option ->
+                            FilterChipProto(c, selected = filter == option, label = option.label) { filter = option }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+
+            when {
+                search.isActive ->
+                    SearchResults(
+                        c = c,
+                        term = search.query.trim(),
+                        results = search.results,
+                        isSearching = search.isSearching,
+                        onOpen = { id, segmentId -> onOpenSession(id, segmentId, true) },
+                        sharedScope = sharedScope,
+                        transformingSessionId = transformingSessionId,
+                    )
+
+                state.loadError != null ->
+                    ErrorState(
+                        title = stringResource(R.string.library_load_failed_title),
+                        body = stringResource(R.string.library_load_failed_body, state.loadError.orEmpty()),
+                    )
+
+                state.isLoading && state.sessions.isEmpty() ->
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        repeat(4) { SkeletonRow() }
+                    }
+
+                visible.isEmpty() ->
+                    EmptyState(
+                        icon = Icons.Filled.GraphicEq,
+                        title =
+                            if (filter == LibraryFilter.All) {
+                                stringResource(R.string.library_empty_title)
+                            } else {
+                                stringResource(R.string.library_empty_filtered_title, stringResource(filter.label))
+                            },
+                        body =
+                            if (filter == LibraryFilter.All) {
+                                stringResource(R.string.library_empty_body)
+                            } else {
+                                stringResource(R.string.library_empty_filtered_body)
+                            },
+                        actionLabel = if (filter == LibraryFilter.All) stringResource(R.string.library_empty_action) else null,
+                        onAction = if (filter == LibraryFilter.All) onGoToRecord else null,
+                        // A new user whose reason for installing Harken is a folder of files
+                        // they already have was told only to record.
+                        secondaryLabel = if (filter == LibraryFilter.All) stringResource(R.string.import_action) else null,
+                        onSecondary = if (filter == LibraryFilter.All) importPicker.launch else null,
+                    )
+
+                else -> {
+                    // Rows fade/slide in staggered by index on genuine list-load/tab-arrival —
+                    // animatedIds tracks which ones already played so scrolling a row off-screen
+                    // and back (LazyColumn disposes/recomposes it) doesn't replay the entrance.
+                    // Capped at STAGGER_CAP rows so a long list doesn't visibly take a beat to
+                    // finish settling; HarkenMotion collapses to snap() under reduced motion, so
+                    // only the artificial per-row delay needs its own skip.
+                    val animatedIds = remember { mutableStateSetOf<UUID>() }
+                    val reduced = LocalReducedMotion.current
+
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        itemsIndexed(visible, key = { _, it -> it.id }) { index, session ->
+                            val shown = rememberStaggerShown(session.id, index, animatedIds, reduced, STAGGER_CAP, STAGGER_STEP_MS)
+                            AnimatedVisibility(
+                                visible = shown,
+                                enter =
+                                    fadeIn(HarkenMotion.effectsFast()) +
+                                        slideInVertically(HarkenMotion.spatialFast()) { it / 6 },
+                            ) {
+                                SessionCard(
+                                    c = c,
+                                    s = session,
+                                    longestSeconds = longest,
+                                    sessionCount = visible.size,
+                                    isTranscribing = session.id == state.transcribingSessionId,
+                                    onOpen = { onOpenSession(session.id, null, true) },
+                                    onTranscribe = {
+                                        // The same LongPress that acknowledges a recording
+                                        // starting: work has been handed off and the row is
+                                        // about to change under the finger.
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.transcribe(session)
+                                    },
+                                    transcribeEnabled = state.transcribingSessionId == null,
+                                    sharedScope = sharedScope,
+                                    isTransforming = session.id == transformingSessionId,
+                                    selecting = state.selecting,
+                                    selected = session.id in state.selectedIds,
+                                    onLongPress = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.startSelecting(session)
+                                    },
+                                    onToggleSelection = { viewModel.toggleSelection(session) },
+                                )
+                            }
+                        }
+                        item { Spacer(Modifier.height(8.dp)) }
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(14.dp))
 
-        when {
-            search.isActive ->
-                SearchResults(
-                    c = c,
-                    term = search.query.trim(),
-                    results = search.results,
-                    isSearching = search.isSearching,
-                    onOpen = { id, segmentId -> onOpenSession(id, segmentId, true) },
-                    sharedScope = sharedScope,
-                    transformingSessionId = transformingSessionId,
-                )
+        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
+    }
 
-            state.loadError != null ->
-                ErrorState(
-                    title = stringResource(R.string.library_load_failed_title),
-                    body = stringResource(R.string.library_load_failed_body, state.loadError.orEmpty()),
-                )
+    if (confirmDelete) {
+        val count = state.selectedIds.size
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            icon = { Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text(pluralStringResource(R.plurals.library_selection_delete_confirm_title, count, count)) },
+            text = { Text(stringResource(R.string.library_selection_delete_confirm_body)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        confirmDelete = false
+                        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                        viewModel.deleteSelected()
+                    },
+                    shape = PillShape,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        ),
+                ) { Text(stringResource(R.string.library_selection_delete_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.library_selection_delete_keep)) }
+            },
+        )
+    }
+}
 
-            state.isLoading && state.sessions.isEmpty() ->
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    repeat(4) { SkeletonRow() }
-                }
-
-            visible.isEmpty() ->
-                EmptyState(
-                    icon = Icons.Filled.GraphicEq,
-                    title =
-                        if (filter == LibraryFilter.All) {
-                            stringResource(R.string.library_empty_title)
-                        } else {
-                            stringResource(R.string.library_empty_filtered_title, stringResource(filter.label))
-                        },
-                    body =
-                        if (filter == LibraryFilter.All) {
-                            stringResource(R.string.library_empty_body)
-                        } else {
-                            stringResource(R.string.library_empty_filtered_body)
-                        },
-                    actionLabel = if (filter == LibraryFilter.All) stringResource(R.string.library_empty_action) else null,
-                    onAction = if (filter == LibraryFilter.All) onGoToRecord else null,
-                    // A new user whose reason for installing Harken is a folder of files
-                    // they already have was told only to record.
-                    secondaryLabel = if (filter == LibraryFilter.All) stringResource(R.string.import_action) else null,
-                    onSecondary = if (filter == LibraryFilter.All) importPicker.launch else null,
-                )
-
-            else -> {
-                // Rows fade/slide in staggered by index on genuine list-load/tab-arrival —
-                // animatedIds tracks which ones already played so scrolling a row off-screen
-                // and back (LazyColumn disposes/recomposes it) doesn't replay the entrance.
-                // Capped at STAGGER_CAP rows so a long list doesn't visibly take a beat to
-                // finish settling; HarkenMotion collapses to snap() under reduced motion, so
-                // only the artificial per-row delay needs its own skip.
-                val animatedIds = remember { mutableStateSetOf<UUID>() }
-                val reduced = LocalReducedMotion.current
-
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    itemsIndexed(visible, key = { _, it -> it.id }) { index, session ->
-                        val shown = rememberStaggerShown(session.id, index, animatedIds, reduced, STAGGER_CAP, STAGGER_STEP_MS)
-                        AnimatedVisibility(
-                            visible = shown,
-                            enter =
-                                fadeIn(HarkenMotion.effectsFast()) +
-                                    slideInVertically(HarkenMotion.spatialFast()) { it / 6 },
-                        ) {
-                            SessionCard(
-                                c = c,
-                                s = session,
-                                longestSeconds = longest,
-                                sessionCount = visible.size,
-                                isTranscribing = session.id == state.transcribingSessionId,
-                                onOpen = { onOpenSession(session.id, null, true) },
-                                onTranscribe = {
-                                    // The same LongPress that acknowledges a recording
-                                    // starting: work has been handed off and the row is
-                                    // about to change under the finger.
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    viewModel.transcribe(session)
-                                },
-                                transcribeEnabled = state.transcribingSessionId == null,
-                                sharedScope = sharedScope,
-                                isTransforming = session.id == transformingSessionId,
-                            )
-                        }
-                    }
-                    item { Spacer(Modifier.height(8.dp)) }
-                }
-            }
+/** The header while multi-select is active: a count, a way out, and the one action selecting
+ *  exists for. Search and the filter chips are hidden by the caller for the same span. */
+@Composable
+private fun SelectionHeader(
+    c: ProtoColors,
+    count: Int,
+    onClose: () -> Unit,
+    onDeleteRequested: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onClose) {
+            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.library_selection_close), tint = c.text)
+        }
+        Text(
+            pluralStringResource(R.plurals.library_selection_count, count, count),
+            color = c.text,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f).padding(start = 4.dp),
+        )
+        IconButton(onClick = onDeleteRequested, enabled = count > 0) {
+            Icon(
+                Icons.Filled.Delete,
+                contentDescription = stringResource(R.string.library_selection_delete),
+                tint = if (count > 0) MaterialTheme.colorScheme.error else c.textSecondary,
+            )
         }
     }
 }
@@ -549,6 +650,7 @@ private fun StatusPill(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SessionCard(
     c: ProtoColors,
@@ -561,6 +663,10 @@ private fun SessionCard(
     transcribeEnabled: Boolean,
     sharedScope: SharedTransitionScope? = null,
     isTransforming: Boolean = false,
+    selecting: Boolean = false,
+    selected: Boolean = false,
+    onLongPress: () -> Unit = {},
+    onToggleSelection: () -> Unit = {},
 ) {
     // isTranscribing (from TranscriptionCoordinator.activeSessionId) is set the instant
     // Transcribe is tapped; s.status flips Recorded -> Pending/Running only once Room's
@@ -610,7 +716,14 @@ private fun SessionCard(
             ).background(c.card, MaterialTheme.shapes.large)
             .padding(16.dp),
     ) {
-        Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onOpen), verticalAlignment = Alignment.Top) {
+        Row(
+            Modifier.fillMaxWidth().combinedClickable(
+                role = Role.Button,
+                onLongClick = onLongPress,
+                onClick = if (selecting) onToggleSelection else onOpen,
+            ),
+            verticalAlignment = Alignment.Top,
+        ) {
             Column(Modifier.weight(1f)) {
                 Text(
                     s.displayTitle(),
@@ -650,6 +763,17 @@ private fun SessionCard(
             // spring, alpha on effects, plus a SizeTransform because the Transcribe button
             // and the two chips are different widths and the row would otherwise snap to
             // the new width under a fade.
+            if (selecting) {
+                // Selection replaces the Transcribe/status slot rather than sitting beside
+                // it — transcribing one row mid-multi-delete mixes two intents the sheet
+                // was not built to run at once.
+                Icon(
+                    if (selected) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
+                    contentDescription = null,
+                    tint = if (selected) c.accent else c.textSecondary,
+                )
+                return@Row
+            }
             val slotSpatial = HarkenMotion.spatialFast<Float>()
             val slotEffects = HarkenMotion.effectsFast<Float>()
             val slotResize = HarkenMotion.spatialFast<IntSize>()
