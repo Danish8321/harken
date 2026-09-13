@@ -4,7 +4,61 @@ Opened 2026-08-28. Two-axis review of `git diff master...HEAD` (fixed point `mas
 2f8c21a, 16 commits, 32 non-vendored files). Vendored `src/Harken.Android/app/src/main/cpp/whisper`
 excluded — third-party, not ours to review.
 
-Status: open, none actioned yet.
+Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, 9 are fixed,
+1 is moot, 4 are partial and 4 remain open — S8 and SP7 were fixed the same day as ARC-063.
+The verdicts are below; the original text of each finding is kept underneath, unedited, so
+the two can be read against each other.
+
+## Re-audit, 2026-09-13
+
+| | Verdict | What changed, or what is left |
+|---|---|---|
+| S1 | fixed | `README.md:3-4,60-63` now describes on-device transcription and the 2-step onboarding. |
+| S2 | partial | `TranscriptionCoordinatorTest` and `ModelDownloadManagerTest` exist; `OnDeviceTranscriber` still has none (JNI-bound). |
+| S3 | fixed | SHA-256 verification plus a content-length truncation check — `ModelDownloadManager.kt:222-251,397-401`. |
+| S4 | open | `OnboardingScreen.kt:87-107` and `SettingsViewModel.kt:129-150` still repeat the same collect block. |
+| S5 | partial | Leaf logic factored into `downloadTo`/`installPartial`/`verifyPartial`; `ensureModel()` and `downloadProgress()` still each wrap it themselves. |
+| S6 | fixed | `AzureBatch` and `setTranscriptionProvider` are gone from the source entirely. |
+| S7 | open | No `TranscriptionStatus` enum; literals compared in 6 files. See the note below — part of the vocabulary is dead. |
+| S8 | fixed | Same defect as SP7, fixed with it as ARC-063. |
+| S9 | open | `TranscriptionCoordinator.transcribe(...)` still takes its three collaborators per call (`TranscriptionCoordinator.kt:67-75`). |
+| S10 | open | Still `pendingUploadPath` (`SessionDao.kt:262`); the migration comment at `:218-227` already admits the name stopped meaning what it says. |
+| SP1 | partial | Code half gone; `docs/adr/0011-on-device-transcription.md:52-55` still claims Azure is selectable through a provider picker that does not exist. |
+| SP2 | partial | Superseded rather than fixed: onboarding is now 2 steps with no connect step at all, so the plan (`slice-09-on-device-transcription.md:106`, "stays lazy") and ADR §3 are both still wrong, just differently. |
+| SP3 | fixed | No automatic-transcription copy survives in `strings.xml`. |
+| SP4 | moot | Branch-hygiene complaint about work merged long ago. |
+| SP5 | partial | Playback sub-point fixed — `SessionSheetViewModel.kt:158` gates on local file existence only. `softDelete` is still absent; the scope complaint itself is history. |
+| SP6 | fixed | `TranscriptionCoordinator.kt:178` reads the real WAV length via `WavFormat.durationSeconds`, not segment offsets. |
+| SP7 | fixed | Confirmed by reading the code, then fixed as ARC-063 — see below. |
+| SP8 | fixed | `onDeviceTranscriber.release()` now runs in the `finally` of every attempt (`TranscriptionCoordinator.kt:152`). |
+
+### S8 / SP7 were one defect, and it was the sharpest one left — fixed as ARC-063
+
+`ModelDownloadManager.downloadProgress()` (`ModelDownloadManager.kt:282-309`) runs the entire
+transfer inside `withContext(Dispatchers.IO)` within the `callbackFlow` block, then calls
+`close()` at :307, leaving `awaitClose {}` at :308 unreachable. The transfer itself is a
+blocking `input.read()` loop (`streamTo`, :384) with no cancellation check, and the OkHttp
+call is never cancelled. A blocking read is not a suspension point, so cancelling the
+collector does not stop the download — it runs to completion regardless, and the user has no
+way to abort 148 MB once it starts. Partially softened by resume support (the `Range` header
+at :355), which at least means an abandoned transfer is not repaid in full next time.
+
+Fixed 2026-09-13 — `.scratch/issues/ARC-063-a-model-download-cannot-be-cancelled.md`.
+`callbackFlow` became `flow { … }.flowOn(Dispatchers.IO)`, the read loop checks
+`ensureActive()` between chunks, the OkHttp call is cancelled with the coroutine, and a
+cancelled transfer reports `outcome=cancelled` rather than `failed`. Confirmed on the
+emulator: Back during a Settings update froze the partial at 96,107,838 of 147,964,211 bytes,
+and the next attempt resumed from there with a 206.
+
+### S7: part of the status vocabulary is unreachable
+
+`"Pending"` is compared against in `LibraryViewModel.kt:50,215` and `LibraryScreen.kt:158,675`
+and is **written nowhere in the codebase**. The statuses anything actually writes are
+`"Recorded"` (`SessionRepository.kt:145`) and, from SQL, `'Running'` / `'Succeeded'` /
+`'Failed'` (`SessionDao.kt:80,86,114,135`). So a guard on a destructive action — the
+multi-select delete added in `2e204ce` — is half-written against a state the app cannot
+produce, and nothing about reading the code says so. That is the concrete cost S7 predicted:
+the vocabulary drifted and no single place defines it.
 
 ---
 
@@ -141,9 +195,25 @@ The native model handle is held for process lifetime. Relevant to
 
 ## Summary
 
+*Superseded by the re-audit at the top of this file — kept for the record.*
+
 Standards: 10 findings (3 hard, 7 judgement). Worst — S1, README contradicting the branch's
 own architecture.
 
 Spec: 8 findings. Worst — SP6, wrong duration shipping visibly incorrect values to users.
 
 Not yet triaged into merge-blockers vs. follow-ups.
+
+## What is actually left, ranked (2026-09-13)
+
+1. ~~**S8 / SP7** — an in-flight model download cannot be cancelled. The only one with a
+   user-facing consequence.~~ Fixed as ARC-063 on 2026-09-13.
+2. **S7** — status as a raw string, with a dead `"Pending"` branch now sitting inside a
+   delete guard. Now the top item.
+3. **SP1, SP2** — ADR-0011 and the slice-09 plan describe a system that no longer exists
+   (a provider picker, a connect step, a lazy download). Documentation drift only, but these
+   are the files a future reader would trust.
+4. **S4, S9, S10, S5, S2** — maintainability: duplicated download collection, per-call
+   collaborators, a field whose name its own migration comment disowns, wrapper duplication,
+   and the missing `OnDeviceTranscriber` test.
+5. **SP4, SP5** — moot, or history.
