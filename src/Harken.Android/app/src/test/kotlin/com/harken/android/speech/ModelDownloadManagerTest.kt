@@ -1,13 +1,22 @@
 package com.harken.android.speech
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
+import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.BufferedSource
+import okio.buffer
+import okio.source
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -16,6 +25,8 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
+import java.net.HttpURLConnection
 import java.net.SocketException
 import java.net.UnknownHostException
 import java.security.MessageDigest
@@ -209,6 +220,172 @@ class ModelDownloadManagerTest {
             assertEquals("the second caller started its own download", 1, requests.get())
             assertEquals(4096, File(results.first().getOrThrow()).length().toInt())
         }
+
+    // --- cancellation (ARC-063) ---
+
+    /**
+     * Serves [served] a chunk at a time with a pause between chunks, honouring `Range`, and
+     * records how many bytes it has handed over and what ranges it was asked for.
+     *
+     * The pause is what makes the test about cancellation at all: a body delivered in one
+     * go completes before a collector could ever be cancelled, which is precisely why this
+     * defect survived — every existing test downloads 4 KB instantly.
+     */
+    private fun clientStreamingSlowly(
+        served: ByteArray,
+        delivered: AtomicInteger,
+        ranges: MutableList<String?> = mutableListOf(),
+        chunkDelayMs: Long = 20,
+    ) = OkHttpClient
+        .Builder()
+        .addInterceptor { chain ->
+            val range = chain.request().header("Range")
+            ranges += range
+            val from = range?.removePrefix("bytes=")?.removeSuffix("-")?.toInt() ?: 0
+            val rest = served.copyOfRange(from, served.size)
+            Response
+                .Builder()
+                .request(chain.request())
+                .protocol(Protocol.HTTP_1_1)
+                .code(if (from > 0) HttpURLConnection.HTTP_PARTIAL else 200)
+                .message("OK")
+                .body(slowBody(rest, delivered, chunkDelayMs))
+                .build()
+        }.build()
+
+    private fun slowBody(
+        bytes: ByteArray,
+        delivered: AtomicInteger,
+        chunkDelayMs: Long,
+    ): ResponseBody {
+        val stream =
+            object : InputStream() {
+                private var position = 0
+
+                override fun read(): Int {
+                    val one = ByteArray(1)
+                    return if (read(one, 0, 1) == -1) -1 else one[0].toInt() and 0xff
+                }
+
+                override fun read(
+                    destination: ByteArray,
+                    offset: Int,
+                    length: Int,
+                ): Int {
+                    if (position >= bytes.size) return -1
+                    Thread.sleep(chunkDelayMs)
+                    val count = minOf(length, CHUNK_BYTES, bytes.size - position)
+                    System.arraycopy(bytes, position, destination, offset, count)
+                    position += count
+                    delivered.addAndGet(count)
+                    return count
+                }
+            }
+        return object : ResponseBody() {
+            override fun contentType() = "application/octet-stream".toMediaType()
+
+            override fun contentLength() = bytes.size.toLong()
+
+            override fun source(): BufferedSource = stream.source().buffer()
+        }
+    }
+
+    /** Starts a download and cancels the collector once [afterBytes] have arrived. */
+    private suspend fun cancelMidDownload(
+        manager: ModelDownloadManager,
+        delivered: AtomicInteger,
+        afterBytes: Int,
+    ) = coroutineScope {
+        val job = launch(Dispatchers.Default) { manager.downloadProgress().collect { } }
+        while (delivered.get() < afterBytes) delay(5)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `cancelling the collector stops the transfer instead of finishing it`() =
+        runBlocking {
+            val served = ByteArray(CHUNK_BYTES * 40) { it.toByte() }
+            val delivered = AtomicInteger(0)
+            val manager = ModelDownloadManager(temp.root, clientStreamingSlowly(served, delivered), sha256Of(served))
+
+            cancelMidDownload(manager, delivered, afterBytes = CHUNK_BYTES * 2)
+            val atCancel = delivered.get()
+            // Long enough for several more chunks, had anything still been reading.
+            delay(300)
+
+            assertEquals("the transfer kept running after the collector went away", atCancel, delivered.get())
+            assertTrue("the whole file was fetched anyway", atCancel < served.size)
+        }
+
+    @Test
+    fun `a cancelled download is not treated as a failed one`() =
+        runBlocking {
+            val served = ByteArray(CHUNK_BYTES * 40) { it.toByte() }
+            val delivered = AtomicInteger(0)
+            val manager = ModelDownloadManager(temp.root, clientStreamingSlowly(served, delivered), sha256Of(served))
+
+            val thrown =
+                runCatching { cancelMidDownload(manager, delivered, afterBytes = CHUNK_BYTES * 2) }
+                    .exceptionOrNull()
+
+            // Anything other than cancellation reaches the user as "the download failed",
+            // which is what leaving a screen must never look like.
+            assertTrue(
+                "expected cancellation, got $thrown",
+                thrown == null || thrown is CancellationException,
+            )
+            assertFalse("a half-transferred file was installed as the model", manager.isModelPresent())
+        }
+
+    /**
+     * The progress path is stopped by `emit` itself, which suspends. [ModelDownloadManager.ensureModel]
+     * emits nothing — it is what [TranscriptionCoordinator] calls — so the only thing that
+     * can stop it is the check inside the read loop. Tested separately for exactly that
+     * reason: without it this test downloads all 320 KB after the caller has gone.
+     */
+    @Test
+    fun `cancelling ensureModel stops the transfer, with no progress emission to catch it`() =
+        runBlocking {
+            val served = ByteArray(CHUNK_BYTES * 40) { it.toByte() }
+            val delivered = AtomicInteger(0)
+            val manager = ModelDownloadManager(temp.root, clientStreamingSlowly(served, delivered), sha256Of(served))
+
+            val job = launch(Dispatchers.Default) { manager.ensureModel() }
+            while (delivered.get() < CHUNK_BYTES * 2) delay(5)
+            job.cancelAndJoin()
+            val atCancel = delivered.get()
+            delay(300)
+
+            assertEquals("the transfer kept running after its caller was cancelled", atCancel, delivered.get())
+            assertTrue("the whole file was fetched anyway", atCancel < served.size)
+            assertFalse(manager.isModelPresent())
+        }
+
+    @Test
+    fun `the attempt after a cancel resumes from the bytes already on disk`() =
+        runBlocking {
+            val served = ByteArray(CHUNK_BYTES * 40) { it.toByte() }
+            val delivered = AtomicInteger(0)
+            val ranges = mutableListOf<String?>()
+            val manager =
+                ModelDownloadManager(temp.root, clientStreamingSlowly(served, delivered, ranges), sha256Of(served))
+
+            cancelMidDownload(manager, delivered, afterBytes = CHUNK_BYTES * 2)
+
+            val tmp = File(File(temp.root, "models"), "${ModelDownloadManager.MODEL_FILE_NAME}.tmp")
+            val keptBytes = tmp.length()
+            assertTrue("a cancel threw away the resume point", keptBytes > 0)
+            assertTrue("the partial holds more than was ever transferred", keptBytes < served.size)
+
+            val result = manager.ensureModel()
+
+            assertTrue("the resumed download did not complete: ${result.exceptionOrNull()}", result.isSuccess)
+            assertEquals(listOf(null, "bytes=$keptBytes-"), ranges)
+            assertEquals(served.size.toLong(), File(result.getOrThrow()).length())
+        }
 }
+
+/** One read from the fake body — small enough that several land before a cancel is noticed. */
+private const val CHUNK_BYTES = 8 * 1024
 
 private const val NOW = 1_756_900_000_000L

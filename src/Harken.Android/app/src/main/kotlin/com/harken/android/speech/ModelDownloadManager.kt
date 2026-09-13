@@ -4,12 +4,16 @@ import android.content.Context
 import android.util.Log
 import com.harken.android.telemetry.Telemetry
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -280,37 +284,36 @@ class ModelDownloadManager(
      * attempt happened to succeed — verified on a Nothing Phone 2 before this changed.
      */
     fun downloadProgress(replaceExisting: Boolean = false): Flow<Int> =
-        callbackFlow {
+        flow {
             if (modelFile.exists() && !replaceExisting) {
-                trySend(100)
-                close()
-                return@callbackFlow
+                emit(100)
+                return@flow
             }
 
-            withContext(Dispatchers.IO) {
-                runCatchingDownload {
-                    downloadLock.withLock {
-                        // An update that starts while a first-run download is still running
-                        // waits for it, and then finds the model already installed.
-                        if (modelFile.exists() && !replaceExisting) return@withLock
-                        modelsDir.mkdirs()
-                        downloadTo(partialFile) { percent -> trySend(percent) }
-                        installPartial()
-                    }
-                }.onFailure { e ->
-                    Log.e(TAG, "downloadProgress failed", e)
-                    close(e)
-                    return@withContext
+            try {
+                downloadLock.withLock {
+                    // An update that starts while a first-run download is still running
+                    // waits for it, and then finds the model already installed.
+                    if (modelFile.exists() && !replaceExisting) return@withLock
+                    modelsDir.mkdirs()
+                    downloadTo(partialFile) { percent -> emit(percent) }
+                    installPartial()
                 }
+            } catch (e: CancellationException) {
+                // The collector went away — the user left onboarding or Settings. The
+                // transfer stops with it, which is the whole reason this is a plain `flow`
+                // rather than the callbackFlow it used to be: `emit` is a cancellation
+                // point, and the channel's `trySend` was not (ARC-063).
+                throw e
+            } catch (e: Throwable) {
+                Log.e(TAG, "downloadProgress failed", e)
+                throw e
             }
+        }.flowOn(Dispatchers.IO)
 
-            close()
-            awaitClose { }
-        }
-
-    private fun downloadTo(
+    private suspend fun downloadTo(
         destination: File,
-        onProgress: ((Int) -> Unit)? = null,
+        onProgress: (suspend (Int) -> Unit)? = null,
     ) {
         downloadInFlight.set(true)
         val startNanos = System.nanoTime()
@@ -323,6 +326,18 @@ class ModelDownloadManager(
                 "bytes" to destination.length(),
                 "elapsedMs" to Telemetry.elapsedMsSince(startNanos),
             )
+        } catch (e: CancellationException) {
+            // Told apart from a failure rather than folded into one: nothing went wrong, the
+            // user left, and the bytes on disk are still the resume point the next attempt
+            // will use. Counting this as "failed" made an abandoned download look like a
+            // broken server in the numbers (ARC-063).
+            Telemetry.event(
+                "model_download_finished",
+                "outcome" to "cancelled",
+                "bytes" to destination.length(),
+                "elapsedMs" to Telemetry.elapsedMsSince(startNanos),
+            )
+            throw e
         } catch (e: Throwable) {
             // Reported here rather than at the call sites because both of them wrap the
             // download in runCatching, which cannot tell a cancelled download from a
@@ -340,9 +355,9 @@ class ModelDownloadManager(
         }
     }
 
-    private fun streamTo(
+    private suspend fun streamTo(
         destination: File,
-        onProgress: ((Int) -> Unit)?,
+        onProgress: (suspend (Int) -> Unit)?,
     ) {
         // Resume where a previous attempt stopped. The model is ~148 MB, and restarting
         // from zero on every dropped connection is how a download on a flaky mobile link
@@ -355,7 +370,32 @@ class ModelDownloadManager(
                 .apply { if (alreadyHave > 0) header("Range", "bytes=$alreadyHave-") }
                 .build()
 
-        client.newCall(request).execute().use { response ->
+        val call = client.newCall(request)
+        // A read parked on a socket that has stopped delivering is not a suspension point,
+        // so cancelling the collector alone would leave this thread inside `input.read()`
+        // until the OS timed it out. Cancelling the call closes the socket underneath it,
+        // which is what actually ends a stalled transfer (ARC-063).
+        val cancelsCall = currentCoroutineContext()[Job]?.invokeOnCompletion { if (it != null) call.cancel() }
+        try {
+            call.streamInto(destination, alreadyHave, onProgress)
+        } catch (e: IOException) {
+            // OkHttp raises a plain IOException once the call above is cancelled. Left
+            // alone it would be classified as a dropped connection and shown to the user as
+            // a failed download; `ensureActive` turns it back into the cancellation it is.
+            currentCoroutineContext().ensureActive()
+            throw e
+        } finally {
+            cancelsCall?.dispose()
+        }
+    }
+
+    /** The transfer itself, once [streamTo] has arranged for it to be cancellable. */
+    private suspend fun Call.streamInto(
+        destination: File,
+        alreadyHave: Long,
+        onProgress: (suspend (Int) -> Unit)?,
+    ) {
+        execute().use { response ->
             if (!response.isSuccessful) {
                 throw IOException("Model download failed: HTTP ${response.code}")
             }
@@ -382,6 +422,10 @@ class ModelDownloadManager(
                     var bytesWritten = startAt
                     var read: Int
                     while (input.read(buffer).also { read = it } != -1) {
+                        // Between chunks, so backing out of the screen stops the transfer
+                        // within 64 KB rather than at the end of 148 MB. The chunk just read
+                        // is dropped: the next attempt resumes from what is on disk.
+                        currentCoroutineContext().ensureActive()
                         output.write(buffer, 0, read)
                         bytesWritten += read
                         if (onProgress != null && expectedTotal > 0) {
