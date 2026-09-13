@@ -1,5 +1,9 @@
 package com.harken.android.data
 
+import com.harken.android.data.TranscriptionStatus.Failed
+import com.harken.android.data.TranscriptionStatus.Recorded
+import com.harken.android.data.TranscriptionStatus.Running
+import com.harken.android.data.TranscriptionStatus.Succeeded
 import com.harken.android.data.local.HarkenDatabase
 import com.harken.android.data.local.SegmentRow
 import com.harken.android.data.local.SessionRow
@@ -53,7 +57,7 @@ class SessionRepository(
         val startedAt: String,
         val durationSeconds: Int?,
         val segmentCount: Int,
-        val status: String?,
+        val status: TranscriptionStatus,
         val failureReason: String?,
         val tags: List<String>,
         /** Where the WAV is, or null once it has been deleted. */
@@ -108,8 +112,8 @@ class SessionRepository(
             )
         }
 
-    /** Flips a "Recorded" (recorded, not yet transcribed) session to "Running". */
-    override suspend fun startLocalTranscription(id: UUID) = dao.markLocalTranscriptionStarted(id)
+    /** Flips a [TranscriptionStatus.Recorded] session to [TranscriptionStatus.Running]. */
+    override suspend fun startLocalTranscription(id: UUID) = dao.markLocalTranscriptionStarted(id, Running.stored)
 
     /** Local rename. Passing null restores the derived name. */
     suspend fun rename(
@@ -142,7 +146,7 @@ class SessionRepository(
                 startedAt = startedAt,
                 endedAt = endedAt,
                 segmentCount = 0,
-                transcriptionStatus = "Recorded",
+                transcriptionStatus = Recorded.stored,
                 transcriptionFailureReason = null,
                 // Known here, not only after transcription: the capture's own length. Left
                 // null, every un-transcribed session read "0m 00s" in the Library.
@@ -176,6 +180,7 @@ class SessionRepository(
                 )
             },
             durationSeconds,
+            Succeeded.stored,
         )
     }
 
@@ -183,7 +188,7 @@ class SessionRepository(
     override suspend fun failLocal(
         id: UUID,
         reason: String,
-    ) = dao.failLocalTranscription(id, reason)
+    ) = dao.failLocalTranscription(id, reason, Failed.stored)
 
     /**
      * Settles transcriptions the process died in the middle of, so they offer a retry
@@ -191,7 +196,7 @@ class SessionRepository(
      * reconciliation sweeps.
      */
     suspend fun failInterruptedTranscriptions(reason: String): Int {
-        val stuck = dao.failInterruptedTranscriptions(reason)
+        val stuck = dao.failInterruptedTranscriptions(reason, Failed.stored, Running.stored)
         if (stuck > 0) {
             Telemetry.event("transcription_interrupted_recovered", "sessions" to stuck)
         }
@@ -283,7 +288,7 @@ class SessionRepository(
             startedAt = row.startedAt,
             durationSeconds = row.durationSeconds,
             segmentCount = row.segmentCount,
-            status = row.transcriptionStatus,
+            status = TranscriptionStatus.of(row.transcriptionStatus),
             failureReason = row.transcriptionFailureReason,
             tags = row.localTags.split(',').filter { it.isNotBlank() },
             audioPath = row.audioPath,

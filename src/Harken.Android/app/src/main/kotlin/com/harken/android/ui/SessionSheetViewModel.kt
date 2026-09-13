@@ -18,6 +18,7 @@ import com.harken.android.container
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.SpeakerHeuristic
 import com.harken.android.data.TranscriptText
+import com.harken.android.data.TranscriptionStatus
 import com.harken.android.recordingTitle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -53,7 +54,8 @@ data class SessionSheetUiState(
     val transcriptMeta: String = "",
     val voiceCount: Int = 1,
     val durationSeconds: Int = 0,
-    val status: String? = null,
+    /** Null until the session has been read — "not loaded yet", not "unknown status" (ARC-064). */
+    val status: TranscriptionStatus? = null,
     val toast: String? = null,
     val loadError: String? = null,
     /** The WAV this session was recorded to, or null once it is no longer on disk. */
@@ -108,7 +110,7 @@ data class SessionContent(
     val transcriptMeta: String,
     val voiceCount: Int,
     val durationSeconds: Int,
-    val status: String?,
+    val status: TranscriptionStatus?,
     val audioPath: String?,
 )
 

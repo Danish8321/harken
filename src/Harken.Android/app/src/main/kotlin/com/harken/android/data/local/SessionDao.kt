@@ -77,13 +77,20 @@ interface SessionDao {
         replaceSegments(segments)
     }
 
-    @Query("UPDATE sessions SET transcriptionStatus = 'Running' WHERE id = :id")
-    suspend fun markLocalTranscriptionStarted(id: UUID)
+    // Every status below is bound, never a literal. `TranscriptionStatus` is the only
+    // definition of what these strings are, and a literal here would be a second one
+    // (ARC-064) — with no test able to catch the two disagreeing, since Room cannot run on
+    // this repo's JVM test runner.
+    @Query("UPDATE sessions SET transcriptionStatus = :running WHERE id = :id")
+    suspend fun markLocalTranscriptionStarted(
+        id: UUID,
+        running: String,
+    )
 
     @Query(
         """
         UPDATE sessions SET
-            transcriptionStatus = 'Succeeded',
+            transcriptionStatus = :succeeded,
             segmentCount = :segmentCount,
             durationSeconds = :durationSeconds
         WHERE id = :id
@@ -93,6 +100,7 @@ interface SessionDao {
         id: UUID,
         segmentCount: Int,
         durationSeconds: Int,
+        succeeded: String,
     )
 
     // Same flicker-avoidance reasoning as replaceSegmentsAtomically: status/segmentCount
@@ -103,15 +111,16 @@ interface SessionDao {
         id: UUID,
         segments: List<SegmentRow>,
         durationSeconds: Int,
+        succeeded: String,
     ) {
-        markLocalTranscriptionSucceeded(id, segments.size, durationSeconds)
+        markLocalTranscriptionSucceeded(id, segments.size, durationSeconds, succeeded)
         replaceSegmentsAtomically(id, segments)
     }
 
     @Query(
         """
         UPDATE sessions SET
-            transcriptionStatus = 'Failed',
+            transcriptionStatus = :failed,
             transcriptionFailureReason = :reason
         WHERE id = :id
         """,
@@ -119,6 +128,7 @@ interface SessionDao {
     suspend fun failLocalTranscription(
         id: UUID,
         reason: String,
+        failed: String,
     )
 
     /**
@@ -132,12 +142,16 @@ interface SessionDao {
     @Query(
         """
         UPDATE sessions SET
-            transcriptionStatus = 'Failed',
+            transcriptionStatus = :failed,
             transcriptionFailureReason = :reason
-        WHERE transcriptionStatus = 'Running'
+        WHERE transcriptionStatus = :running
         """,
     )
-    suspend fun failInterruptedTranscriptions(reason: String): Int
+    suspend fun failInterruptedTranscriptions(
+        reason: String,
+        failed: String,
+        running: String,
+    ): Int
 
     @Query("DELETE FROM sessions WHERE id = :id")
     suspend fun deleteSession(id: UUID)

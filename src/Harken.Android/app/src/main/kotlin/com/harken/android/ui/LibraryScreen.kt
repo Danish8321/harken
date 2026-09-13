@@ -89,6 +89,11 @@ import com.harken.android.R
 import com.harken.android.data.SearchQuery
 import com.harken.android.data.SessionRepository
 import com.harken.android.data.TranscriptText
+import com.harken.android.data.TranscriptionStatus
+import com.harken.android.data.TranscriptionStatus.Failed
+import com.harken.android.data.TranscriptionStatus.Recorded
+import com.harken.android.data.TranscriptionStatus.Running
+import com.harken.android.data.TranscriptionStatus.Succeeded
 import com.harken.android.displayTitle
 import com.harken.android.ui.components.EmptyState
 import com.harken.android.ui.components.ErrorState
@@ -155,10 +160,10 @@ fun LibraryScreen(
     LaunchedEffect(statuses) {
         val before = previousStatuses
         previousStatuses = statuses
-        val settled = statuses.filterKeys { before[it] == "Running" || before[it] == "Pending" }
+        val settled = statuses.filterKeys { before[it] == TranscriptionStatus.Running }
         when {
-            settled.any { it.value == "Failed" } -> haptics.performHapticFeedback(HapticFeedbackType.Reject)
-            settled.any { it.value == "Succeeded" } -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            settled.any { it.value == TranscriptionStatus.Failed } -> haptics.performHapticFeedback(HapticFeedbackType.Reject)
+            settled.any { it.value == TranscriptionStatus.Succeeded } -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         }
     }
 
@@ -279,7 +284,7 @@ fun LibraryScreen(
                                     s = session,
                                     longestSeconds = longest,
                                     sessionCount = visible.size,
-                                    isTranscribing = session.id == state.transcribingSessionId,
+                                    status = state.statusOf(session),
                                     onOpen = { onOpenSession(session.id, null, true) },
                                     onTranscribe = {
                                         // The same LongPress that acknowledges a recording
@@ -657,7 +662,8 @@ private fun SessionCard(
     s: SessionRepository.SessionView,
     longestSeconds: Int,
     sessionCount: Int,
-    isTranscribing: Boolean,
+    /** Where the row actually is — [LibraryUiState.statusOf], not the raw stored status. */
+    status: TranscriptionStatus,
     onOpen: () -> Unit,
     onTranscribe: () -> Unit,
     transcribeEnabled: Boolean,
@@ -668,21 +674,18 @@ private fun SessionCard(
     onLongPress: () -> Unit = {},
     onToggleSelection: () -> Unit = {},
 ) {
-    // isTranscribing (from TranscriptionCoordinator.activeSessionId) is set the instant
-    // Transcribe is tapped; s.status flips Recorded -> Pending/Running only once Room's
-    // write lands, one coroutine hop later. Without the OR, that gap showed a disabled
-    // Transcribe button instead of the Transcribing chip.
-    val transcribing = isTranscribing || s.status == "Pending" || s.status == "Running"
-    val recorded = s.status == "Recorded" && !isTranscribing
-    val failed = s.status == "Failed"
+    val transcribing = status == Running
     // A failed transcription offers the same action as one never started. Showing only a
     // "kept on device" chip left the recording with no way forward at all, which is what an
     // interrupted transcription looks like after recovery.
+    //
+    // Exhaustive on purpose: the `else` this replaced reported Transcribed for anything it
+    // did not recognise, including the "Pending" nothing ever wrote (ARC-064).
     val action =
-        when {
-            recorded || failed -> CardAction.Transcribe
-            transcribing -> CardAction.Transcribing
-            else -> CardAction.Transcribed
+        when (status) {
+            Recorded, Failed -> CardAction.Transcribe
+            Running -> CardAction.Transcribing
+            Succeeded -> CardAction.Transcribed
         }
     val metaLine =
         buildString {
@@ -744,7 +747,7 @@ private fun SessionCard(
                 // Why it failed, not just that it can be retried. The reason is recorded on
                 // the session by every failure path, and until it was rendered here the user
                 // saw a Transcribe button with no account of what went wrong.
-                if (failed) {
+                if (status == Failed) {
                     s.failureReason?.let { reason ->
                         Text(
                             reason,

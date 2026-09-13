@@ -2,6 +2,7 @@ package com.harken.android.data.local
 
 import androidx.room.Room
 import androidx.test.platform.app.InstrumentationRegistry
+import com.harken.android.data.TranscriptionStatus
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -33,7 +34,7 @@ class SessionDeleteTest {
                     startedAt = "2026-09-01T10:00:00Z",
                     endedAt = null,
                     segmentCount = 2,
-                    transcriptionStatus = "Succeeded",
+                    transcriptionStatus = TranscriptionStatus.Succeeded.stored,
                     transcriptionFailureReason = null,
                     durationSeconds = 60,
                     localTitle = "Deleted later",

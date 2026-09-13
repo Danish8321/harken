@@ -97,6 +97,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harken.android.R
+import com.harken.android.data.TranscriptionStatus
 import com.harken.android.ui.components.HarkenErrorDialog
 import com.harken.android.ui.components.InkSurface
 import com.harken.android.ui.components.StatusChip
@@ -317,7 +318,7 @@ fun SessionSheet(
                     // A transcribed recording with no segments is a real outcome now that pure
                     // silence is skipped instead of decoded: say so, rather than showing the
                     // transcript header over nothing at all.
-                    if (state.status == "Succeeded" && state.segments.isEmpty()) {
+                    if (state.status == TranscriptionStatus.Succeeded && state.segments.isEmpty()) {
                         item {
                             Text(
                                 stringResource(R.string.session_transcript_silent),

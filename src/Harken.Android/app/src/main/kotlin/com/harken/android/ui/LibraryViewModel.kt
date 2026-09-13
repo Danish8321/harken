@@ -12,6 +12,8 @@ import com.harken.android.R
 import com.harken.android.container
 import com.harken.android.data.SearchQuery
 import com.harken.android.data.SessionRepository
+import com.harken.android.data.TranscriptionStatus
+import com.harken.android.data.TranscriptionStatus.Running
 import com.harken.android.recordingTitle
 import com.harken.android.speech.TranscriptionCoordinator
 import com.harken.android.speech.TranscriptionService
@@ -33,7 +35,7 @@ data class LibraryUiState(
     val isLoading: Boolean = true,
     val loadError: String? = null,
     // Non-null while TranscriptionCoordinator is running one session's transcription —
-    // Transcribe is disabled on every OTHER "Recorded" row while this is set, since only
+    // Transcribe is disabled on every OTHER Recorded row while this is set, since only
     // one on-device transcription runs at a time app-wide.
     val transcribingSessionId: UUID? = null,
     // True from the long-press that starts multi-select to the Close (X) or a completed
@@ -44,10 +46,22 @@ data class LibraryUiState(
     val toast: String? = null,
 )
 
+/**
+ * Where a row actually is, which is not always what its row says.
+ *
+ * [TranscriptionCoordinator] sets [transcribingSessionId] the instant Transcribe is tapped;
+ * the row flips to [TranscriptionStatus.Running] a coroutine hop later, once Room's write
+ * lands. Both answered "is this transcribing?" separately, and everything that asked had to
+ * remember to ask both — which [isSelectable] did not, so for the length of that hop a
+ * recording being decoded could still be long-pressed and deleted (ARC-064).
+ */
+internal fun LibraryUiState.statusOf(session: SessionRepository.SessionView) =
+    if (session.id == transcribingSessionId) TranscriptionStatus.Running else session.status
+
 /** A session mid-transcription cannot be queued for delete: its row and file are being
  *  written by the running decode, and deleting out from under that races it (ARC-062's
  *  neighbourhood of bugs is what this guards against — see the multi-select grill). */
-private fun isSelectable(session: SessionRepository.SessionView) = session.status != "Pending" && session.status != "Running"
+private fun LibraryUiState.isSelectable(session: SessionRepository.SessionView) = statusOf(session) != Running
 
 /**
  * The long-press that opens selection. A no-op on a row [isSelectable] refuses.
@@ -130,7 +144,7 @@ class LibraryViewModel(
     }
 
     /**
-     * Starts on-device transcription for a "Recorded" session. No-op if one is already
+     * Starts on-device transcription for a [TranscriptionStatus.Recorded] session. No-op if one is already
      * running — [TranscriptionCoordinator] holds that invariant and the service defers to
      * it.
      *
@@ -210,9 +224,10 @@ class LibraryViewModel(
         state: LibraryUiState,
         visible: List<SessionRepository.SessionView> = state.sessions,
     ): String {
-        // "Recorded" sessions are waiting on the user, not actively transcribing — not
-        // counted here.
-        val transcribing = visible.count { it.status == "Pending" || it.status == "Running" }
+        // Recorded sessions are waiting on the user, not actively transcribing — not
+        // counted here. Counted through [statusOf], so the row the coordinator just started
+        // is in the subtitle before its Room write lands, not a hop later.
+        val transcribing = visible.count { state.statusOf(it) == Running }
         val res = getApplication<Application>().resources
         val count = res.getQuantityString(R.plurals.library_recording_count, visible.size, visible.size)
         return if (transcribing > 0) {

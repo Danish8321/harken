@@ -2,6 +2,7 @@ package com.harken.android.ui
 
 import com.harken.android.data.PartOfDay
 import com.harken.android.data.SessionRepository
+import com.harken.android.data.TranscriptionStatus
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +35,7 @@ class LibrarySearchTest {
                     startedAt = "2026-03-04T09:15:00Z",
                     durationSeconds = 90,
                     segmentCount = 3,
-                    status = "Completed",
+                    status = TranscriptionStatus.Succeeded,
                     failureReason = null,
                     tags = emptyList(),
                     audioPath = null,
