@@ -4,8 +4,9 @@ Opened 2026-08-28. Two-axis review of `git diff master...HEAD` (fixed point `mas
 2f8c21a, 16 commits, 32 non-vendored files). Vendored `src/Harken.Android/app/src/main/cpp/whisper`
 excluded — third-party, not ours to review.
 
-Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, 9 are fixed,
-1 is moot, 4 are partial and 4 remain open — S8 and SP7 were fixed the same day as ARC-063.
+Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, 10 are fixed,
+1 is moot, 4 are partial and 3 remain open — S8 and SP7 were fixed the same day as ARC-063,
+S7 as ARC-064.
 The verdicts are below; the original text of each finding is kept underneath, unedited, so
 the two can be read against each other.
 
@@ -19,7 +20,7 @@ the two can be read against each other.
 | S4 | open | `OnboardingScreen.kt:87-107` and `SettingsViewModel.kt:129-150` still repeat the same collect block. |
 | S5 | partial | Leaf logic factored into `downloadTo`/`installPartial`/`verifyPartial`; `ensureModel()` and `downloadProgress()` still each wrap it themselves. |
 | S6 | fixed | `AzureBatch` and `setTranscriptionProvider` are gone from the source entirely. |
-| S7 | open | No `TranscriptionStatus` enum; literals compared in 6 files. See the note below — part of the vocabulary is dead. |
+| S7 | fixed | `data/TranscriptionStatus.kt` is now the vocabulary; the DAO binds it and the UI holds the type (ARC-064). |
 | S8 | fixed | Same defect as SP7, fixed with it as ARC-063. |
 | S9 | open | `TranscriptionCoordinator.transcribe(...)` still takes its three collaborators per call (`TranscriptionCoordinator.kt:67-75`). |
 | S10 | open | Still `pendingUploadPath` (`SessionDao.kt:262`); the migration comment at `:218-227` already admits the name stopped meaning what it says. |
@@ -50,7 +51,7 @@ cancelled transfer reports `outcome=cancelled` rather than `failed`. Confirmed o
 emulator: Back during a Settings update froze the partial at 96,107,838 of 147,964,211 bytes,
 and the next attempt resumed from there with a 206.
 
-### S7: part of the status vocabulary is unreachable
+### S7: part of the status vocabulary is unreachable — fixed 2026-09-13
 
 `"Pending"` is compared against in `LibraryViewModel.kt:50,215` and `LibraryScreen.kt:158,675`
 and is **written nowhere in the codebase**. The statuses anything actually writes are
@@ -59,6 +60,20 @@ and is **written nowhere in the codebase**. The statuses anything actually write
 multi-select delete added in `2e204ce` — is half-written against a state the app cannot
 produce, and nothing about reading the code says so. That is the concrete cost S7 predicted:
 the vocabulary drifted and no single place defines it.
+
+**Fixed 2026-09-13 as ARC-064.** `data/TranscriptionStatus.kt` is now the vocabulary, each
+member carrying the string it persists as; the DAO binds those values instead of writing SQL
+literals, and `SessionRepository.toView` maps the column through `TranscriptionStatus.of`, so
+everything above the repository holds the type. An unrecognised column value — `"Pending"`
+included, and the null the column still permits — reads as `Recorded`, which offers
+Transcribe; `SessionCard`'s `else -> Transcribed`, which claimed finished work about a row it
+did not recognise, is gone with the `when` now exhaustive.
+
+The grill on this finding turned up a second defect it did not name: `isSelectable` asked only
+the row, while `SessionCard` ORed in `transcribingSessionId`, so during the coroutine hop
+between the Transcribe tap and Room's write a recording being decoded could be long-pressed
+and deleted. `LibraryUiState.statusOf` is now the one answer to "is this transcribing?", and
+two tests in `LibrarySelectionTest` hold it.
 
 ---
 
@@ -208,11 +223,11 @@ Not yet triaged into merge-blockers vs. follow-ups.
 
 1. ~~**S8 / SP7** — an in-flight model download cannot be cancelled. The only one with a
    user-facing consequence.~~ Fixed as ARC-063 on 2026-09-13.
-2. **S7** — status as a raw string, with a dead `"Pending"` branch now sitting inside a
-   delete guard. Now the top item.
+2. ~~**S7** — status as a raw string, with a dead `"Pending"` branch now sitting inside a
+   delete guard.~~ Fixed as ARC-064 on 2026-09-13, along with the delete guard's own defect.
 3. **SP1, SP2** — ADR-0011 and the slice-09 plan describe a system that no longer exists
    (a provider picker, a connect step, a lazy download). Documentation drift only, but these
-   are the files a future reader would trust.
+   are the files a future reader would trust. **Now the top item.**
 4. **S4, S9, S10, S5, S2** — maintainability: duplicated download collection, per-call
    collaborators, a field whose name its own migration comment disowns, wrapper duplication,
    and the missing `OnDeviceTranscriber` test.
