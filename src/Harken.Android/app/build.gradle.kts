@@ -106,10 +106,11 @@ android {
         }
     }
 
-    // Present only when keystore.properties is: assembleRelease on a machine with no
-    // signing key still runs, still exercises R8 and resource shrinking, and produces an
-    // unsigned APK. Refusing to build there would put the release gate out of reach of
-    // every machine but one.
+    // Present only when keystore.properties is. Without a release key, assembleRelease
+    // falls back to the debug signing config (below) rather than producing an unsigned
+    // APK — Android refuses to install an unsigned one at all, even via adb, so an
+    // unsigned "release" would build but be unshareable. This keeps assembleRelease
+    // runnable, and its output installable, on every machine.
     signingConfigs {
         if (keystoreProperties.getProperty("storeFile") != null) {
             create("release") {
@@ -123,7 +124,7 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.findByName("release")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             // 46.6 MB of dex over three files without this, most of it Compose and
             // material-icons-extended that the app never references. 3.0 MB with it,
             // in one dex file.

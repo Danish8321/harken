@@ -34,6 +34,18 @@ object Telemetry {
     const val TAG = "HarkenTelemetry"
 
     /**
+     * Set once, from [com.harken.android.HarkenApplication.onCreate], for a build that
+     * needs its events to survive a reboot rather than just logcat's ring buffer. Null in
+     * every unit test, so `event()` is exactly what it was before this existed.
+     */
+    @Volatile
+    private var fileSink: FileLogSink? = null
+
+    fun attachFileSink(sink: FileLogSink) {
+        fileSink = sink
+    }
+
+    /**
      * Emits [name] with [fields] as `key=value` pairs. Values are rendered with
      * `toString()`; whitespace inside one is collapsed to `_` so a line stays parseable by
      * splitting on spaces.
@@ -51,6 +63,7 @@ object Telemetry {
                 .append(render(value))
         }
         Log.i(TAG, line.toString())
+        fileSink?.append(line.toString())
     }
 
     /**

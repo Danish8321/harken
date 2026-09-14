@@ -4,12 +4,15 @@ import android.app.Application
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.harken.android.HarkenApplication
+import com.harken.android.R
 import com.harken.android.container
 import com.harken.android.data.AppSettings
 import com.harken.android.device.DeviceCapability
@@ -17,10 +20,12 @@ import com.harken.android.export.ExportService
 import com.harken.android.export.ExportState
 import com.harken.android.export.ExportStatus
 import com.harken.android.speech.ModelDownloadManager
+import com.harken.android.telemetry.LogExport
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.System,
@@ -98,6 +103,37 @@ class SettingsViewModel(
     fun cancelExport() = ExportService.cancel(getApplication())
 
     fun acknowledgeExport() = ExportStatus.acknowledge()
+
+    /**
+     * Zips the durable event/crash log (see `Telemetry.attachFileSink`) and opens the share
+     * sheet, for the monitoring builds this app is not otherwise wired to upload anything
+     * from (ADR-0011: everything stays on the phone unless the user explicitly shares it).
+     */
+    fun exportLogs() {
+        val app = getApplication<Application>()
+        val sink = (app as HarkenApplication).logSink
+        val zipFile = File(app.filesDir, "harken-logs.zip")
+        val uri =
+            runCatching { LogExport.zip(sink, zipFile) }
+                .mapCatching { FileProvider.getUriForFile(app, "${app.packageName}.files", it) }
+                .getOrElse { e ->
+                    Log.e(TAG, "Could not build a share URI for the log export", e)
+                    return
+                }
+        val chooser =
+            Intent
+                .createChooser(
+                    Intent(Intent.ACTION_SEND).apply {
+                        type = "application/zip"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        putExtra(Intent.EXTRA_SUBJECT, app.getString(R.string.settings_export_logs))
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    },
+                    app.getString(R.string.settings_export_logs),
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { app.startActivity(chooser) }
+            .onFailure { e -> Log.e(TAG, "No app accepted the log export share intent", e) }
+    }
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(mode) }

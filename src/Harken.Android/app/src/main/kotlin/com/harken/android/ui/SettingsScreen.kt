@@ -155,6 +155,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
 
         BackupCard(c, viewModel)
 
+        DiagnosticsCard(c, viewModel)
+
         SettingsCard(c) {
             Eyebrow(c, stringResource(R.string.settings_appearance_header))
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -314,6 +316,39 @@ private fun BackupCard(
                 color = c.accent,
                 trackColor = c.pillTrack,
             )
+        }
+    }
+}
+
+/**
+ * Shares the durable event/crash log (see `Telemetry.attachFileSink`) — a monitoring-build
+ * tester's way to hand it back with no adb needed. Always visible: the log is small (capped
+ * by [com.harken.android.telemetry.FileLogSink]'s rotation) and empty of anything an ordinary
+ * build's user would mind sharing, so there is no reason to gate this behind a build flag.
+ */
+@Composable
+private fun DiagnosticsCard(
+    c: ProtoColors,
+    viewModel: SettingsViewModel,
+) {
+    SettingsCard(c) {
+        Eyebrow(c, stringResource(R.string.settings_diagnostics_header))
+        Text(
+            stringResource(R.string.settings_diagnostics_body),
+            color = c.textSecondary,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.End) {
+            OutlinedButton(
+                onClick = viewModel::exportLogs,
+                shape = PillShape,
+                modifier = Modifier.heightIn(min = 40.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = c.text),
+                border = BorderStroke(1.dp, c.textSecondary),
+            ) {
+                Text(stringResource(R.string.settings_export_logs), style = MaterialTheme.typography.labelMedium)
+            }
         }
     }
 }

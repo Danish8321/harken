@@ -191,6 +191,11 @@
     <string name="settings_backup_failed">Export failed. %1$s</string>
     <string name="settings_backup_failed_unknown">Export failed.</string>
     <string name="settings_backup_empty">There is nothing to export yet.</string>
+    <!-- Diagnostics: only present in a monitoring build, for a tester sharing the durable
+         event/crash log back with no adb needed. -->
+    <string name="settings_diagnostics_header">DIAGNOSTICS</string>
+    <string name="settings_diagnostics_body">Event and crash logs kept on the phone, for reporting how a build behaves over a few days of real use. No recording content is ever in them.</string>
+    <string name="settings_export_logs">Export logs</string>
     <plurals name="settings_backup_done">
         <item quantity="one">Exported %1$d recording (%2$s).</item>
         <item quantity="other">Exported %1$d recordings (%2$s).</item>
