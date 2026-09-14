@@ -4,12 +4,12 @@ Opened 2026-08-28. Two-axis review of `git diff master...HEAD` (fixed point `mas
 2f8c21a, 16 commits, 32 non-vendored files). Vendored `src/Harken.Android/app/src/main/cpp/whisper`
 excluded — third-party, not ours to review.
 
-Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, 14 are fixed,
-1 is moot, 1 is closed by decision (SP5 — no soft delete), 1 is partial (S2) and 1 remains
-open (S9) — S8 and SP7 were fixed on 2026-09-13 as ARC-063,
+Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, 15 are fixed,
+1 is moot, 1 is closed by decision (SP5 — no soft delete), and 1 remains open (S9) — S8 and
+SP7 were fixed on 2026-09-13 as ARC-063,
 S7 the same day as ARC-064, SP1/SP2 on 2026-09-14 by correcting the documents themselves, S4
-the same day as ARC-065, S5 the same day as ARC-066, and S10 was found on 2026-09-14 to have
-been fixed by ARC-015 before this re-audit was written.
+the same day as ARC-065, S5 as ARC-066 and S2 as ARC-067, and S10 was found on 2026-09-14 to
+have been fixed by ARC-015 before this re-audit was written.
 The verdicts are below; the original text of each finding is kept underneath, unedited, so
 the two can be read against each other.
 
@@ -18,7 +18,7 @@ the two can be read against each other.
 | | Verdict | What changed, or what is left |
 |---|---|---|
 | S1 | fixed | `README.md:3-4,60-63` now describes on-device transcription and the 2-step onboarding. |
-| S2 | partial | `TranscriptionCoordinatorTest` and `ModelDownloadManagerTest` exist; `OnDeviceTranscriber` still has none (JNI-bound). |
+| S2 | fixed | The transcriber's non-JNI logic moved to `WavPayload`, `Telemetry.realtimeFactor` and `NativeSegments`, and is tested (ARC-067). |
 | S3 | fixed | SHA-256 verification plus a content-length truncation check — `ModelDownloadManager.kt:222-251,397-401`. |
 | S4 | fixed | `ui/ModelDownload.kt` holds one `ModelDownloadUi` and the fold both ViewModels now delegate to (ARC-065). |
 | S5 | fixed | `installIfMissing(replaceExisting, onProgress)` is now the one locked path both entry points call (ARC-066). |
@@ -91,11 +91,29 @@ model itself" and "First launch runs a 3-step onboarding wizard: enter the backe
 backend-optional (ADR-0011 §3). README is a root standards source; a slice that inverts its
 stated architecture must update it in the same slice.
 
-#### S2. Verification contract — no automated tests for new pure-JVM logic
+#### S2. Verification contract — no automated tests for new pure-JVM logic — fixed 2026-09-14
 Only new automated test on the branch is `SessionDatabaseMigrationTest.kt`, which is
 instrumented and therefore excluded from `test-fast.sh`. `TranscriptionCoordinator`,
 `ModelDownloadManager`, and `OnDeviceTranscriber` are all pure-JVM-testable and ship with
 zero tests. CLAUDE.md's "tests at every tier crossed" is not met.
+
+**Fixed 2026-09-14 as ARC-067**, the last of the three. `TranscriptionCoordinator` was
+covered by ARC-063 and `ModelDownloadManager` by ARC-063 and ARC-066.
+
+The finding's premise about the third was wrong, and worth recording. `OnDeviceTranscriber`
+was **not** pure-JVM-testable: its companion object's `System.loadLibrary` compiles into the
+outer class's static initialiser, so even constructing it throws `UnsatisfiedLinkError` on
+the runner, and every helper it held was behind that. Separately, `org.json` in the unit-test
+`android.jar` is a stub that `isReturnDefaultValues = true` makes return `0` instead of
+throwing, so a test of `parseNativeSegments` written in place would have passed while parsing
+nothing. Both were probed before anything was changed.
+
+So the code moved to where it could be reached: `audio/WavPayload.kt` (the WAV payload
+reader), `Telemetry.realtimeFactor`, and `speech/NativeSegments.kt` (the wire decode and the
+span-offset arithmetic), plus `org.json:json` as a test-only dependency. 16 new tests, four
+mutation checks. The class keeps the native calls, the abort wiring, the span loop and the
+telemetry events — none of which any JVM test can reach, which ARC-067 states rather than
+leaves implied.
 
 #### S3. Model download has no integrity check
 `ModelDownloadManager.MODEL_DOWNLOAD_URL` is fetched with no checksum and no size
@@ -281,9 +299,9 @@ Not yet triaged into merge-blockers vs. follow-ups.
 3. ~~**SP1, SP2** — ADR-0011 and the slice-09 plan describe a system that no longer exists
    (a provider picker, a connect step, a lazy download).~~ Fixed as documents on 2026-09-14:
    ADR-0011 carries a "What actually shipped" section, the plan a header note.
-4. **S9, S2** — maintainability: per-call collaborators, and the missing `OnDeviceTranscriber`
-   test. **All that is left** — nothing above it is open, and neither has a user-facing
-   consequence. Three left this list on 2026-09-14: S4 as ARC-065, S5 as ARC-066, and S10,
-   which turned out to have been fixed by ARC-015 before the re-audit was written.
+4. **S9** — maintainability: `TranscriptionCoordinator.transcribe` takes its three
+   collaborators per call. **All that is left**, and it has no user-facing consequence. Four
+   left this list on 2026-09-14: S4 as ARC-065, S5 as ARC-066, S2 as ARC-067, and S10, which
+   turned out to have been fixed by ARC-015 before the re-audit was written.
 5. ~~**SP4, SP5** — moot, or history.~~ SP5 closed 2026-09-14: no soft delete, by decision.
    SP4 was moot from the start.

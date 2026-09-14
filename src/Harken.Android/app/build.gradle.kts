@@ -203,6 +203,9 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Shadows the stubbed org.json in the unit-test android.jar, which returns default
+    // values rather than parsing. See the note on `json` in libs.versions.toml.
+    testImplementation(libs.json)
 
     androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.androidx.test.runner)

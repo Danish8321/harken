@@ -2,58 +2,14 @@ package com.harken.android.speech
 
 import com.harken.android.audio.SpeechSpans
 import com.harken.android.audio.WavFormat
+import com.harken.android.audio.WavPayload
 import com.harken.android.telemetry.Telemetry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import java.io.RandomAccessFile
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.util.Locale
-
-/** Bytes pulled from the WAV per read. 64 KiB is 2 seconds of 16 kHz mono 16-bit audio. */
-private const val READ_BLOCK_BYTES = 64 * 1024
-
-/**
- * A single decoded segment from an on-device whisper.cpp transcription. Deliberately its
- * own type rather than a shape shared with a server: this is a local-only, on-device
- * concept, and the backend's transcription client was deleted outright (ADR-0011).
- */
-data class LocalTranscribedSegment(
-    val offsetSeconds: Int,
-    val text: String,
-)
-
-// Wire shape returned by nativeTranscribe's JSON, kept private — callers only see
-// LocalTranscribedSegment.
-private data class NativeSegment(
-    val offsetMs: Long,
-    val text: String,
-)
-
-/**
- * The JSON [OnDeviceTranscriber.nativeTranscribe] returns:
- * `[{"offsetMs": 0, "text": " Hello."}, ...]`.
- *
- * Read field by field rather than through a reflective mapper. A mapper needs the
- * field names and the concrete class to survive minification, and when they do not
- * the transcription fails on release builds only — which is how it failed the first
- * time R8 was enabled: "Abstract classes can't be instantiated ... Class name: n2.f".
- * Two fields do not justify carrying that risk, or the dependency.
- */
-private fun parseNativeSegments(json: String): List<NativeSegment> {
-    val array = JSONArray(json)
-    return (0 until array.length()).map { index ->
-        val segment = array.getJSONObject(index)
-        NativeSegment(
-            offsetMs = segment.getLong("offsetMs"),
-            text = segment.getString("text"),
-        )
-    }
-}
 
 /**
  * Seam so TranscriptionCoordinator can be unit-tested with a hand-written fake instead of
@@ -134,12 +90,12 @@ class OnDeviceTranscriber(
             // MB at the app's own three-hour cap, on top of the model, which is an
             // out-of-memory kill long before it is a slow transcription.
             RandomAccessFile(wavPath, "r").use { file ->
-                val sampleCount = pcmSampleCount(file)
+                val sampleCount = WavPayload.sampleCount(file)
 
                 val scanStartNs = System.nanoTime()
                 // Blocking reads belong on IO; the decode below is the part that genuinely
                 // uses a core, and it stays on Default (ARC-012).
-                val windowRms = withContext(Dispatchers.IO) { scanWindowRms(file, sampleCount) }
+                val windowRms = withContext(Dispatchers.IO) { WavPayload.windowRms(file, sampleCount) }
                 val spans = SpeechSpans.assemble(windowRms, sampleCount)
                 val scanMs = Telemetry.elapsedMsSince(scanStartNs)
 
@@ -169,7 +125,7 @@ class OnDeviceTranscriber(
                 val segments =
                     spans.flatMapIndexed { index, span ->
                         val readStartNs = System.nanoTime()
-                        val pcm16 = withContext(Dispatchers.IO) { readSamples(file, span.startSample, span.sampleCount) }
+                        val pcm16 = withContext(Dispatchers.IO) { WavPayload.samples(file, span.startSample, span.sampleCount) }
                         readMs += Telemetry.elapsedMsSince(readStartNs)
 
                         val decodeStartNs = System.nanoTime()
@@ -197,7 +153,6 @@ class OnDeviceTranscriber(
                         decodeMs += spanDecodeMs
 
                         val nativeSegments = parseNativeSegments(json)
-                        val spanOffsetMs = span.startSample * 1000L / WavFormat.SAMPLE_RATE
 
                         // Per span, not just per recording: one pathological span in an
                         // otherwise fast transcription is exactly the case a total would
@@ -214,14 +169,7 @@ class OnDeviceTranscriber(
                         decodedSoFar += span.sampleCount
                         if (decodedSamples > 0) onProgress(decodedSoFar.toFloat() / decodedSamples)
 
-                        nativeSegments.map { segment ->
-                            // Whisper times each segment from the start of what it was given,
-                            // so offsets are relative to the span, not to the recording.
-                            LocalTranscribedSegment(
-                                offsetSeconds = ((spanOffsetMs + segment.offsetMs) / 1000L).toInt(),
-                                text = segment.text,
-                            )
-                        }
+                        nativeSegments.atSpan(span.startSample)
                     }
 
                 val decodedSeconds = (decodedSamples / WavFormat.SAMPLE_RATE).toInt()
@@ -234,31 +182,17 @@ class OnDeviceTranscriber(
                     // Against the whole recording: what the user waits, per second of what
                     // they recorded. Faster than real time is < 1.0, and this is the number
                     // that decides whether a three-hour capture is usable on this phone.
-                    "realtimeFactor" to realtimeFactor(decodeMs, audioSeconds),
+                    "realtimeFactor" to Telemetry.realtimeFactor(decodeMs, audioSeconds),
                     // Against only what was handed to whisper. The two diverge exactly as
                     // much as SpeechSpans skipped, so reporting one without the other makes
                     // a recording full of silence look like a fast decoder.
-                    "decodedRealtimeFactor" to realtimeFactor(decodeMs, decodedSeconds),
+                    "decodedRealtimeFactor" to Telemetry.realtimeFactor(decodeMs, decodedSeconds),
                     "segments" to segments.size,
                 )
 
                 segments
             }
         }
-
-    /**
-     * Decode time as a multiple of the audio's own length, to two decimals. Below 1.0 the
-     * phone decodes faster than the recording plays, which is what makes a long capture
-     * bearable; at 3.0 a one-hour meeting costs three hours.
-     */
-    private fun realtimeFactor(
-        decodeMs: Long,
-        audioSeconds: Int,
-    ): String =
-        // Locale.ROOT: this goes into a key=value telemetry line, and a device set to a
-        // decimal-comma locale would emit realtimeFactor=1,84 and break every reader of
-        // those logs (ARC-029). Locale.getDefault() is for text a person reads.
-        if (audioSeconds <= 0) "0.00" else String.format(Locale.ROOT, "%.2f", decodeMs / (audioSeconds * 1000.0))
 
     /** Releases the native model handle. Safe to call even if a model was never loaded. */
     override fun release() {
@@ -270,65 +204,6 @@ class OnDeviceTranscriber(
         val handle = modelHandle ?: return
         modelHandle = null
         nativeFreeModel(handle)
-    }
-
-    /**
-     * Samples in the PCM payload of a WAV written by [com.harken.android.audio.WavWriter]
-     * (fixed 44-byte canonical header, 16-bit little-endian). No general-purpose WAV
-     * parsing is needed since this app only ever produces WavWriter's exact format.
-     */
-    private fun pcmSampleCount(file: RandomAccessFile): Int = ((file.length() - WavFormat.HEADER_LENGTH).coerceAtLeast(0) / 2).toInt()
-
-    /**
-     * One RMS reading per [SpeechSpans.WINDOW_SECONDS] of the file, read a window at a time
-     * so a three-hour recording costs one window of memory rather than all of it. Levels
-     * rather than verdicts, because what counts as silence depends on the whole recording
-     * — see [SpeechSpans.amplitudeThreshold].
-     */
-    private fun scanWindowRms(
-        file: RandomAccessFile,
-        sampleCount: Int,
-    ): IntArray {
-        val windowSamples = WavFormat.SAMPLE_RATE * SpeechSpans.WINDOW_SECONDS
-        val windowCount = (sampleCount + windowSamples - 1) / windowSamples
-        val window = ShortArray(windowSamples)
-        val block = ByteArray(windowSamples * 2)
-        val buffer = ByteBuffer.wrap(block).order(ByteOrder.LITTLE_ENDIAN)
-
-        file.seek(WavFormat.HEADER_LENGTH.toLong())
-        return IntArray(windowCount) { index ->
-            val wanted = minOf(windowSamples, sampleCount - index * windowSamples)
-            file.readFully(block, 0, wanted * 2)
-            buffer.clear()
-            buffer.asShortBuffer().get(window, 0, wanted)
-            SpeechSpans.windowRms(window, 0, wanted)
-        }
-    }
-
-    /** [count] samples of the PCM payload starting at sample [startSample]. */
-    private fun readSamples(
-        file: RandomAccessFile,
-        startSample: Int,
-        count: Int,
-    ): ShortArray {
-        val samples = ShortArray(count)
-        file.seek(WavFormat.HEADER_LENGTH.toLong() + startSample.toLong() * 2)
-
-        // Read a block at a time and let ByteBuffer do the little-endian conversion. This
-        // used to call readFully into a two-byte array once per sample: five minutes of
-        // audio is 4.8 million of those calls, which measured 11.4 seconds on a Nothing
-        // Phone 2 — 95% of the total time to "transcribe" a silent recording.
-        val block = ByteArray(READ_BLOCK_BYTES)
-        val buffer = ByteBuffer.wrap(block).order(ByteOrder.LITTLE_ENDIAN)
-        var written = 0
-        while (written < count) {
-            val wanted = minOf(block.size, (count - written) * 2)
-            file.readFully(block, 0, wanted)
-            buffer.clear()
-            buffer.asShortBuffer().get(samples, written, wanted / 2)
-            written += wanted / 2
-        }
-        return samples
     }
 
     companion object {

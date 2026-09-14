@@ -1,6 +1,7 @@
 package com.harken.android.telemetry
 
 import android.util.Log
+import java.util.Locale
 
 /**
  * One logcat line per significant event, shaped so a machine can read it:
@@ -78,6 +79,24 @@ object Telemetry {
      * being adjusted mid-recording — which matters for a session that may run three hours.
      */
     fun elapsedMsSince(startNanos: Long): Long = (System.nanoTime() - startNanos) / 1_000_000L
+
+    /**
+     * Decode time as a multiple of the audio's own length, to two decimals. Below 1.0 the
+     * phone decodes faster than the recording plays, which is what makes a long capture
+     * bearable; at 3.0 a one-hour meeting costs three hours.
+     *
+     * Locale.ROOT: this goes into a key=value line, and a device set to a decimal-comma
+     * locale would emit realtimeFactor=1,84 and break every reader of those logs (ARC-029).
+     * Locale.getDefault() is for text a person reads.
+     *
+     * A recording of no measurable length is reported as 0.00 rather than divided by: an
+     * empty capture is a real case — the file exists, the microphone gave nothing — and it
+     * must not take the transcription down with it.
+     */
+    fun realtimeFactor(
+        decodeMs: Long,
+        audioSeconds: Int,
+    ): String = if (audioSeconds <= 0) "0.00" else String.format(Locale.ROOT, "%.2f", decodeMs / (audioSeconds * 1000.0))
 
     private fun render(value: Any?): String = value?.toString()?.replace(WHITESPACE, "_") ?: "null"
 
