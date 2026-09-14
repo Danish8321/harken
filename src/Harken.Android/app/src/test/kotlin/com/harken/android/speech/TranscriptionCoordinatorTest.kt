@@ -91,10 +91,8 @@ class TranscriptionCoordinatorTest {
     fun `progress is reported to the caller`() {
         val seen = java.util.concurrent.CopyOnWriteArrayList<Float>()
 
+        TranscriptionCoordinator.bind(FakeSink(), FakeModelProvider(), FakeTranscriber())
         TranscriptionCoordinator.transcribe(
-            FakeSink(),
-            FakeModelProvider(),
-            FakeTranscriber(),
             UUID.randomUUID(),
             tempWavPath(),
             onProgress = { seen += it },
@@ -110,10 +108,8 @@ class TranscriptionCoordinatorTest {
         val transcriber = FakeTranscriber(suspendForever = true)
         val sessionId = UUID.randomUUID()
 
+        TranscriptionCoordinator.bind(sink, FakeModelProvider(), transcriber)
         TranscriptionCoordinator.transcribe(
-            sink,
-            FakeModelProvider(),
-            transcriber,
             sessionId,
             tempWavPath(),
             messages = TranscriptionMessages(cancelled = "you stopped it"),
@@ -137,12 +133,14 @@ class TranscriptionCoordinatorTest {
         val secondId = UUID.randomUUID()
 
         val cancelled = FakeTranscriber(suspendForever = true)
-        TranscriptionCoordinator.transcribe(sink, FakeModelProvider(), cancelled, UUID.randomUUID(), tempWavPath())
+        TranscriptionCoordinator.bind(sink, FakeModelProvider(), cancelled)
+        TranscriptionCoordinator.transcribe(UUID.randomUUID(), tempWavPath())
         cancelled.started.await(2, TimeUnit.SECONDS)
         TranscriptionCoordinator.cancel()
         waitForIdle()
 
-        assertTrue(TranscriptionCoordinator.transcribe(sink, FakeModelProvider(), FakeTranscriber(), secondId, tempWavPath()))
+        TranscriptionCoordinator.bind(sink, FakeModelProvider(), FakeTranscriber())
+        assertTrue(TranscriptionCoordinator.transcribe(secondId, tempWavPath()))
         waitForIdle()
 
         assertEquals(listOf(secondId), sink.completed)
@@ -154,7 +152,8 @@ class TranscriptionCoordinatorTest {
         val transcriber = FakeTranscriber()
         val sessionId = UUID.randomUUID()
 
-        val started = TranscriptionCoordinator.transcribe(sink, FakeModelProvider(), transcriber, sessionId, tempWavPath())
+        TranscriptionCoordinator.bind(sink, FakeModelProvider(), transcriber)
+        val started = TranscriptionCoordinator.transcribe(sessionId, tempWavPath())
         assertTrue(started)
 
         waitForIdle()
@@ -174,10 +173,8 @@ class TranscriptionCoordinatorTest {
         val transcriber = FakeTranscriber(throwOnTranscribe = IllegalStateException("/data/user/0/.../whisper.bin"))
         val sessionId = UUID.randomUUID()
 
+        TranscriptionCoordinator.bind(sink, FakeModelProvider(), transcriber)
         TranscriptionCoordinator.transcribe(
-            sink,
-            FakeModelProvider(),
-            transcriber,
             sessionId,
             tempWavPath(),
             messages = TranscriptionMessages(failed = "couldn't transcribe"),
@@ -196,10 +193,8 @@ class TranscriptionCoordinatorTest {
         val transcriber = FakeTranscriber()
         val sessionId = UUID.randomUUID()
 
+        TranscriptionCoordinator.bind(sink, FakeModelProvider(Result.failure(UnknownHostException("huggingface.co"))), transcriber)
         TranscriptionCoordinator.transcribe(
-            sink,
-            FakeModelProvider(Result.failure(UnknownHostException("huggingface.co"))),
-            transcriber,
             sessionId,
             tempWavPath(),
             messages =
@@ -225,8 +220,9 @@ class TranscriptionCoordinatorTest {
         val firstId = UUID.randomUUID()
         val secondId = UUID.randomUUID()
 
-        val firstStarted = TranscriptionCoordinator.transcribe(sink, FakeModelProvider(), transcriber, firstId, tempWavPath())
-        val secondStarted = TranscriptionCoordinator.transcribe(sink, FakeModelProvider(), transcriber, secondId, tempWavPath())
+        TranscriptionCoordinator.bind(sink, FakeModelProvider(), transcriber)
+        val firstStarted = TranscriptionCoordinator.transcribe(firstId, tempWavPath())
+        val secondStarted = TranscriptionCoordinator.transcribe(secondId, tempWavPath())
 
         assertTrue(firstStarted)
         assertFalse(secondStarted)
@@ -243,10 +239,12 @@ class TranscriptionCoordinatorTest {
         val firstId = UUID.randomUUID()
         val secondId = UUID.randomUUID()
 
-        TranscriptionCoordinator.transcribe(sink, FakeModelProvider(), FakeTranscriber(), firstId, tempWavPath())
+        TranscriptionCoordinator.bind(sink, FakeModelProvider(), FakeTranscriber())
+        TranscriptionCoordinator.transcribe(firstId, tempWavPath())
         waitForIdle()
 
-        val secondStarted = TranscriptionCoordinator.transcribe(sink, FakeModelProvider(), FakeTranscriber(), secondId, tempWavPath())
+        TranscriptionCoordinator.bind(sink, FakeModelProvider(), FakeTranscriber())
+        val secondStarted = TranscriptionCoordinator.transcribe(secondId, tempWavPath())
         assertTrue(secondStarted)
         waitForIdle()
 

@@ -76,6 +76,7 @@ class TranscriptionService : Service() {
         repository = container.repository
         modelDownloadManager = container.modelDownloadManager
         onDeviceTranscriber = container.transcriber
+        TranscriptionCoordinator.bind(repository, modelDownloadManager, onDeviceTranscriber)
     }
 
     override fun onStartCommand(
@@ -113,9 +114,6 @@ class TranscriptionService : Service() {
 
         val started =
             TranscriptionCoordinator.transcribe(
-                repository = repository,
-                modelDownloadManager = modelDownloadManager,
-                onDeviceTranscriber = onDeviceTranscriber,
                 sessionId = sessionId,
                 filePath = filePath,
                 messages =

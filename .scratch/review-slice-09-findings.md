@@ -4,12 +4,13 @@ Opened 2026-08-28. Two-axis review of `git diff master...HEAD` (fixed point `mas
 2f8c21a, 16 commits, 32 non-vendored files). Vendored `src/Harken.Android/app/src/main/cpp/whisper`
 excluded — third-party, not ours to review.
 
-Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, 15 are fixed,
-1 is moot, 1 is closed by decision (SP5 — no soft delete), and 1 remains open (S9) — S8 and
-SP7 were fixed on 2026-09-13 as ARC-063,
+Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, all 16 that
+called for a code change are fixed; the remaining 2 are moot or closed by decision (SP4,
+SP5 — no soft delete). S8 and SP7 were fixed on 2026-09-13 as ARC-063,
 S7 the same day as ARC-064, SP1/SP2 on 2026-09-14 by correcting the documents themselves, S4
-the same day as ARC-065, S5 as ARC-066 and S2 as ARC-067, and S10 was found on 2026-09-14 to
-have been fixed by ARC-015 before this re-audit was written.
+the same day as ARC-065, S5 as ARC-066, S2 as ARC-067 and S9 as ARC-068 — the last of the
+backlog — and S10 was found on 2026-09-14 to have been fixed by ARC-015 before this
+re-audit was written.
 The verdicts are below; the original text of each finding is kept underneath, unedited, so
 the two can be read against each other.
 
@@ -25,7 +26,7 @@ the two can be read against each other.
 | S6 | fixed | `AzureBatch` and `setTranscriptionProvider` are gone from the source entirely. |
 | S7 | fixed | `data/TranscriptionStatus.kt` is now the vocabulary; the DAO binds it and the UI holds the type (ARC-064). |
 | S8 | fixed | Same defect as SP7, fixed with it as ARC-063. |
-| S9 | open | `TranscriptionCoordinator.transcribe(...)` still takes its three collaborators per call (`TranscriptionCoordinator.kt:67-75`). |
+| S9 | fixed | `bind(repository, modelDownloadManager, onDeviceTranscriber)` is called once from `TranscriptionService.onCreate()`; `transcribe()` no longer takes them (ARC-068). |
 | S10 | fixed | ARC-015's `MIGRATION_2_3` renamed the column to `audioPath`; `pendingUploadPath` survives only inside that migration. |
 | SP1 | fixed | ADR-0011's Status and its new "What actually shipped" section record that no provider picker exists and Azure is unreachable. |
 | SP2 | fixed | Same section covers decisions 3–5 and the explicit-transcribe change; the slice-09 plan carries a header note naming the four divergences. |
@@ -168,11 +169,21 @@ unreachable `awaitClose {}` after `close()`. A plain `flow { }` with `flowOn(IO)
 the same thing without the channel machinery. See SP7 — this also has a correctness
 consequence.
 
-#### S9. Feature Envy — `TranscriptionCoordinator` takes its collaborators per call
+#### S9. Feature Envy — `TranscriptionCoordinator` takes its collaborators per call — fixed 2026-09-14
 `transcribe(repository, modelDownloadManager, onDeviceTranscriber, …)` is a singleton
 receiving dependencies on every call, and `LibraryViewModel.transcribe(session)` reaches
 into `session.pendingUploadPath` to feed it. That's the shape of a class that should hold
 its dependencies.
+
+**Fixed 2026-09-14 as ARC-068.** The `pendingUploadPath` detail was already stale — ARC-015
+renamed that column to `audioPath` before this finding was re-audited — and in fact
+`LibraryViewModel` never called `transcribe()` at all; `TranscriptionService` was the one and
+only call site assembling the three collaborators. `TranscriptionCoordinator.bind(repository,
+modelDownloadManager, onDeviceTranscriber)` now does that once, from
+`TranscriptionService.onCreate()`, and `transcribe()` keeps only `sessionId, filePath,
+messages, onProgress`. Kept as an object rather than moved into `AppContainer`:
+`LibraryViewModel` and `TranscriptionService.cancel()` read it as a bare singleton with no
+container reference to thread through, and it has exactly one instance either way.
 
 #### S10. Mysterious Name — `SessionRow.pendingUploadPath` — fixed by ARC-015
 Now stores the audio path for local-only sessions that will *never* be uploaded; the name
@@ -299,9 +310,12 @@ Not yet triaged into merge-blockers vs. follow-ups.
 3. ~~**SP1, SP2** — ADR-0011 and the slice-09 plan describe a system that no longer exists
    (a provider picker, a connect step, a lazy download).~~ Fixed as documents on 2026-09-14:
    ADR-0011 carries a "What actually shipped" section, the plan a header note.
-4. **S9** — maintainability: `TranscriptionCoordinator.transcribe` takes its three
-   collaborators per call. **All that is left**, and it has no user-facing consequence. Four
-   left this list on 2026-09-14: S4 as ARC-065, S5 as ARC-066, S2 as ARC-067, and S10, which
-   turned out to have been fixed by ARC-015 before the re-audit was written.
+4. ~~**S9** — maintainability: `TranscriptionCoordinator.transcribe` takes its three
+   collaborators per call.~~ Fixed as ARC-068 on 2026-09-14 — the last of the backlog. Five
+   left this list that day: S4 as ARC-065, S5 as ARC-066, S2 as ARC-067, S9 as ARC-068, and
+   S10, which turned out to have been fixed by ARC-015 before the re-audit was written.
 5. ~~**SP4, SP5** — moot, or history.~~ SP5 closed 2026-09-14: no soft delete, by decision.
    SP4 was moot from the start.
+
+**Nothing is open.** Every finding from the 2026-09-13 re-audit is now fixed, moot, or
+closed by an explicit decision.

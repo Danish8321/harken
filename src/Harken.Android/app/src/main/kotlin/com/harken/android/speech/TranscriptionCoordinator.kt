@@ -58,6 +58,34 @@ object TranscriptionCoordinator {
     private val _activeSessionId = MutableStateFlow<UUID?>(null)
     val activeSessionId: StateFlow<UUID?> = _activeSessionId.asStateFlow()
 
+    // The three collaborators every decode needs. There is one of each app-wide (see
+    // AppContainer), so binding them once removes the twenty lines TranscriptionService
+    // used to build fresh every time it started a decode, and the parameters
+    // TranscriptionCoordinatorTest's fakes had to be threaded through as a group. lateinit
+    // rather than nullable: a call to transcribe() before bind() is a startup-ordering bug,
+    // and failing loudly with an UninitializedPropertyAccessException says so, where a
+    // silent no-op would look like a decode that quietly never started.
+    private lateinit var repository: TranscriptionSink
+    private lateinit var modelDownloadManager: ModelProvider
+    private lateinit var onDeviceTranscriber: Transcriber
+
+    /**
+     * Supplies the collaborators every [transcribe] call needs. [TranscriptionService] calls
+     * this once, from `onCreate`, with what it reads off [com.harken.android.AppContainer]
+     * — the app's one instance of each. A test binds its own fakes before calling
+     * [transcribe]; safe because this object is a JVM singleton and this test class's tests
+     * do not run concurrently with each other.
+     */
+    fun bind(
+        repository: TranscriptionSink,
+        modelDownloadManager: ModelProvider,
+        onDeviceTranscriber: Transcriber,
+    ) {
+        this.repository = repository
+        this.modelDownloadManager = modelDownloadManager
+        this.onDeviceTranscriber = onDeviceTranscriber
+    }
+
     /**
      * Starts transcribing [sessionId] if, and only if, nothing else is transcribing right
      * now. Returns false (no-op) if another session is already in flight — the caller
@@ -65,9 +93,6 @@ object TranscriptionCoordinator {
      * this is a safety net, not the primary guard.
      */
     fun transcribe(
-        repository: TranscriptionSink,
-        modelDownloadManager: ModelProvider,
-        onDeviceTranscriber: Transcriber,
         sessionId: UUID,
         filePath: String,
         messages: TranscriptionMessages = TranscriptionMessages(),
