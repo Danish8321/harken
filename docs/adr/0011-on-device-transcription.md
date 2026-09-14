@@ -1,7 +1,9 @@
 # ADR-0011: On-device transcription, backend optional
 
 ## Status
-Accepted
+Accepted. Decisions 3–5 were overtaken by later work — see
+[What actually shipped](#what-actually-shipped-2026-09-14), below. The decision text is as
+written on 2026-08-25 and is not corrected in place.
 
 ## Context
 Today, "install and run Harken" means: install the APK, then separately stand up
@@ -11,10 +13,10 @@ its URL into a mandatory Onboarding step before the app is usable at all. There 
 
 [ADR-0008](0008-local-whisper-first.md) chose Whisper.net (a .NET binding of whisper.cpp)
 running *server-side* as the default transcription Provider, specifically to avoid a
-per-call cloud cost. [ADR-0010](0010-azure-batch-transcription-provider.md) added Azure
-Batch Transcription as an explicit second, opt-in Provider, selected per Session and
-resolved by `TranscriptionBackgroundService` — still server-side, still requires a
-reachable backend for every Session regardless of which Provider is chosen.
+per-call cloud cost. ADR-0010 added Azure Batch Transcription as an explicit second,
+opt-in Provider, selected per Session and resolved by `TranscriptionBackgroundService` —
+still server-side, still requires a reachable backend for every Session regardless of
+which Provider is chosen.
 
 This ADR asks: can the free, default transcription path work with **zero backend**, and
 keep the backend purely as an **optional upgrade** (cloud transcription via Azure,
@@ -49,10 +51,9 @@ Recordings transcribed this way never touch a network:
    covers that as Phase 2). The Summarize action is hidden/disabled on a session when no
    backend is configured, rather than shown and failing — a session with no backend
    reachable should never present a button that's guaranteed to error.
-5. **Azure Batch Transcription** ([ADR-0010](0010-azure-batch-transcription-provider.md))
-   is unaffected: still backend-mediated, still requires a configured `baseUrl` to be
-   selectable at all (the provider picker already degrades unavailable-or-unreachable
-   choices, per that ADR).
+5. **Azure Batch Transcription** (ADR-0010) is unaffected: still backend-mediated, still
+   requires a configured `baseUrl` to be selectable at all (the provider picker already
+   degrades unavailable-or-unreachable choices, per that ADR).
 
 ## Alternatives considered
 - **Bundle the existing ASP.NET `Harken.Api` process inside the Android app** (e.g. via
@@ -86,6 +87,41 @@ Recordings transcribed this way never touch a network:
 - Summarization remains a capability gap for backend-less users until ADR-0012 (Phase 2)
   is implemented, if ever.
 
+## What actually shipped (2026-09-14)
+
+Decisions 1 and 2 hold: whisper.cpp is vendored and built through our own JNI layer, the
+model downloads from a GitHub Releases asset, and Room is the only session store. Decisions
+3, 4 and 5 did not survive contact with the slices that followed. Recorded here rather than
+corrected above, because none of them was reversed by a decision — each was overtaken.
+
+**3. Onboarding.** There is no connect step, skippable or otherwise. `OnboardingScreen` is
+two steps — what the app is, then the model download — and `AppSettings.baseUrl` is gone
+along with the rest of the client's backend seam. The mandatory gate this decision set out
+to remove is removed; the optional step it was to be replaced by was never built, because
+[ADR-0015](0015-retire-the-dotnet-tier.md) deleted the server there would have been to
+connect to.
+
+**4. Summarization.** No Summarize action exists in the app, hidden or otherwise, so there
+is nothing for "hidden when no backend is configured" to describe.
+[ADR-0012](0012-full-standalone-local-summarization.md) is still Proposed — deferred, so
+summaries remain a capability gap, as that ADR's own status says.
+
+**5. Azure Batch Transcription.** No provider picker was ever built.
+`AppSettings.transcriptionProvider` was written by nothing, and a grep of
+`src/Harken.Android/app/src/main` now finds no occurrence of `transcriptionProvider`,
+`Azure`, `baseUrl` or `Summarize` at all. Azure transcription is not "unaffected" — it is
+unreachable, and has been since this slice shipped.
+
+**ADR-0010 was never written.** This ADR cites it three times as an accepted decision and
+`docs/plans/slice-09-on-device-transcription.md` cites it once more, but no such file has
+existed in this repository's history. The links to it were removed on 2026-09-14; the
+citations themselves are left as written.
+
+One more thing changed that this ADR did not speak to: transcription is not automatic.
+`6300f16` made it an explicit action in the Library, so a recording is captured, stored, and
+transcribed only when the user asks (ADR-0007's record-then-transcribe shape, applied to the
+on-device path).
+
 ## Related
-[ADR-0008](0008-local-whisper-first.md), [ADR-0010](0010-azure-batch-transcription-provider.md),
+[ADR-0008](0008-local-whisper-first.md), ADR-0010 (never written),
 [ADR-0012](0012-full-standalone-local-summarization.md)

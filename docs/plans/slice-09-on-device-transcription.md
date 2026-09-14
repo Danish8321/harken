@@ -8,6 +8,24 @@ Implements [ADR-0011](../adr/0011-on-device-transcription.md). Branch:
 full gate below (real-device manual checks) was run. [Slice 10](slice-10-organic-design-system.md)
 was blocked on this and is unblocked.
 
+> **This is the plan of record as written on 2026-08-25, kept unedited. Four things shipped
+> differently, and the tasks below still describe the original intent:**
+>
+> - **Transcription is not automatic.** `6300f16` made it an explicit action in the
+>   Library, so Task 4's "run `OnDeviceTranscriber` against the recording file" happens when
+>   the user asks, not when a recording stops.
+> - **There is no Summarize action** at all, so Task 5's `canSummarize` gate has nothing to
+>   gate. Summaries are still deferred — [ADR-0012](../adr/0012-full-standalone-local-summarization.md)
+>   is Proposed, not started.
+> - **Onboarding has an explicit model-download step**, against Task 6's "that stays lazy",
+>   and no backend step of any kind: the server was deleted in
+>   [ADR-0015](../adr/0015-retire-the-dotnet-tier.md).
+> - **`isLocalOnly` is gone.** The column was added by this slice and dropped again by
+>   ARC-015 once there was no backend to be local *to* — every session is local now.
+>
+> ADR-0010, cited below and three times in ADR-0011, was never written. What is true today
+> is in [ADR-0011](../adr/0011-on-device-transcription.md) under "What actually shipped".
+
 Room already exists as a full local mirror (ADR-0010 in the Android tree,
 `HarkenDatabase`/`SessionDao`/`SessionRepository`) — this slice does NOT introduce a new
 local DB, it adds a **local-only session** mode to the existing one (a session that is

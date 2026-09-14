@@ -4,9 +4,9 @@ Opened 2026-08-28. Two-axis review of `git diff master...HEAD` (fixed point `mas
 2f8c21a, 16 commits, 32 non-vendored files). Vendored `src/Harken.Android/app/src/main/cpp/whisper`
 excluded — third-party, not ours to review.
 
-Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, 10 are fixed,
-1 is moot, 4 are partial and 3 remain open — S8 and SP7 were fixed the same day as ARC-063,
-S7 as ARC-064.
+Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, 11 are fixed,
+1 is moot, 3 are partial and 3 remain open — S8 and SP7 were fixed on 2026-09-13 as ARC-063,
+S7 the same day as ARC-064, and SP1/SP2 on 2026-09-14 by correcting the documents themselves.
 The verdicts are below; the original text of each finding is kept underneath, unedited, so
 the two can be read against each other.
 
@@ -24,8 +24,8 @@ the two can be read against each other.
 | S8 | fixed | Same defect as SP7, fixed with it as ARC-063. |
 | S9 | open | `TranscriptionCoordinator.transcribe(...)` still takes its three collaborators per call (`TranscriptionCoordinator.kt:67-75`). |
 | S10 | open | Still `pendingUploadPath` (`SessionDao.kt:262`); the migration comment at `:218-227` already admits the name stopped meaning what it says. |
-| SP1 | partial | Code half gone; `docs/adr/0011-on-device-transcription.md:52-55` still claims Azure is selectable through a provider picker that does not exist. |
-| SP2 | partial | Superseded rather than fixed: onboarding is now 2 steps with no connect step at all, so the plan (`slice-09-on-device-transcription.md:106`, "stays lazy") and ADR §3 are both still wrong, just differently. |
+| SP1 | fixed | ADR-0011's Status and its new "What actually shipped" section record that no provider picker exists and Azure is unreachable. |
+| SP2 | fixed | Same section covers decisions 3–5 and the explicit-transcribe change; the slice-09 plan carries a header note naming the four divergences. |
 | SP3 | fixed | No automatic-transcription copy survives in `strings.xml`. |
 | SP4 | moot | Branch-hygiene complaint about work merged long ago. |
 | SP5 | partial | Playback sub-point fixed — `SessionSheetViewModel.kt:158` gates on local file existence only. `softDelete` is still absent; the scope complaint itself is history. |
@@ -149,14 +149,23 @@ Spec sources: `docs/plans/slice-09-on-device-transcription.md`, `docs/adr/0011-o
 
 ### Missing / partial
 
-#### SP1. Provider picker never built; Azure became unselectable
+#### SP1. Provider picker never built; Azure became unselectable — fixed 2026-09-14
 ADR-0011 decision 5: "Azure Batch Transcription is unaffected: still backend-mediated, still
 requires a configured `baseUrl` to be selectable at all (the provider picker already degrades
 unavailable choices)." No provider picker exists in the Android app.
 `AppSettings.transcriptionProvider` is written by nothing, so `cachedProvider` is permanently
 `WhisperLocal`. Azure transcription is not "unaffected" — it is unreachable.
 
-#### SP2. Plan and ADR text now contradict the shipped code
+**Fixed 2026-09-14, in the document rather than the code.** There is nothing to build here:
+`AppSettings` survives but holds no backend fields, and a grep of
+`src/Harken.Android/app/src/main` finds no occurrence of `transcriptionProvider`, `Azure`,
+`baseUrl` or `Summarize`. ADR-0011 now says
+so, under "What actually shipped" — decision 5's own text is left as written, because it was
+overtaken rather than reversed. The three dead links to `0010-azure-batch-transcription-provider.md`,
+an ADR that has never existed in this repository's history, were removed at the same time;
+the citations stay, now marked as never written.
+
+#### SP2. Plan and ADR text now contradict the shipped code — fixed 2026-09-14
 Plan Task 4 says "run `OnDeviceTranscriber` against the recording file, then
 `completeLocalTranscription(...)`", and Task 6's manual gate says "confirm the app reaches the
 main screen and a recording can be made and transcribed". After `6300f16` nothing transcribes
@@ -169,6 +178,13 @@ contradictions:
 
 Follow-up #1 in `slice-09-followups.md` marks the onboarding step "done" but doesn't record
 that the plan/ADR text is now wrong.
+
+**Fixed 2026-09-14.** ADR-0011's "What actually shipped" section covers decisions 3, 4 and 5
+plus the explicit-transcribe change that no decision ever spoke to. The slice-09 plan keeps
+every task as written — ADR-0015 already ruled that `docs/plans/slice-*.md` stay — and gains
+a header note naming four divergences: transcription is an explicit Library action, no
+Summarize action exists, onboarding has an explicit model-download step, and `isLocalOnly`
+was dropped again by ARC-015's `MIGRATION_2_3`.
 
 #### SP3. Onboarding step-3 copy asserts removed behaviour
 Still reads "Recording transcribes right there on your phone the moment you stop" — false
@@ -225,10 +241,11 @@ Not yet triaged into merge-blockers vs. follow-ups.
    user-facing consequence.~~ Fixed as ARC-063 on 2026-09-13.
 2. ~~**S7** — status as a raw string, with a dead `"Pending"` branch now sitting inside a
    delete guard.~~ Fixed as ARC-064 on 2026-09-13, along with the delete guard's own defect.
-3. **SP1, SP2** — ADR-0011 and the slice-09 plan describe a system that no longer exists
-   (a provider picker, a connect step, a lazy download). Documentation drift only, but these
-   are the files a future reader would trust. **Now the top item.**
+3. ~~**SP1, SP2** — ADR-0011 and the slice-09 plan describe a system that no longer exists
+   (a provider picker, a connect step, a lazy download).~~ Fixed as documents on 2026-09-14:
+   ADR-0011 carries a "What actually shipped" section, the plan a header note.
 4. **S4, S9, S10, S5, S2** — maintainability: duplicated download collection, per-call
    collaborators, a field whose name its own migration comment disowns, wrapper duplication,
-   and the missing `OnDeviceTranscriber` test.
+   and the missing `OnDeviceTranscriber` test. **Now the top item** — nothing above it is
+   open, and none of these has a user-facing consequence.
 5. **SP4, SP5** — moot, or history.
