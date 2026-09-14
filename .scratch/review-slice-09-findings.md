@@ -5,7 +5,8 @@ Opened 2026-08-28. Two-axis review of `git diff master...HEAD` (fixed point `mas
 excluded — third-party, not ours to review.
 
 Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, 13 are fixed,
-1 is moot, 3 are partial and 1 remains open — S8 and SP7 were fixed on 2026-09-13 as ARC-063,
+1 is moot, 1 is closed by decision (SP5 — no soft delete), 2 are partial and 1 remains open —
+S8 and SP7 were fixed on 2026-09-13 as ARC-063,
 S7 the same day as ARC-064, SP1/SP2 on 2026-09-14 by correcting the documents themselves, S4
 the same day as ARC-065, and S10 was found on 2026-09-14 to have been fixed by ARC-015 before
 this re-audit was written.
@@ -30,7 +31,7 @@ the two can be read against each other.
 | SP2 | fixed | Same section covers decisions 3–5 and the explicit-transcribe change; the slice-09 plan carries a header note naming the four divergences. |
 | SP3 | fixed | No automatic-transcription copy survives in `strings.xml`. |
 | SP4 | moot | Branch-hygiene complaint about work merged long ago. |
-| SP5 | partial | Playback sub-point fixed — `SessionSheetViewModel.kt:158` gates on local file existence only. `softDelete` is still absent; the scope complaint itself is history. |
+| SP5 | closed | Playback sub-point fixed — `SessionSheetViewModel.kt:158` gates on local file existence only. `softDelete` stays absent by decision (2026-09-14); the scope complaint itself is history. |
 | SP6 | fixed | `TranscriptionCoordinator.kt:178` reads the real WAV length via `WavFormat.durationSeconds`, not segment offsets. |
 | SP7 | fixed | Confirmed by reading the code, then fixed as ARC-063 — see below. |
 | SP8 | fixed | `onDeviceTranscriber.release()` now runs in the `finally` of every attempt (`TranscriptionCoordinator.kt:152`). |
@@ -220,12 +221,18 @@ and `docs/design/claude-design-modernization/` (~2,900 lines including two `.dc.
 `organic-styles.css`). Slice-10's own plan says its branch starts "only after
 `feat/on-device-transcription` (slice-09) merges" — its artifacts shouldn't be inside slice-09.
 
-#### SP5. Unrequested removals and additions
+#### SP5. Unrequested removals and additions — closed 2026-09-14
 - `SessionRepository.softDelete` deleted — no caller, but no task asked for it.
 - `LibraryScreen`'s new "Recorded" status + Transcribe button and `SessionSheet`'s
   `canPlayAudio` gating are reasonable but not in the plan. Note ADR-0011 decision 2 promises
   "Library, playback, and reading the transcript all work with no backend configured" — which
   playback now does not.
+
+**Closed 2026-09-14: no soft delete, by decision.** Delete stays a real delete — the row and
+the WAV both go, as `SessionRepository.purge` already does, and as the multi-select delete
+shipped against. Restoring `softDelete` would put an undo path back with no screen asking for
+one. The playback sub-point was fixed separately; the "unrequested" complaint is about a merge
+that happened, so nothing else here is actionable.
 
 ### Implemented but wrong
 
@@ -271,4 +278,5 @@ Not yet triaged into merge-blockers vs. follow-ups.
    none of these has a user-facing consequence. Two left this list on 2026-09-14: S4 was fixed
    as ARC-065, and S10 turned out to have been fixed by ARC-015 before the re-audit was
    written.
-5. **SP4, SP5** — moot, or history.
+5. ~~**SP4, SP5** — moot, or history.~~ SP5 closed 2026-09-14: no soft delete, by decision.
+   SP4 was moot from the start.
