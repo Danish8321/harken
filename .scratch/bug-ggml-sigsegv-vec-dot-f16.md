@@ -49,6 +49,17 @@ Model: ggml-base.en.bin (whisper base.en, non-quantized).
     had other changes land since the original crash report (see commit history on
     `feat/on-device-transcription`), so this may already be partially masked rather than fixed.
 
+## Also tested, not confirmed: automated stress loop on a different device
+
+180 automated iterations (AIN065 "Pong", Snapdragon `taro`, arm64-v8a, Android 16 —
+not the original SM-E625F/Exynos 850) of the tight original-timing repro (launch, tap
+Record, 5s, tap Stop, watch logcat 1.5s for `SIGSEGV|ggml_vec_dot_f16|Fatal signal|
+tombstone`): zero crashes. Different chipset from the crash report, so this narrows
+"does it reproduce readily on arm64 in general" without bearing on the original
+device specifically — consistent with a device/SoC-specific cause, not proof of
+one. Script: throwaway, not committed (scratchpad-only harness, per
+diagnosing-bugs discipline — kept locally if the investigation continues).
+
 ## Not yet tried
 
 - Hypothesis 2: worker pthread stack overflow (ggml spawns raw pthreads via
