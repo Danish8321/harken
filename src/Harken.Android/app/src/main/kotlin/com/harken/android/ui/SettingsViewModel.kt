@@ -16,27 +16,16 @@ import com.harken.android.device.DeviceCapability
 import com.harken.android.export.ExportService
 import com.harken.android.export.ExportState
 import com.harken.android.export.ExportStatus
-import com.harken.android.speech.ModelDownloadFailure
 import com.harken.android.speech.ModelDownloadManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.System,
     val dynamicColor: Boolean = false,
-    val modelDownloadState: ModelDownloadState = ModelDownloadState.NotStarted,
-    val modelDownloadProgress: Int = 0,
-    val modelDownloadError: ModelDownloadFailure? = null,
-    /**
-     * Whether a usable model is installed *right now*, which is no longer the same question
-     * as "did the last download succeed": an update that fails leaves the previous model in
-     * place, and the screen has to say so rather than offer a first-time "Download".
-     */
-    val modelPresent: Boolean = false,
+    val download: ModelDownloadUi = ModelDownloadUi(),
     /**
      * The device this is running on, so the model card can say why a transcription may not
      * finish here. Read once at construction — it cannot change while the app is running.
@@ -56,8 +45,7 @@ class SettingsViewModel(
     private val _uiState =
         MutableStateFlow(
             SettingsUiState(
-                modelDownloadState = if (modelDownloadManager.isModelPresent()) ModelDownloadState.Ready else ModelDownloadState.NotStarted,
-                modelPresent = modelDownloadManager.isModelPresent(),
+                download = ModelDownloadUi.of(modelDownloadManager.isModelPresent()),
                 device = DeviceCapability.of(application),
             ),
         )
@@ -127,30 +115,11 @@ class SettingsViewModel(
      * the user with no model and no transcription at all.
      */
     fun updateModel() {
-        if (_uiState.value.modelDownloadState == ModelDownloadState.Downloading) return
-        _uiState.value = _uiState.value.copy(modelDownloadState = ModelDownloadState.Downloading, modelDownloadError = null)
         viewModelScope.launch {
             modelDownloadManager
                 .downloadProgress(replaceExisting = true)
-                .catch { e ->
-                    _uiState.value =
-                        _uiState.value.copy(
-                            modelDownloadState = ModelDownloadState.Failed,
-                            modelDownloadError = ModelDownloadFailure.of(e),
-                            modelPresent = modelDownloadManager.isModelPresent(),
-                        )
-                }.onCompletion { failure ->
-                    if (failure == null && _uiState.value.modelDownloadState != ModelDownloadState.Failed) {
-                        _uiState.value =
-                            _uiState.value.copy(
-                                modelDownloadState = ModelDownloadState.Ready,
-                                modelDownloadProgress = 100,
-                                modelPresent = true,
-                            )
-                    }
-                }.collect { percent ->
-                    _uiState.value = _uiState.value.copy(modelDownloadProgress = percent)
-                }
+                .asDownloadUi(_uiState.value.download) { modelDownloadManager.isModelPresent() }
+                .collect { download -> _uiState.value = _uiState.value.copy(download = download) }
         }
     }
 

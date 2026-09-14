@@ -75,18 +75,18 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
             Eyebrow(c, stringResource(R.string.settings_model_header))
             Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    when (state.modelDownloadState) {
+                    when (state.download.state) {
                         ModelDownloadState.Ready -> stringResource(R.string.settings_model_ready)
-                        ModelDownloadState.Downloading -> stringResource(R.string.settings_model_downloading, state.modelDownloadProgress)
+                        ModelDownloadState.Downloading -> stringResource(R.string.settings_model_downloading, state.download.progress)
                         ModelDownloadState.Failed -> {
                             val reason =
                                 stringResource(
-                                    state.modelDownloadError?.messageRes() ?: R.string.settings_model_download_failed,
+                                    state.download.error?.messageRes() ?: R.string.settings_model_download_failed,
                                 )
                             // A failed *update* is not a missing model — the installed one is
                             // untouched and still transcribes. Saying only "failed" would read
                             // as though the user had lost it.
-                            if (state.modelPresent) {
+                            if (state.download.present) {
                                 stringResource(R.string.settings_model_update_failed, reason)
                             } else {
                                 reason
@@ -94,28 +94,28 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel(factory = SettingsVi
                         }
                         ModelDownloadState.NotStarted -> stringResource(R.string.settings_model_not_started)
                     },
-                    color = if (state.modelDownloadState == ModelDownloadState.Failed) c.errorInk else c.text,
+                    color = if (state.download.state == ModelDownloadState.Failed) c.errorInk else c.text,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.weight(1f),
                 )
                 OutlinedButton(
                     onClick = viewModel::updateModel,
-                    enabled = state.modelDownloadState != ModelDownloadState.Downloading,
+                    enabled = state.download.state != ModelDownloadState.Downloading,
                     shape = PillShape,
                     modifier = Modifier.heightIn(min = 40.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = c.text),
                     border = BorderStroke(1.dp, c.textSecondary),
                 ) {
                     Text(
-                        stringResource(if (state.modelPresent) R.string.settings_model_update else R.string.settings_model_download),
+                        stringResource(if (state.download.present) R.string.settings_model_update else R.string.settings_model_download),
                         style = MaterialTheme.typography.labelMedium,
                     )
                 }
             }
-            if (state.modelDownloadState == ModelDownloadState.Downloading) {
+            if (state.download.state == ModelDownloadState.Downloading) {
                 Spacer(Modifier.height(10.dp))
                 androidx.compose.material3.LinearProgressIndicator(
-                    progress = { state.modelDownloadProgress / 100f },
+                    progress = { state.download.progress / 100f },
                     modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
                     color = c.accent,
                     trackColor = c.pillTrack,

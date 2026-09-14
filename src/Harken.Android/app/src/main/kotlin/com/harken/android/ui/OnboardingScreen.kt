@@ -44,7 +44,6 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.harken.android.R
 import com.harken.android.container
 import com.harken.android.data.AppSettings
-import com.harken.android.speech.ModelDownloadFailure
 import com.harken.android.speech.ModelDownloadManager
 import com.harken.android.ui.components.HarkenCard
 import com.harken.android.ui.components.StatusChip
@@ -54,17 +53,11 @@ import com.harken.android.ui.theme.PillShape
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
-
-enum class ModelDownloadState { NotStarted, Downloading, Ready, Failed }
 
 data class OnboardingUiState(
     val step: Int = 1,
-    val modelDownloadState: ModelDownloadState = ModelDownloadState.NotStarted,
-    val modelDownloadProgress: Int = 0,
-    val modelDownloadError: ModelDownloadFailure? = null,
+    val download: ModelDownloadUi = ModelDownloadUi(),
 )
 
 // Every recording is transcribed entirely on-device (ADR-0011): no backend to connect to,
@@ -76,33 +69,16 @@ class OnboardingViewModel(
     private val settings: AppSettings,
     private val modelDownloadManager: ModelDownloadManager,
 ) : AndroidViewModel(application) {
-    private val _uiState =
-        MutableStateFlow(
-            OnboardingUiState(
-                modelDownloadState = if (modelDownloadManager.isModelPresent()) ModelDownloadState.Ready else ModelDownloadState.NotStarted,
-            ),
-        )
+    private val _uiState = MutableStateFlow(OnboardingUiState(download = ModelDownloadUi.of(modelDownloadManager.isModelPresent())))
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
+    /** A second tap while one is running is refused inside [asDownloadUi], not here. */
     fun downloadModel() {
-        if (_uiState.value.modelDownloadState == ModelDownloadState.Downloading) return
-        _uiState.value = _uiState.value.copy(modelDownloadState = ModelDownloadState.Downloading, modelDownloadError = null)
         viewModelScope.launch {
             modelDownloadManager
                 .downloadProgress()
-                .catch { e ->
-                    _uiState.value =
-                        _uiState.value.copy(
-                            modelDownloadState = ModelDownloadState.Failed,
-                            modelDownloadError = ModelDownloadFailure.of(e),
-                        )
-                }.onCompletion { failure ->
-                    if (failure == null && _uiState.value.modelDownloadState != ModelDownloadState.Failed) {
-                        _uiState.value = _uiState.value.copy(modelDownloadState = ModelDownloadState.Ready, modelDownloadProgress = 100)
-                    }
-                }.collect { percent ->
-                    _uiState.value = _uiState.value.copy(modelDownloadProgress = percent)
-                }
+                .asDownloadUi(_uiState.value.download) { modelDownloadManager.isModelPresent() }
+                .collect { download -> _uiState.value = _uiState.value.copy(download = download) }
         }
     }
 
@@ -223,7 +199,7 @@ fun OnboardingScreen(
                                 modifier = Modifier.padding(top = 10.dp),
                             )
                             HarkenCard(Modifier.fillMaxWidth().padding(top = 20.dp)) {
-                                when (state.modelDownloadState) {
+                                when (state.download.state) {
                                     ModelDownloadState.NotStarted ->
                                         Button(
                                             onClick = viewModel::downloadModel,
@@ -234,13 +210,13 @@ fun OnboardingScreen(
                                     ModelDownloadState.Downloading ->
                                         Column {
                                             LinearProgressIndicator(
-                                                progress = { state.modelDownloadProgress / 100f },
+                                                progress = { state.download.progress / 100f },
                                                 modifier = Modifier.fillMaxWidth().height(6.dp).clip(PillShape),
                                                 color = c.accent,
                                                 trackColor = c.cardBorder,
                                             )
                                             Text(
-                                                stringResource(R.string.onboarding2_downloading, state.modelDownloadProgress),
+                                                stringResource(R.string.onboarding2_downloading, state.download.progress),
                                                 color = c.textSecondary,
                                                 style = MaterialTheme.typography.bodySmall,
                                                 modifier = Modifier.padding(top = 8.dp),
@@ -266,7 +242,7 @@ fun OnboardingScreen(
                                         Column {
                                             Text(
                                                 stringResource(
-                                                    state.modelDownloadError?.messageRes()
+                                                    state.download.error?.messageRes()
                                                         ?: R.string.settings_model_download_failed,
                                                 ),
                                                 color = c.errorInk,
@@ -306,7 +282,7 @@ fun OnboardingScreen(
                     stringResource(
                         when {
                             state.step < 2 -> R.string.onboarding2_continue
-                            state.modelDownloadState == ModelDownloadState.Ready -> R.string.onboarding2_start_recording
+                            state.download.state == ModelDownloadState.Ready -> R.string.onboarding2_start_recording
                             else -> R.string.onboarding2_skip_for_now
                         },
                     ),
