@@ -4,9 +4,11 @@ Opened 2026-08-28. Two-axis review of `git diff master...HEAD` (fixed point `mas
 2f8c21a, 16 commits, 32 non-vendored files). Vendored `src/Harken.Android/app/src/main/cpp/whisper`
 excluded — third-party, not ours to review.
 
-Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, 11 are fixed,
-1 is moot, 3 are partial and 3 remain open — S8 and SP7 were fixed on 2026-09-13 as ARC-063,
-S7 the same day as ARC-064, and SP1/SP2 on 2026-09-14 by correcting the documents themselves.
+Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, 13 are fixed,
+1 is moot, 3 are partial and 1 remains open — S8 and SP7 were fixed on 2026-09-13 as ARC-063,
+S7 the same day as ARC-064, SP1/SP2 on 2026-09-14 by correcting the documents themselves, S4
+the same day as ARC-065, and S10 was found on 2026-09-14 to have been fixed by ARC-015 before
+this re-audit was written.
 The verdicts are below; the original text of each finding is kept underneath, unedited, so
 the two can be read against each other.
 
@@ -17,13 +19,13 @@ the two can be read against each other.
 | S1 | fixed | `README.md:3-4,60-63` now describes on-device transcription and the 2-step onboarding. |
 | S2 | partial | `TranscriptionCoordinatorTest` and `ModelDownloadManagerTest` exist; `OnDeviceTranscriber` still has none (JNI-bound). |
 | S3 | fixed | SHA-256 verification plus a content-length truncation check — `ModelDownloadManager.kt:222-251,397-401`. |
-| S4 | open | `OnboardingScreen.kt:87-107` and `SettingsViewModel.kt:129-150` still repeat the same collect block. |
+| S4 | fixed | `ui/ModelDownload.kt` holds one `ModelDownloadUi` and the fold both ViewModels now delegate to (ARC-065). |
 | S5 | partial | Leaf logic factored into `downloadTo`/`installPartial`/`verifyPartial`; `ensureModel()` and `downloadProgress()` still each wrap it themselves. |
 | S6 | fixed | `AzureBatch` and `setTranscriptionProvider` are gone from the source entirely. |
 | S7 | fixed | `data/TranscriptionStatus.kt` is now the vocabulary; the DAO binds it and the UI holds the type (ARC-064). |
 | S8 | fixed | Same defect as SP7, fixed with it as ARC-063. |
 | S9 | open | `TranscriptionCoordinator.transcribe(...)` still takes its three collaborators per call (`TranscriptionCoordinator.kt:67-75`). |
-| S10 | open | Still `pendingUploadPath` (`SessionDao.kt:262`); the migration comment at `:218-227` already admits the name stopped meaning what it says. |
+| S10 | fixed | ARC-015's `MIGRATION_2_3` renamed the column to `audioPath`; `pendingUploadPath` survives only inside that migration. |
 | SP1 | fixed | ADR-0011's Status and its new "What actually shipped" section record that no provider picker exists and Azure is unreachable. |
 | SP2 | fixed | Same section covers decisions 3–5 and the explicit-transcribe change; the slice-09 plan carries a header note naming the four divergences. |
 | SP3 | fixed | No automatic-transcription copy survives in `strings.xml`. |
@@ -101,12 +103,20 @@ indistinguishable from a good model — a plausible contributor to native crashe
 
 ### Judgement calls
 
-#### S4. DRY / Data Clump — duplicated download-collection in two ViewModels
+#### S4. DRY / Data Clump — duplicated download-collection in two ViewModels — fixed 2026-09-14
 `OnboardingViewModel.downloadModel()` and `SettingsViewModel.updateModel()` are the same
 ~20-line `catch`/`onCompletion`/`collect` block verbatim, with the same
 `MutableStateFlow(… if (isModelPresent()) Ready else NotStarted)` init and the same three
 `modelDownloadState` / `modelDownloadProgress` / `modelDownloadError` fields travelling
 together. Extract one `ModelDownloadUiState` plus a shared `collectDownload()`.
+
+**Fixed 2026-09-14 as ARC-065.** `ui/ModelDownload.kt` now holds `ModelDownloadUi` (the four
+fields as one value), `of(present)` as the single init rule, and
+`Flow<Int>.asDownloadUi(start, presentOnFailure)` — the fold both ViewModels delegate to,
+each now one `launch` and one `collect`. Written against `Flow<Int>` rather than
+`ModelDownloadManager` so it is reachable from a JVM test: `ModelDownloadTest` is nine tests
+where there were none, two of them mutation-checked. `ModelDownloadState` moved out of
+`OnboardingScreen.kt` in the same change.
 
 #### S5. Duplicated Code inside `ModelDownloadManager`
 `ensureModel()` and `downloadProgress()` both repeat mkdirs → `.tmp` → `downloadTo` →
@@ -137,9 +147,21 @@ receiving dependencies on every call, and `LibraryViewModel.transcribe(session)`
 into `session.pendingUploadPath` to feed it. That's the shape of a class that should hold
 its dependencies.
 
-#### S10. Mysterious Name — `SessionRow.pendingUploadPath`
+#### S10. Mysterious Name — `SessionRow.pendingUploadPath` — fixed by ARC-015
 Now stores the audio path for local-only sessions that will *never* be uploaded; the name
 asserts the opposite. `recordingPath` (with upload-pending derived from status) is honest.
+
+**Already fixed when the 2026-09-13 re-audit was written; the verdict above was wrong and was
+corrected on 2026-09-14.** ARC-015's `MIGRATION_2_3` (`SessionDao.kt:246-283`) rebuilt the
+table and renamed the column to `audioPath` — the rebuild *is* the rename, because minSdk 26
+ships SQLite 3.18, which has neither `RENAME COLUMN` nor `DROP COLUMN`. In
+`src/Harken.Android/app/src/main`, `pendingUploadPath` now occurs only at `SessionDao.kt:232`
+and `:239` (the migration's own KDoc) and `:276` (the `SELECT` that reads the old column into
+the new one), which is exactly where the old name must survive: a migration names the schema
+it is migrating *from*. `SessionDao.kt:262`, which the re-audit cited as the offender, is
+`` `audioPath` TEXT `` in the new table's DDL. The remaining occurrences are in
+`androidTest/…/SessionDatabaseMigrationTest.kt`, which asserts the rename carries the value
+across — also the old name used correctly.
 
 ---
 
@@ -244,8 +266,9 @@ Not yet triaged into merge-blockers vs. follow-ups.
 3. ~~**SP1, SP2** — ADR-0011 and the slice-09 plan describe a system that no longer exists
    (a provider picker, a connect step, a lazy download).~~ Fixed as documents on 2026-09-14:
    ADR-0011 carries a "What actually shipped" section, the plan a header note.
-4. **S4, S9, S10, S5, S2** — maintainability: duplicated download collection, per-call
-   collaborators, a field whose name its own migration comment disowns, wrapper duplication,
-   and the missing `OnDeviceTranscriber` test. **Now the top item** — nothing above it is
-   open, and none of these has a user-facing consequence.
+4. **S9, S5, S2** — maintainability: per-call collaborators, wrapper duplication, and the
+   missing `OnDeviceTranscriber` test. **Now the top item** — nothing above it is open, and
+   none of these has a user-facing consequence. Two left this list on 2026-09-14: S4 was fixed
+   as ARC-065, and S10 turned out to have been fixed by ARC-015 before the re-audit was
+   written.
 5. **SP4, SP5** — moot, or history.
