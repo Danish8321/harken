@@ -72,4 +72,6 @@ SIGSEGV cause in `ggml_vec_dot_f16` is still unknown and unfixed.
 ## Secondary gap noted alongside this bug
 
 Two Room sessions can get stuck in "Transcribing" status permanently if a crash happens
-mid-inference — no crash recovery marks them Failed. Not yet actioned.
+mid-inference — no crash recovery marks them Failed. Fixed in `2a07c85` (see
+`slice-09-followups.md` item 5): `Running` rows are settled as `Failed` at launch, and
+`Failed` rows now offer Transcribe again.
