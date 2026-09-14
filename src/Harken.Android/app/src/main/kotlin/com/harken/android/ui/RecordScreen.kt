@@ -27,6 +27,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -310,7 +311,10 @@ fun RecordScreen(
                 visible = state.isRecording,
                 enter = fadeIn(fade),
                 exit = fadeOut(fade),
-                modifier = Modifier.align(Alignment.CenterStart),
+                // A fixed offset from the centred Record button, not the row edge: at full
+                // screen width CenterStart sat a full thumb-stretch away one-handed. 96dp
+                // clears Record's own 88dp so the two never touch, however narrow the screen.
+                modifier = Modifier.align(Alignment.Center).offset(x = (-96).dp),
             ) {
                 PauseButton(paused = state.isPaused) {
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -324,7 +328,7 @@ fun RecordScreen(
                 visible = !state.isRecording,
                 enter = fadeIn(fade),
                 exit = fadeOut(fade),
-                modifier = Modifier.align(Alignment.CenterEnd),
+                modifier = Modifier.align(Alignment.Center).offset(x = 96.dp),
             ) {
                 ImportButton(busy = importPicker.busy) {
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -708,6 +712,7 @@ private fun PauseButton(
             .size(60.dp)
             .scale(scale)
             .background(c.card, CircleShape)
+            .border(1.5.dp, c.accent, CircleShape)
             .clickable(
                 interactionSource = interaction,
                 indication = LocalIndication.current,
@@ -719,8 +724,8 @@ private fun PauseButton(
         Icon(
             if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
             contentDescription = stringResource(if (paused) R.string.record_resume else R.string.record_pause),
-            tint = c.text,
-            modifier = Modifier.size(26.dp),
+            tint = c.accent,
+            modifier = Modifier.size(28.dp),
         )
     }
 }
@@ -752,6 +757,7 @@ private fun ImportButton(
             .size(60.dp)
             .scale(scale)
             .background(c.card, CircleShape)
+            .border(1.5.dp, c.accent, CircleShape)
             .clickable(
                 enabled = !busy,
                 interactionSource = interaction,
@@ -762,13 +768,13 @@ private fun ImportButton(
         contentAlignment = Alignment.Center,
     ) {
         if (busy) {
-            CircularProgressIndicator(color = c.text, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+            CircularProgressIndicator(color = c.accent, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
         } else {
             Icon(
                 Icons.Filled.LibraryMusic,
                 contentDescription = stringResource(R.string.import_action),
-                tint = c.text,
-                modifier = Modifier.size(26.dp),
+                tint = c.accent,
+                modifier = Modifier.size(28.dp),
             )
         }
     }
