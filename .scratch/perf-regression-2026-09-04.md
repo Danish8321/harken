@@ -67,8 +67,10 @@ clang --target=aarch64-none-linux-android26 -DGGML_USE_CPU ... -g -DANDROID ... 
 whisper was running unoptimized.
 
 Fix: `set(HARKEN_KERNEL_OPTIONS -O3)` applied to the `ggml` and `whisper` targets.
-Debug info stays on, because the open `ggml_vec_dot_f16` SIGSEGV still needs
-symbolizable tombstones. Nobody single-steps ggml, so nothing is traded away.
+Debug info stays on: any native crash in these kernels needs a symbolizable
+tombstone to diagnose, closed-by-decision `ggml_vec_dot_f16` SIGSEGV included
+(`bug-ggml-sigsegv-vec-dot-f16.md` — closed 2026-09-14 as out-of-scope hardware,
+not fixed). Nobody single-steps ggml, so nothing is traded away.
 
 **A second effect worth recording.** In the baseline the six spans of the mixed
 fixture decoded in 61 / 106 / **243** / 101 / 61 / 176 seconds — a 4x spread across
@@ -341,9 +343,11 @@ with an empty-ish filesystem.
    little cores.
 4. **No ARM feature flags** — no `-march=...+fp16+dotprod`. ggml's optimized
    fp16/dotprod kernels may be compiling out to scalar reference code. Left alone
-   deliberately: the open SIGSEGV is in `ggml_vec_dot_f16` on a different device
-   (Exynos 850), and narrowing the ISA baseline is exactly the wrong move while
-   that is unexplained.
+   at the time: the `ggml_vec_dot_f16` SIGSEGV (Exynos 850) was open, and
+   narrowing the ISA baseline seemed the wrong move while it was unexplained.
+   That bug is now closed by decision (device dropped, not fixed — see item 3
+   above), so this constraint no longer applies on its own; revisit only if
+   someone actually wants the ISA change.
 5. ~~**Native crash breadcrumb still missing**~~ — added in `2805632`, see open
    item 3. The paragraph below describes the state before that.
    The `span_decoded` events now act as
@@ -382,12 +386,14 @@ with an empty-ish filesystem.
    0.21–0.25 is a shipping number. Two things it opened instead: item 9 (the
    release build does not compile) and item 10 (release cold start still
    unmeasured).
-3. ~~**`ggml_vec_dot_f16` SIGSEGV**~~ — no repro yet, but no longer invisible.
-   `NativeDecodeBreadcrumb` (`2805632`) writes the span index, offset and length
-   before every native decode and clears it after, so a process that dies inside
-   whisper.cpp is reported at the next launch. Verified by killing the app
-   mid-decode: `native_decode_crash spanIndex=4 startSecond=167 spanSeconds=12`.
-   Numbers only — no path, audio or transcript (ADR-0011).
+3. ~~**`ggml_vec_dot_f16` SIGSEGV**~~ — no repro was ever found; closed by decision
+   2026-09-14 as out-of-scope hardware (`bug-ggml-sigsegv-vec-dot-f16.md`), not
+   fixed. Left behind regardless: `NativeDecodeBreadcrumb` (`2805632`) writes the
+   span index, offset and length before every native decode and clears it after,
+   so a process that dies inside whisper.cpp is reported at the next launch.
+   Verified by killing the app mid-decode:
+   `native_decode_crash spanIndex=4 startSecond=167 spanSeconds=12`. Numbers
+   only — no path, audio or transcript (ADR-0011).
 4. **`SpeechSpans` constants** (10 s minimum skippable silence, 1 s padding) remain
    untuned against real multi-speaker audio. The `span_decoded` events now make
    this measurable from a single real meeting.

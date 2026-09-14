@@ -1,6 +1,7 @@
 # Native SIGSEGV in ggml_vec_dot_f16 during on-device transcription
 
-Status: open, root cause unknown. Opened 2026-08-28.
+Status: closed by decision, 2026-09-14. Root cause was never found — closed as
+out-of-scope hardware, not fixed. See "Closing decision" below.
 
 ## Symptom
 
@@ -60,18 +61,31 @@ device specifically — consistent with a device/SoC-specific cause, not proof o
 one. Script: throwaway, not committed (scratchpad-only harness, per
 diagnosing-bugs discipline — kept locally if the investigation continues).
 
-## Not yet tried
+## Not tried, and not being pursued further (see closing decision)
 
 - Hypothesis 2: worker pthread stack overflow (ggml spawns raw pthreads via
   `ggml-threading.cpp`, not coroutines — default stack size may be too small for this tensor
   shape/model).
 - Hypothesis 3: memory pressure / partial mmap unmap of the model file on a low-RAM device
   under load.
-- Re-attempt repro with the *exact* original conditions: ~5s clip, immediate Stop-then-crash
-  timing (~1s), rather than the longer/different clips used in the contrast tests above — the
-  original bug may be timing- or length-sensitive in a way not yet reproduced.
-- Stress/loop the repro many times (diagnosing-bugs Phase 1 "non-deterministic bugs" guidance)
-  since a clean run now doesn't rule out a low-rate flake.
+
+## Closing decision (2026-09-14)
+
+The crash device (SM-E625F, Exynos 850) is a budget-tier chip below the hardware class
+the app now targets ("mid+ processor phones" — product decision, this conversation).
+Closed as out-of-scope rather than fixed: the native cause in `ggml_vec_dot_f16` was
+never identified, so if a mid-tier device ever shows the same tombstone this doc's
+Phase 1-4 work (thread-count test, the two ruled-out hypotheses, and the automated
+repro loop below) is the starting point, not a dead end.
+
+Not verified as part of this decision: SM-E625F's actual RAM. ADR-0014 already sets a
+6 GB floor by RAM, independent of CPU tier — if this device is also under 6 GB, it was
+arguably already unsupported under that ADR and this closure doesn't add a new rule,
+just confirms an existing one from the CPU side.
+
+180 automated iterations on a different, mid/high-tier arm64 phone (Snapdragon `taro`)
+showed zero repro at the original tight timing — see below — consistent with, not
+proof of, this being specific to the low-tier device being dropped.
 
 ## Current mitigation (shipped, does not fix root cause)
 
