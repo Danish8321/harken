@@ -4,12 +4,12 @@ Opened 2026-08-28. Two-axis review of `git diff master...HEAD` (fixed point `mas
 2f8c21a, 16 commits, 32 non-vendored files). Vendored `src/Harken.Android/app/src/main/cpp/whisper`
 excluded — third-party, not ours to review.
 
-Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, 13 are fixed,
-1 is moot, 1 is closed by decision (SP5 — no soft delete), 2 are partial and 1 remains open —
-S8 and SP7 were fixed on 2026-09-13 as ARC-063,
+Status: re-audited 2026-09-13 against master at `2e204ce`. Of the 18 findings, 14 are fixed,
+1 is moot, 1 is closed by decision (SP5 — no soft delete), 1 is partial (S2) and 1 remains
+open (S9) — S8 and SP7 were fixed on 2026-09-13 as ARC-063,
 S7 the same day as ARC-064, SP1/SP2 on 2026-09-14 by correcting the documents themselves, S4
-the same day as ARC-065, and S10 was found on 2026-09-14 to have been fixed by ARC-015 before
-this re-audit was written.
+the same day as ARC-065, S5 the same day as ARC-066, and S10 was found on 2026-09-14 to have
+been fixed by ARC-015 before this re-audit was written.
 The verdicts are below; the original text of each finding is kept underneath, unedited, so
 the two can be read against each other.
 
@@ -21,7 +21,7 @@ the two can be read against each other.
 | S2 | partial | `TranscriptionCoordinatorTest` and `ModelDownloadManagerTest` exist; `OnDeviceTranscriber` still has none (JNI-bound). |
 | S3 | fixed | SHA-256 verification plus a content-length truncation check — `ModelDownloadManager.kt:222-251,397-401`. |
 | S4 | fixed | `ui/ModelDownload.kt` holds one `ModelDownloadUi` and the fold both ViewModels now delegate to (ARC-065). |
-| S5 | partial | Leaf logic factored into `downloadTo`/`installPartial`/`verifyPartial`; `ensureModel()` and `downloadProgress()` still each wrap it themselves. |
+| S5 | fixed | `installIfMissing(replaceExisting, onProgress)` is now the one locked path both entry points call (ARC-066). |
 | S6 | fixed | `AzureBatch` and `setTranscriptionProvider` are gone from the source entirely. |
 | S7 | fixed | `data/TranscriptionStatus.kt` is now the vocabulary; the DAO binds it and the UI holds the type (ARC-064). |
 | S8 | fixed | Same defect as SP7, fixed with it as ARC-063. |
@@ -119,10 +119,18 @@ each now one `launch` and one `collect`. Written against `Flow<Int>` rather than
 where there were none, two of them mutation-checked. `ModelDownloadState` moved out of
 `OnboardingScreen.kt` in the same change.
 
-#### S5. Duplicated Code inside `ModelDownloadManager`
+#### S5. Duplicated Code inside `ModelDownloadManager` — fixed 2026-09-14
 `ensureModel()` and `downloadProgress()` both repeat mkdirs → `.tmp` → `downloadTo` →
 `renameTo` → delete-on-failure. `ensureModel()` should be `downloadProgress().collect {}`
 plus the path, or both should call one private `download()`.
+
+**Fixed 2026-09-14 as ARC-066**, by the second of those two. `installIfMissing(replaceExisting,
+onProgress)` holds the locked section — re-check, `mkdirs`, `downloadTo`, `installPartial` —
+and is deliberately silent and dispatcher-free, so each entry point keeps its own result shape,
+its own log line and its own cancellation handling. `ensureModel` was not rewritten to run the
+flow: that would hand a caller wanting a path and a `Result` a Flow it does not use, and would
+fold together the two cancellation stories ARC-063 kept apart. Two new tests pin
+`replaceExisting`, which nothing had exercised.
 
 #### S6. YAGNI — provider switching is dead code
 `AppSettings.setTranscriptionProvider` has zero callers. `AzureBatch` is therefore
@@ -273,10 +281,9 @@ Not yet triaged into merge-blockers vs. follow-ups.
 3. ~~**SP1, SP2** — ADR-0011 and the slice-09 plan describe a system that no longer exists
    (a provider picker, a connect step, a lazy download).~~ Fixed as documents on 2026-09-14:
    ADR-0011 carries a "What actually shipped" section, the plan a header note.
-4. **S9, S5, S2** — maintainability: per-call collaborators, wrapper duplication, and the
-   missing `OnDeviceTranscriber` test. **Now the top item** — nothing above it is open, and
-   none of these has a user-facing consequence. Two left this list on 2026-09-14: S4 was fixed
-   as ARC-065, and S10 turned out to have been fixed by ARC-015 before the re-audit was
-   written.
+4. **S9, S2** — maintainability: per-call collaborators, and the missing `OnDeviceTranscriber`
+   test. **All that is left** — nothing above it is open, and neither has a user-facing
+   consequence. Three left this list on 2026-09-14: S4 as ARC-065, S5 as ARC-066, and S10,
+   which turned out to have been fixed by ARC-015 before the re-audit was written.
 5. ~~**SP4, SP5** — moot, or history.~~ SP5 closed 2026-09-14: no soft delete, by decision.
    SP4 was moot from the start.

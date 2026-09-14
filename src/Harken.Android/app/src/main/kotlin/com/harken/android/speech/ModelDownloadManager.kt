@@ -166,26 +166,39 @@ class ModelDownloadManager(
             }
 
             runCatchingDownload {
-                // The lock, rather than the AtomicBoolean that only ever guarded the cleanup
-                // (ARC-019). Without it two callers open FileOutputStream(.tmp, append = true)
-                // on the same file and interleave their writes into it — and since both append
-                // toward the same Content-Length, the result is often exactly the right length.
-                // Held for the whole transfer, so waiting here can mean minutes: a suspended
-                // coroutine on the IO dispatcher, not a blocked thread.
-                downloadLock.withLock {
-                    // Re-checked inside the lock. A caller that waited was waiting for this
-                    // very file, and fetching it again is the work the lock exists to avoid.
-                    if (!modelFile.exists()) {
-                        modelsDir.mkdirs()
-                        downloadTo(partialFile)
-                        installPartial()
-                    }
-                }
+                installIfMissing()
                 modelFile.absolutePath
             }.onFailure { e ->
                 Log.e(TAG, "ensureModel download failed", e)
             }
         }
+
+    /**
+     * Fetches and installs the model, unless it is already there — the one path both
+     * [ensureModel] and [downloadProgress] take once they have decided a download is needed.
+     *
+     * Deliberately silent and without a dispatcher of its own: it cannot tell which entry
+     * point is running, and each of those logs and dispatches for itself. [onProgress] is how
+     * the flow gets its percentages; [ensureModel] passes nothing and wants nothing.
+     *
+     * The lock, rather than the AtomicBoolean that only ever guarded the cleanup (ARC-019).
+     * Without it two callers open FileOutputStream(.tmp, append = true) on the same file and
+     * interleave their writes into it — and since both append toward the same Content-Length,
+     * the result is often exactly the right length. Held for the whole transfer, so waiting
+     * here can mean minutes: a suspended coroutine on the IO dispatcher, not a blocked thread.
+     */
+    private suspend fun installIfMissing(
+        replaceExisting: Boolean = false,
+        onProgress: (suspend (Int) -> Unit)? = null,
+    ) = downloadLock.withLock {
+        // Re-checked inside the lock. A caller that waited was waiting for this very file,
+        // and fetching it again is the work the lock exists to avoid. An update (Settings)
+        // waits the same way, and then finds the model already installed.
+        if (modelFile.exists() && !replaceExisting) return@withLock
+        modelsDir.mkdirs()
+        downloadTo(partialFile, onProgress)
+        installPartial()
+    }
 
     /**
      * Verifies the completed partial, then moves it over the installed model, replacing it
@@ -291,14 +304,7 @@ class ModelDownloadManager(
             }
 
             try {
-                downloadLock.withLock {
-                    // An update that starts while a first-run download is still running
-                    // waits for it, and then finds the model already installed.
-                    if (modelFile.exists() && !replaceExisting) return@withLock
-                    modelsDir.mkdirs()
-                    downloadTo(partialFile) { percent -> emit(percent) }
-                    installPartial()
-                }
+                installIfMissing(replaceExisting) { percent -> emit(percent) }
             } catch (e: CancellationException) {
                 // The collector went away — the user left onboarding or Settings. The
                 // transfer stops with it, which is the whole reason this is a plain `flow`

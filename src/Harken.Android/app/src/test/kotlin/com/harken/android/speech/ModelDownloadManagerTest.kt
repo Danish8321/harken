@@ -6,6 +6,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.MediaType.Companion.toMediaType
@@ -189,6 +190,43 @@ class ModelDownloadManagerTest {
             assertTrue(result.isSuccess)
             assertTrue(manager.isModelPresent())
             assertEquals(4096, File(result.getOrThrow()).length().toInt())
+        }
+
+    /**
+     * Settings' "update" action. The installed model is not deleted first — an update
+     * interrupted by a dropped connection must leave the previous one working — so what says
+     * the update happened is a second request, not a missing file.
+     */
+    @Test
+    fun `an update re-fetches a model that is already installed`() =
+        runBlocking {
+            val served = ByteArray(4096) { it.toByte() }
+            val requests = AtomicInteger(0)
+            val manager = ModelDownloadManager(temp.root, clientServing(served, requests), sha256Of(served))
+            manager.ensureModel()
+            assertEquals(1, requests.get())
+
+            val percentages = manager.downloadProgress(replaceExisting = true).toList()
+
+            assertEquals("the update must go to the network, model present or not", 2, requests.get())
+            assertTrue(manager.isModelPresent())
+            // One emission per 64 KB chunk, and this fixture is 4 KB — the percentages look
+            // the same as the no-op case below, so the request count is what tells them apart.
+            assertEquals(listOf(100), percentages)
+        }
+
+    @Test
+    fun `a model already installed is reported complete without a request`() =
+        runBlocking {
+            val served = ByteArray(4096) { it.toByte() }
+            val requests = AtomicInteger(0)
+            val manager = ModelDownloadManager(temp.root, clientServing(served, requests), sha256Of(served))
+            manager.ensureModel()
+
+            val percentages = manager.downloadProgress().toList()
+
+            assertEquals(listOf(100), percentages)
+            assertEquals("the model was there; nothing should have been fetched", 1, requests.get())
         }
 
     @Test
