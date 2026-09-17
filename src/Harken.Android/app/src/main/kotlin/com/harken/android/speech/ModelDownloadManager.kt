@@ -105,7 +105,7 @@ enum class ModelDownloadFailure {
 class ModelDownloadManager(
     private val filesDir: File,
     private val client: OkHttpClient = OkHttpClient(),
-    /** Overridden only by tests, which cannot produce 148 MB that hashes to the real model. */
+    /** Overridden only by tests, which cannot produce 488 MB that hashes to the real model. */
     private val expectedSha256: String = MODEL_SHA256,
 ) : ModelProvider {
     constructor(context: Context) : this(context.filesDir)
@@ -125,12 +125,12 @@ class ModelDownloadManager(
     /**
      * Deletes a partial download that is too old to be worth resuming, and reports how many
      * bytes that freed. A download killed mid-stream (swipe-away, low-memory kill, crash)
-     * leaves up to 148 MB of the user's storage held by a file the app never mentions —
+     * leaves up to 488 MB of the user's storage held by a file the app never mentions —
      * measured on a Nothing Phone 2 at 86 MB.
      *
      * Only *stale* partials go. A recent one is the resume point for the retry the user is
      * about to make: [streamTo] sends a `Range` header for whatever is already on disk, so
-     * deleting it at launch would cost them the whole 148 MB again. After [StalePartialAge]
+     * deleting it at launch would cost them the whole 488 MB again. After [StalePartialAge]
      * the user has plainly moved on, and the server may no longer serve a matching range
      * anyway.
      *
@@ -153,6 +153,22 @@ class ModelDownloadManager(
 
         Telemetry.event("model_partial_discarded", "bytes" to bytes, "ageMs" to ageMs)
         return bytes
+    }
+
+    /**
+     * Deletes models this app no longer loads, and their partials, reporting the bytes freed.
+     * Swapping the model changes [MODEL_FILE_NAME], so an upgraded install would otherwise
+     * keep the old file — 148 MB for base.en — with nothing left that knows it is there.
+     */
+    fun discardRetiredModels(): Long {
+        var freed = 0L
+        for (name in RETIRED_MODEL_FILE_NAMES.flatMap { listOf(it, "$it.tmp") }) {
+            val file = File(modelsDir, name)
+            val bytes = file.length()
+            if (bytes > 0 && file.delete()) freed += bytes
+        }
+        if (freed > 0) Telemetry.event("model_retired_discarded", "bytes" to freed)
+        return freed
     }
 
     /**
@@ -230,8 +246,8 @@ class ModelDownloadManager(
      * stale CDN object, a proxy in between — is exactly the right length and the wrong
      * file, and what loads it is `nativeLoadModel`, in C++, in this process. So the bytes
      * are hashed before anything else is allowed to see them (ARC-005). One streamed read
-     * of 148 MB: no extra memory, 126 ms on the reference device against a 21-second
-     * download, once per download.
+     * of the model, no extra memory, once per download — measured at 126 ms against a
+     * 21-second download on the reference device with the 148 MB base.en.
      *
      * A file that fails is deleted rather than kept as a resume point — resuming would
      * append to bytes already known to be wrong.
@@ -365,9 +381,9 @@ class ModelDownloadManager(
         destination: File,
         onProgress: (suspend (Int) -> Unit)?,
     ) {
-        // Resume where a previous attempt stopped. The model is ~148 MB, and restarting
+        // Resume where a previous attempt stopped. The model is ~488 MB, and restarting
         // from zero on every dropped connection is how a download on a flaky mobile link
-        // never finishes — each attempt costs the user the full 148 MB of data again.
+        // never finishes — each attempt costs the user the full 488 MB of data again.
         val alreadyHave = destination.length()
         val request =
             Request
@@ -429,7 +445,7 @@ class ModelDownloadManager(
                     var read: Int
                     while (input.read(buffer).also { read = it } != -1) {
                         // Between chunks, so backing out of the screen stops the transfer
-                        // within 64 KB rather than at the end of 148 MB. The chunk just read
+                        // within 64 KB rather than at the end of 488 MB. The chunk just read
                         // is dropped: the next attempt resumes from what is on disk.
                         currentCoroutineContext().ensureActive()
                         output.write(buffer, 0, read)
@@ -453,7 +469,9 @@ class ModelDownloadManager(
     }
 
     companion object {
-        const val MODEL_FILE_NAME = "ggml-base.en.bin"
+        const val MODEL_FILE_NAME = "ggml-small.en.bin"
+
+        private val RETIRED_MODEL_FILE_NAMES = listOf("ggml-base.en.bin")
 
         /**
          * How long a partial download stays resumable. A day covers "I lost signal on the
@@ -479,13 +497,13 @@ class ModelDownloadManager(
 
         /**
          * SHA-256 of the release asset at [MODEL_DOWNLOAD_URL] — upstream
-         * `ggml-base.en.bin`, 147,964,211 bytes, unchanged. Bump this in the same commit
+         * `ggml-small.en.bin`, 487,614,201 bytes, unchanged. Bump this in the same commit
          * that re-points the URL: a mismatch reaches the user as a corrupt download, so a
          * stale constant here looks to them like a broken server.
          */
-        const val MODEL_SHA256 = "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002"
+        const val MODEL_SHA256 = "c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d"
 
         const val MODEL_DOWNLOAD_URL =
-            "https://github.com/Danish8321/harken/releases/download/models-v1/ggml-base.en.bin"
+            "https://github.com/Danish8321/harken/releases/download/models-v1/ggml-small.en.bin"
     }
 }

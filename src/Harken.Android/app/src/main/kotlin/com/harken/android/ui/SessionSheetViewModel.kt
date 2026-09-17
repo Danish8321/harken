@@ -431,9 +431,10 @@ class SessionSheetViewModel(
         if (session == null) return ""
         val length = TranscriptText.timestamp(duration)
         val base = "${formatSessionTimestamp(session.startedAt)} · $length"
-        // "whisper base.en" names the one on-device model this app ships (ADR-0011) — true
-        // of every transcript, but false to claim for a session nothing has transcribed yet.
-        return if (transcribed) "$base · whisper base.en" else base
+        // "whisper small.en" names the one on-device model this app ships (ADR-0011) — but
+        // false to claim for a session nothing has transcribed yet. Not stored per
+        // transcript, so ones made before the base.en swap also read small.en.
+        return if (transcribed) "$base · whisper small.en" else base
     }
 
     companion object {

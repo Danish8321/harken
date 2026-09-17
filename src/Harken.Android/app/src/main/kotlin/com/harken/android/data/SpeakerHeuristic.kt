@@ -3,7 +3,7 @@ package com.harken.android.data
 /**
  * Assigns a voice index to each transcript segment.
  *
- * This is NOT diarization. Whisper base.en returns no speaker information whatsoever, so
+ * This is NOT diarization. Whisper returns no speaker information whatsoever, so
  * there is nothing to derive a real identity from. What we do have is segment offsets,
  * and a long gap between two segments is weak but genuine evidence that the turn changed.
  *

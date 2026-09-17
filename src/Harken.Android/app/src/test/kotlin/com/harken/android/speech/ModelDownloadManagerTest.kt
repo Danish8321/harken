@@ -90,6 +90,30 @@ class ModelDownloadManagerTest {
     }
 
     @Test
+    fun `a retired model and its partial are deleted and counted`() {
+        val models = File(temp.root, "models").apply { mkdirs() }
+        val retired = File(models, "ggml-base.en.bin").apply { writeBytes(ByteArray(300)) }
+        val retiredPartial = File(models, "ggml-base.en.bin.tmp").apply { writeBytes(ByteArray(40)) }
+
+        val freed = manager().discardRetiredModels()
+
+        assertEquals(340L, freed)
+        assertFalse("retired model still on disk", retired.exists())
+        assertFalse("retired partial still on disk", retiredPartial.exists())
+    }
+
+    @Test
+    fun `discarding retired models never touches the current model or its partial`() {
+        val model = model()
+        val tmp = partial(bytes = 16)
+
+        assertEquals(0L, manager().discardRetiredModels())
+
+        assertTrue("current model was deleted", model.exists())
+        assertTrue("current partial was deleted", tmp.exists())
+    }
+
+    @Test
     fun `a partial download is invisible to isModelPresent`() {
         partial(bytes = 1024)
 

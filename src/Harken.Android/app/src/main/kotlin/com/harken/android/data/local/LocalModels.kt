@@ -47,7 +47,7 @@ data class SegmentRow(
     val offsetSeconds: Int,
     val text: String,
     /**
-     * Local: a heuristic voice index, NOT diarization. Whisper base.en returns no
+     * Local: a heuristic voice index, NOT diarization. Whisper returns no
      * speaker information at all, so this is inferred from gap length and labelled
      * "Voice 1"/"Voice 2" rather than claiming to know who spoke. See SpeakerHeuristic.
      */

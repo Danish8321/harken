@@ -1,6 +1,38 @@
 # ARC-069: Evaluate swapping ggml-base.en.bin for a better Whisper model
 
-Status: open, deferred
+Status: open — swap implemented 2026-09-17, awaiting real-device measurement
+
+## 2026-09-17: swap done ahead of monitoring results
+
+User chose to replace outright now and regress on emulator rather than wait.
+
+- `ModelDownloadManager`: `ggml-small.en.bin`, 487,614,201 bytes, SHA-256
+  `c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d`
+  (matches upstream Hugging Face). New `discardRetiredModels()` deletes
+  `ggml-base.en.bin` (+ `.tmp`) at launch.
+- Strings: onboarding size 140 → 470 MB, out-of-space hint 150 → 500 MB.
+- Session meta label now `whisper small.en` — not stored per transcript, so
+  base.en-era transcripts also show small.en.
+
+Emulator (AVD `Android12`, API 37 x86_64 + libndk_translation, 4 GB RAM,
+debug build, model sideloaded), 120 s AMI ES2002a clip (60–180 s):
+
+| | small.en (emulator) | base.en (Nothing Phone 2, 2026-09-04) |
+|---|---|---|
+| Peak total PSS | **1.16 GB** | 594–610 MB |
+| Peak native heap | 1.006 GB | 451–482 MB |
+| PSS after finish | 168 MB | ~195 MB |
+| Decode RTF | 1.48 (ARM translation — not meaningful) | 0.24–0.27 |
+| Model load | 2.5 s | 157–280 ms |
+
+PSS climbed stepwise through the decode instead of plateauing. LMK killed
+Chrome/Photos/keyboard at model load on the 4 GB AVD. Output: 33 segments,
+accurate text, no crash. Retired-model cleanup verified on device
+(`model_retired_discarded`).
+
+**Decision deferred (user, 2026-09-17):** whether to raise ADR-0014's 6 GB bar
+/ `DeviceCapability` (both assume ~610 MB peak) or switch to a quantized
+`small.en-q5_1`. Decide after real-device decode time + peak PSS.
 
 ## Context
 

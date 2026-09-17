@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
         // leaves a partial file no future attempt will resume from. It is skipped while a
         // download is actually running, so re-entering this activity mid-download is safe.
         application.container.modelDownloadManager.discardPartialDownload()
+        application.container.modelDownloadManager.discardRetiredModels()
         // And one more: a decode that never returned means whisper.cpp took the process
         // down. Reported here because a native crash gets no chance to report itself.
         application.container.decodeBreadcrumb.reportCrashIfAny()
