@@ -167,10 +167,13 @@ object TranscriptionCoordinator {
                     // renders it verbatim, and for a failed model load it is a path inside the
                     // app's private storage.
                     val reason =
-                        if (e is ModelUnavailableException) {
-                            messages.modelUnavailable(ModelDownloadFailure.of(cause))
-                        } else {
-                            messages.failed
+                        when (e) {
+                            // Checked before the model-unavailable branch and before the
+                            // generic one, because both of those end in "try again" and this
+                            // is the one failure retrying cannot fix.
+                            is UnsupportedDeviceException -> messages.unsupportedDevice
+                            is ModelUnavailableException -> messages.modelUnavailable(ModelDownloadFailure.of(cause))
+                            else -> messages.failed
                         }
                     repository.failLocal(sessionId, reason)
                 } finally {

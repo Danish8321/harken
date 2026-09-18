@@ -269,6 +269,9 @@
     <string name="state_dismiss">Dismiss</string>
     <string name="error_transcription_cancelled">Transcription cancelled. Tap to try again.</string>
     <string name="error_transcription_failed">Harken couldn\'t transcribe this recording. Tap to try again.</string>
+    <!-- No "try again": this phone's processor cannot run the speech model, and no number of
+         retries changes that. Says what the limit is rather than blaming the recording. -->
+    <string name="error_transcription_unsupported_device">This phone\'s processor is too old to run Harken\'s speech model, so transcription isn\'t available on it. Your recordings are still saved.</string>
     <string name="error_transcription_interrupted">Transcription stopped when the app closed. Tap to try again.</string>
     <string name="error_transcription_interrupted_low_memory">Transcription stopped part-way. This phone has less memory than Harken needs, so it may not finish. Tap to try again.</string>
     <string name="error_recording_failed">Recording failed</string>

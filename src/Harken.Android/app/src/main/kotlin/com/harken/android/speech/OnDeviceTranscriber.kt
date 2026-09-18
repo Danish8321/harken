@@ -77,6 +77,14 @@ class OnDeviceTranscriber(
             val alreadyLoaded = modelHandle != null
             val handle =
                 modelHandle ?: nativeLoadModel(modelPath).also { loaded ->
+                    if (loaded == UNSUPPORTED_CPU) {
+                        // Its own event, not just the transcribe_finished failure below: this
+                        // is the only signal that says how many real devices the ARC-070
+                        // compile flags shut out, and that number is what decides whether the
+                        // app ever needs a second, baseline-compiled copy of the kernels.
+                        Telemetry.event("device_unsupported", "reason" to "cpu_features")
+                        throw UnsupportedDeviceException()
+                    }
                     if (loaded == 0L) {
                         error("Failed to load whisper model at $modelPath")
                     }
@@ -211,8 +219,24 @@ class OnDeviceTranscriber(
             System.loadLibrary("harken_whisper_jni")
         }
 
+        /**
+         * What [nativeLoadModel] returns when the CPU cannot execute the speech kernels.
+         * Must match `kUnsupportedCpu` in harken_whisper_jni.cpp. Zero stays "the model did
+         * not load", which is a different problem with a different answer for the user.
+         */
+        const val UNSUPPORTED_CPU = -1L
+
         @JvmStatic
         external fun nativeLoadModel(path: String): Long
+
+        /**
+         * The ARMv8.2 feature check with its `getauxval` reading substituted, so a test can
+         * ask for the refusal as well as the acceptance. Only [CpuFeatureGuardTest] calls
+         * it; the app itself always wants the real CPU's answer, which [nativeLoadModel]
+         * takes for itself.
+         */
+        @JvmStatic
+        external fun nativeCpuFeaturesSatisfied(hwcap: Long): Boolean
 
         /**
          * Decodes one span. Returns the segment JSON, or throws `IllegalStateException` if

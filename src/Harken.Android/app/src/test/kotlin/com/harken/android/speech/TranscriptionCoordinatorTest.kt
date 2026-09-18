@@ -188,6 +188,31 @@ class TranscriptionCoordinatorTest {
     }
 
     @Test
+    fun `a CPU that cannot run the kernels is reported as unsupported, not as a retryable failure`() {
+        val sink = FakeSink()
+        val transcriber = FakeTranscriber(throwOnTranscribe = UnsupportedDeviceException())
+        val sessionId = UUID.randomUUID()
+
+        TranscriptionCoordinator.bind(sink, FakeModelProvider(), transcriber)
+        TranscriptionCoordinator.transcribe(
+            sessionId,
+            tempWavPath(),
+            messages =
+                TranscriptionMessages(
+                    failed = "couldn't transcribe, tap to try again",
+                    unsupportedDevice = "this phone can't",
+                ),
+        )
+
+        waitForIdle()
+
+        // The distinction is the whole point (ARC-070): falling through to `failed` would
+        // tell someone to retry a decode their processor can never run.
+        assertEquals(sessionId to "this phone can't", sink.failed.single())
+        assertEquals(1, transcriber.releaseCount.get())
+    }
+
+    @Test
     fun `a missing model is reported as a model failure, not as a decode failure`() {
         val sink = FakeSink()
         val transcriber = FakeTranscriber()

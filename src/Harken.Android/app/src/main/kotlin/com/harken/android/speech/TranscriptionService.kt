@@ -121,6 +121,7 @@ class TranscriptionService : Service() {
                         cancelled = getString(R.string.error_transcription_cancelled),
                         failed = getString(R.string.error_transcription_failed),
                         modelUnavailable = { getString(it.messageRes()) },
+                        unsupportedDevice = getString(R.string.error_transcription_unsupported_device),
                     ),
                 onProgress = ::publishProgress,
             )

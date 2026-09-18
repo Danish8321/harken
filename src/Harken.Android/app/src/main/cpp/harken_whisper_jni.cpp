@@ -157,18 +157,43 @@ std::string EscapeJson(const std::string& text) {
 // +dotprod emits. Both arrived with ARMv8.2 (Cortex-A55/A75, 2017), which every device
 // above ADR-0017's 8 GB memory bar has in practice — but RAM does not imply an ISA, so
 // this is checked rather than assumed.
-bool HasRequiredCpuFeatures() {
-    const unsigned long hwcap = getauxval(AT_HWCAP);
+// What nativeLoadModel returns when this CPU cannot execute the kernels. Kotlin's
+// OnDeviceTranscriber matches on it; keep the two in step.
+constexpr jlong kUnsupportedCpu = -1;
+
+// Split from the getauxval call so both answers can be tested. Reading the CPU we are
+// running on only ever exercises the true branch — every device the test suite has is
+// ARMv8.2 — and an inverted bit test or a wrong HWCAP constant would then show up as a
+// SIGILL on a user's phone rather than as a red test. Taking hwcap as an argument makes
+// the refusal reachable from CpuFeatureGuardTest with synthetic values.
+bool CpuFeaturesSatisfied(unsigned long hwcap) {
     return (hwcap & HWCAP_ASIMDHP) != 0 && (hwcap & HWCAP_ASIMDDP) != 0;
 }
 
+bool HasRequiredCpuFeatures() {
+    return CpuFeaturesSatisfied(getauxval(AT_HWCAP));
+}
+
 }  // namespace
+
+/**
+ * Exposes the pure predicate above so CpuFeatureGuardTest can drive both branches with
+ * synthetic hwcap values. Exists only for that test: nothing in the app calls it, because
+ * the app always wants the real CPU's answer.
+ */
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_harken_android_speech_OnDeviceTranscriber_nativeCpuFeaturesSatisfied(JNIEnv* /*env*/, jobject /*thiz*/, jlong hwcap) {
+    return CpuFeaturesSatisfied(static_cast<unsigned long>(hwcap)) ? JNI_TRUE : JNI_FALSE;
+}
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_harken_android_speech_OnDeviceTranscriber_nativeLoadModel(JNIEnv* env, jobject /*thiz*/, jstring path) {
     if (!HasRequiredCpuFeatures()) {
         LOGE("CPU lacks ARMv8.2 FP16/dotprod; refusing to load the model");
-        return 0;
+        // Not 0. Zero is "the model would not load" — a corrupt download, a bad path — which
+        // the user can act on by retrying. This is a permanent fact about the hardware, and
+        // telling someone to try again forever is worse than telling them no.
+        return kUnsupportedCpu;
     }
 
     const char* pathChars = env->GetStringUTFChars(path, nullptr);

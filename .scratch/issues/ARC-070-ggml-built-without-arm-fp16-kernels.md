@@ -2,9 +2,10 @@
 
 - **Severity:** high
 - **Area:** `src/main/cpp/CMakeLists.txt`, `src/main/cpp/harken_whisper_jni.cpp`
-- **Status:** fixed in `2441ebd` — flag plus runtime guard. Two follow-ups stay open:
-  the ARMv8.0 refusal path is unverified, and the repo's perf record was measured
-  before this fix (see **Open decisions** below).
+- **Status:** fixed in `2441ebd` — flag plus runtime guard. The guard's refusal path
+  and its user-facing message were the two follow-ups; both are now closed (see
+  **Guard follow-ups, closed** below). What stays open: the repo's perf record was
+  measured before this fix, and ggml's static-init path was never audited.
 
 ## What was wrong
 
@@ -114,19 +115,52 @@ Verified on hardware: `modelLoadMs=605`, zero refusals logged, and the guarded
 build decodes the same fixture in 38,576 ms (`realtimeFactor=0.32`) — the guard
 itself costs nothing measurable.
 
-**Residual risk, unverified.** No ARMv8.0 arm64 device was available to test the
-refusal path, so the guard is proven to allow a good CPU but not proven to catch
-a bad one. And the guard only covers the path through `nativeLoadModel` — if any
-ggml global constructor emits an ARMv8.2 instruction it would run at
-`System.loadLibrary` time, before the guard. That is unlikely (ggml builds its
-f16 tables inside `ggml_init`, not at static-init) but was not audited.
+**Residual risk.** The guard only covers the path through `nativeLoadModel` — if
+any ggml global constructor emits an ARMv8.2 instruction it would run at
+`System.loadLibrary` time, before the guard can speak. That is unlikely (ggml
+builds its f16 tables inside `ggml_init`, not at static-init) but was not
+audited, and it is the one part of this that a test on ARMv8.2 hardware cannot
+reach.
+
+## Guard follow-ups, closed
+
+**The refusal path is tested, in both directions.** It could not be, as written:
+`HasRequiredCpuFeatures()` read the CPU it was running on, so every device the
+suite has ever had took the accepting branch and the refusal was dead code from
+the tests' point of view. An inverted comparison or the wrong HWCAP constant
+would have passed here and SIGILL'd on a user's phone.
+
+Split into a pure `CpuFeaturesSatisfied(unsigned long hwcap)` plus a thin caller
+that supplies `getauxval(AT_HWCAP)`. `CpuFeatureGuardTest` (instrumented — the
+predicate is native) drives it with synthetic values: neither bit, each bit
+alone, both, and an everything-except mask that catches a truthiness test. Five
+cases, all passing on `AIN065`.
+
+Still not proven, and cannot be without the hardware: that a real ARMv8.0 device
+reaches the guard at all. That is the static-init risk above, not the predicate.
+
+**A refusal no longer reads as a retryable failure.** `nativeLoadModel` returned
+`0` both for "this CPU can never run the kernels" and for "the model file would
+not load", and the second is what the user saw: *"Harken couldn't transcribe this
+recording. Tap to try again."* — an invitation to retry a permanent hardware
+fact, forever.
+
+Now it returns `kUnsupportedCpu` (`-1`), which `OnDeviceTranscriber` turns into
+`UnsupportedDeviceException`, which the coordinator maps to its own message
+ahead of both retry-shaped branches: *"This phone's processor is too old to run
+Harken's speech model, so transcription isn't available on it. Your recordings
+are still saved."*
+
+It also emits `device_unsupported reason=cpu_features`. The `LOGE` it had before
+went to logcat only, so it never reached `FileLogSink` and would have been
+invisible in a monitoring log. That event is the evidence the multi-variant
+`dlopen` decision below is waiting on.
 
 ## Open decisions
 
-1. **Ship the flag + guard as-is.** Simplest, 3.2x, refuses cleanly on old
-   hardware. Costs: a below-ARMv8.2 device gets no transcription at all where it
-   previously got a slow one, and the refusal currently surfaces only as a failed
-   model load, not as a message that explains why.
+1. ~~**Ship the flag + guard as-is.**~~ **Taken.** 3.2x, refuses cleanly, says why,
+   and reports it. A below-ARMv8.2 device gets no transcription where it
+   previously got a slow one — accepted, and now measurable rather than assumed.
 2. **Build both variants and dlopen.** What ggml does upstream via
    `GGML_CPU_ALL_VARIANTS` + `GGML_BACKEND_DL`, using the `cpu-feats.cpp` already
    vendored at `ggml/src/ggml-cpu/arch/arm/cpu-feats.cpp`. No device loses
@@ -137,4 +171,11 @@ f16 tables inside `ggml_init`, not at static-init) but was not audited.
    RTF consequence has to be corrected; the span-length findings deserve a
    re-measure before anything else is decided on them.
 
-Nothing here is committed yet beyond the working tree.
+   ADR-0017 is corrected. `perf-regression-2026-09-04.md` is not: lines 24, 135,
+   137, 163-167, 177, 227, 230 and 238 still quote pre-fix RTF, and line 238
+   states *"`0.21–0.25` is now a shipping number, not a debug number"* — false as
+   written, and the most misleading sentence of the set. Its **memory** findings
+   are unaffected; only timings were measured against the wrong kernels.
+
+4. **Audit ggml's static-init path.** The one guard gap left, and the only one
+   that can hurt a user: see **Residual risk** above.

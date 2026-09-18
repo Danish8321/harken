@@ -20,4 +20,9 @@ class TranscriptionMessages(
     val cancelled: String = "Transcription cancelled.",
     val failed: String = "On-device transcription failed.",
     val modelUnavailable: (ModelDownloadFailure) -> String = { "The speech model isn't ready." },
+    /**
+     * Separate from [failed] because it must not invite a retry: the CPU will not grow the
+     * instructions the kernels need (ARC-070, [UnsupportedDeviceException]).
+     */
+    val unsupportedDevice: String = "This phone can't run on-device transcription.",
 )
