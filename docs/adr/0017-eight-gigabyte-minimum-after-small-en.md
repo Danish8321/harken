@@ -22,8 +22,13 @@ the same reference device ADR-0014 used — Nothing Phone 2, AIN065, Android 16,
 
 > **Correction, 2026-09-18.** Both `realtimeFactor` columns above were measured with ggml
 > compiled for baseline `armv8-a`, which silently disabled its ARM fp16 kernels (ARC-070).
-> With the correct `-march`, small.en decodes this fixture at 0.32. The **memory** figures
-> are unaffected — they are what this decision rests on, and the 8 GB bar stands.
+> With the correct `-march`, small.en decodes this fixture at 0.33.
+>
+> The **memory** figures survive, and have since been re-measured properly rather than
+> assumed: a ~170 ms sampler puts the post-fix peak at 1,139,193 kB of PSS against the
+> 1,149,650 kB recorded below — 0.9% apart, i.e. unchanged — and its RSS peak agrees with
+> the kernel's own `VmHWM` to within 1.2 MB. The faster kernels bought time, not memory.
+> **The 8 GB bar is confirmed on a measurement that cannot be a sampling artifact.**
 
 The peak nearly doubled, and the reference device — which is *above* ADR-0014's bar — did
 not absorb it quietly. During one decode, sampling `/proc/meminfo` every 3 seconds:

@@ -46,10 +46,27 @@ only `HARKEN_KERNEL_OPTIONS` differs.
 **3.2x faster.** Transcript spot-checked in the UI: coherent AMI meeting text,
 33 segments, 2 voices, no degradation from fp16 accumulation.
 
-Memory is *lower*, but treat that as soft: the sampler polls every 3 s and the
-decode is now 3.2x shorter, so it had fewer chances to catch the true peak. The
-8 GB bar in ADR-0017 rests on the memory figure and should not be revisited on
-this evidence alone — re-measure with a tighter sampler first.
+The memory column above was wrong, and it was wrong in the direction that would
+have mattered. Re-measured 2026-09-18 with a ~170 ms on-device sampler reading
+`/proc/<pid>/smaps_rollup` (580 samples, no adb round-trip per sample):
+
+| | 3 s sampler | 170 ms sampler |
+|---|---|---|
+| Peak total PSS | 1,019,526 kB | **1,139,193 kB** |
+| Peak RSS | — | 1,252,732 kB |
+
+The tight sampler's RSS peak lands within 1.2 MB of `VmHWM` (1,253,932 kB), the
+kernel's own high-water mark, which is exact and needs no sampling at all. That
+agreement is what makes these numbers trustworthy where the earlier ones were not.
+
+So **the 3 s figure of 1,019,526 kB was a sampling artifact** — the decode had
+become 3.2x shorter, giving a fixed-interval poller proportionally fewer chances
+at the peak. The true post-fix peak is 1.14 GB against a pre-fix 1.15 GB: a 0.9%
+difference, i.e. unchanged.
+
+**ADR-0017's 8 GB bar is confirmed, not weakened.** Compile flags bought time, not
+memory. Use `VmHWM` for any future peak claim in this repo; it cannot be missed
+by a sampler.
 
 ## Why it matters beyond the speed
 
