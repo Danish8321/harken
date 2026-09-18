@@ -1,7 +1,11 @@
 # ARC-069: Evaluate swapping ggml-base.en.bin for a better Whisper model
 
-Status: done — swapped, measured on real hardware, minimum device raised to 8 GB
-(ADR-0017). Follow-up `small.en-q5_1` tracked at the bottom.
+- **Severity:** medium
+- **Area:** `speech/ModelDownloadManager.kt`, `docs/adr/0017-eight-gigabyte-minimum-after-small-en.md`
+- **Status:** done — swapped, measured on real hardware, minimum device raised to
+  8 GB (ADR-0017). Follow-up `small.en-q5_1` tracked at the bottom, and much less
+  urgent since [ARC-070](ARC-070-ggml-built-without-arm-fp16-kernels.md) removed
+  the decode-speed argument for it.
 
 ## 2026-09-17: swap done ahead of monitoring results
 

@@ -1,6 +1,10 @@
 # ARC-070: ggml was compiled for baseline armv8-a, disabling its ARM fp16 kernels
 
-Status: fix measured 2026-09-18, awaiting a decision on shipping it
+- **Severity:** high
+- **Area:** `src/main/cpp/CMakeLists.txt`, `src/main/cpp/harken_whisper_jni.cpp`
+- **Status:** fixed in `2441ebd` — flag plus runtime guard. Two follow-ups stay open:
+  the ARMv8.0 refusal path is unverified, and the repo's perf record was measured
+  before this fix (see **Open decisions** below).
 
 ## What was wrong
 

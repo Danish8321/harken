@@ -131,3 +131,12 @@ inferred.
 | [ARC-059](ARC-059-second-start-abandons-the-first-capture.md) | A second Record tap abandons the first capture with the microphone still open | high | fixed |
 | [ARC-060](ARC-060-cancelled-export-leaves-half-a-recording.md) | Cancelling an export leaves half a recording in the backup folder | high | fixed |
 | [ARC-061](ARC-061-a-keystroke-blanks-the-search-results.md) | Typing the next letter blanks the search results to "No matches" | medium | fixed |
+| [ARC-062](ARC-062-a-row-arriving-undoes-the-pause-tap.md) | A transcript row arriving can undo the pause tap and swallow a toast | medium | fixed |
+| [ARC-063](ARC-063-a-model-download-cannot-be-cancelled.md) | A model download runs to completion after the user has left the screen | medium | fixed |
+| [ARC-064](ARC-064-transcription-status-is-an-untyped-string.md) | Transcription status is an untyped string, and the delete guard reads the wrong one | medium | fixed |
+| [ARC-065](ARC-065-download-state-is-written-twice.md) | The model download's state machine is written out twice | low | fixed |
+| [ARC-066](ARC-066-two-copies-of-the-download-core.md) | `ensureModel` and `downloadProgress` each write out the download | low | fixed |
+| [ARC-067](ARC-067-the-transcribers-logic-cannot-be-reached-from-a-test.md) | Nothing inside `OnDeviceTranscriber` can be reached from a JVM test | low | fixed |
+| [ARC-068](ARC-068-transcribe-took-its-collaborators-per-call.md) | `TranscriptionCoordinator.transcribe` took its collaborators every call | low | fixed |
+| [ARC-069](ARC-069-evaluate-small-en-whisper-model.md) | Evaluate swapping `ggml-base.en.bin` for a better Whisper model | medium | done |
+| [ARC-070](ARC-070-ggml-built-without-arm-fp16-kernels.md) | ggml was compiled for baseline `armv8-a`, disabling its ARM fp16 kernels | high | fixed |
