@@ -14,6 +14,8 @@
 
 #include <jni.h>
 #include <android/log.h>
+#include <asm/hwcap.h>
+#include <sys/auxv.h>
 
 #include <algorithm>
 #include <atomic>
@@ -140,10 +142,35 @@ std::string EscapeJson(const std::string& text) {
     return escaped;
 }
 
+// The vendored ggml and whisper are compiled with -march=armv8.2-a+fp16+dotprod, which
+// makes their kernels 3.2x faster on an fp16 model (127.5s to 39.6s for a 118-second span,
+// measured on a Nothing Phone 2) and also makes them illegal instructions on an ARMv8.0
+// core. An arm64 CPU without FP16 vector arithmetic would SIGILL inside the first matmul
+// rather than fail in any way the app could report.
+//
+// This translation unit is deliberately left at the NDK's baseline -march (CMakeLists
+// applies HARKEN_KERNEL_OPTIONS to the ggml and whisper targets only), so this check can
+// run safely on a CPU that cannot execute the kernels it is guarding.
+//
+// AT_HWCAP is the kernel's own report, not a model-name lookup table. ASIMDHP is the
+// vector half-precision arithmetic that +fp16 emits; ASIMDDP is the dot product that
+// +dotprod emits. Both arrived with ARMv8.2 (Cortex-A55/A75, 2017), which every device
+// above ADR-0017's 8 GB memory bar has in practice — but RAM does not imply an ISA, so
+// this is checked rather than assumed.
+bool HasRequiredCpuFeatures() {
+    const unsigned long hwcap = getauxval(AT_HWCAP);
+    return (hwcap & HWCAP_ASIMDHP) != 0 && (hwcap & HWCAP_ASIMDDP) != 0;
+}
+
 }  // namespace
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_harken_android_speech_OnDeviceTranscriber_nativeLoadModel(JNIEnv* env, jobject /*thiz*/, jstring path) {
+    if (!HasRequiredCpuFeatures()) {
+        LOGE("CPU lacks ARMv8.2 FP16/dotprod; refusing to load the model");
+        return 0;
+    }
+
     const char* pathChars = env->GetStringUTFChars(path, nullptr);
     if (pathChars == nullptr) {
         return 0;

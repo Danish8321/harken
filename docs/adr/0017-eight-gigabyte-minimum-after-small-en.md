@@ -20,6 +20,11 @@ the same reference device ADR-0014 used — Nothing Phone 2, AIN065, Android 16,
 | Model load | 834 ms | 157–280 ms |
 | PSS after finish | 141 MB | ~195 MB |
 
+> **Correction, 2026-09-18.** Both `realtimeFactor` columns above were measured with ggml
+> compiled for baseline `armv8-a`, which silently disabled its ARM fp16 kernels (ARC-070).
+> With the correct `-march`, small.en decodes this fixture at 0.32. The **memory** figures
+> are unaffected — they are what this decision rests on, and the 8 GB bar stands.
+
 The peak nearly doubled, and the reference device — which is *above* ADR-0014's bar — did
 not absorb it quietly. During one decode, sampling `/proc/meminfo` every 3 seconds:
 
@@ -66,11 +71,13 @@ where no real device lands.
   decode leaves on the Library card); only the number it names moves. Users on a 6 GB
   phone who were unwarned yesterday are warned today, which is the honest outcome: their
   next transcription really is more likely to be killed than their last one was.
-- **Transcription is now slower than real time.** At `realtimeFactor` 1.06–1.22, a 3-hour
-  recording takes ~3.2–3.7 hours to transcribe, against ~43 minutes on base.en. Every
-  duration estimate and foreground-service assumption written against 0.24 is wrong. This
-  is not a memory consequence and does not affect the bar, but it is the other half of what
-  the swap cost and is tracked in ARC-069.
+- ~~**Transcription is now slower than real time.**~~ **Withdrawn 2026-09-18 — this was a
+  build defect, not a property of the model.** The 1.06–1.22 figures above were measured
+  with ggml compiled for baseline `armv8-a`, which disabled its ARM fp16 kernels on an fp16
+  model. Supplying `-march=armv8.2-a+fp16+dotprod` decodes the same fixture at
+  `realtimeFactor` **0.32–0.33**, comfortably faster than real time: a 3-hour recording
+  takes ~1 hour. See ARC-070. Every RTF number in this ADR's context table is a pre-fix
+  measurement and should be read as a floor on what the hardware can do, not a ceiling.
 - **The 1.15 GB peak is the new regression number**, and ADR-0014's rule still applies to
   it: raise it materially and the minimum device rises again. There is no tier above 8 GB
   worth shipping to — 12 GB is flagship-only — so this is the last time the bar can absorb

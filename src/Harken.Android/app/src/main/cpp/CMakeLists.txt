@@ -28,7 +28,7 @@ set(GGML_DIR ${WHISPER_DIR}/ggml)
 # Nobody single-steps through ggml, so there is nothing to trade away here. Debug info stays
 # on (the ggml_vec_dot_f16 SIGSEGV still needs symbolizable tombstones); only the missing
 # optimization is supplied.
-set(HARKEN_KERNEL_OPTIONS -O3)
+set(HARKEN_KERNEL_OPTIONS -O3 -march=armv8.2-a+fp16+dotprod)
 
 add_library(ggml STATIC
     ${GGML_DIR}/src/ggml.c
