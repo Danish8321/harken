@@ -38,7 +38,7 @@ private const val TAG = "TranscriptionCoordinator"
  *
  * Living outside a ViewModel is necessary and was never sufficient: nothing here holds the
  * *process* up. With no foreground component the app becomes a cached process still
- * holding whisper's ~610 MB working set (ADR-0014), which is the first thing Android
+ * holding whisper's ~1.15 GB working set (ADR-0017), which is the first thing Android
  * reclaims — so a decode died whenever the user left the app, on every device, and
  * failInterruptedTranscriptions tidied up afterwards. [TranscriptionService] is what
  * starts a transcription now; it holds a dataSync foreground service open for the length

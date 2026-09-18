@@ -32,11 +32,11 @@ private const val TAG = "TranscriptionService"
  *
  * [TranscriptionCoordinator] already ran the decode outside any ViewModel, so navigating
  * away did not cancel it. That was necessary and not sufficient: with no foreground
- * component the app is a cached process holding whisper's ~610 MB working set
- * ([ADR-0014](../../../../../../../docs/adr/0014-minimum-supported-device.md)), which is
- * the first thing Android reclaims. A decode of a 21-minute meeting takes 597 seconds on
- * the reference device, and ten minutes of the user looking at something else is the
- * normal case. So transcriptions died routinely, on every device, and the app answered
+ * component the app is a cached process holding whisper's ~1.15 GB working set
+ * ([ADR-0017](../../../../../../../docs/adr/0017-eight-gigabyte-minimum-after-small-en.md)),
+ * which is the first thing Android reclaims. A decode runs slower than real time — a
+ * 21-minute meeting takes ~22 minutes on the reference device — and that long of the user
+ * looking at something else is the normal case. So transcriptions died routinely, on every device, and the app answered
  * with `failInterruptedTranscriptions` at the next launch — a recovery path for its most
  * common failure instead of a fix for it. See ARC-003.
  *

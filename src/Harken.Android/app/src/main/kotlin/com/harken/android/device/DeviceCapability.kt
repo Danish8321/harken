@@ -6,13 +6,13 @@ import android.content.Context
 /**
  * How much memory this phone has, and whether that is enough to finish a transcription.
  *
- * ADR-0014 (docs/adr/0014-minimum-supported-device.md) sets 6 GB as the minimum supported
- * device: a decode peaks at ~610 MB of PSS and holds it for the whole run, which on a 4 GB
- * phone is low-memory-killer range. The Play listing can exclude those devices; a
- * sideloaded install has nothing to stop it, and the failure the user sees is a
- * transcription that vanishes with no reason given.
+ * ADR-0017 (docs/adr/0017-eight-gigabyte-minimum-after-small-en.md) sets 8 GB as the
+ * minimum supported device: a small.en decode peaks at ~1.15 GB of PSS and holds it for
+ * the whole run, which on a 6 GB phone is low-memory-killer range. The Play listing can
+ * exclude those devices; a sideloaded install has nothing to stop it, and the failure the
+ * user sees is a transcription that vanishes with no reason given.
  *
- * This never refuses. 610 MB is a peak, not a floor, and a 4 GB phone with nothing else
+ * This never refuses. 1.15 GB is a peak, not a floor, and a 6 GB phone with nothing else
  * running may well finish — refusing would take away a transcription that would have
  * worked. What it does is put the reason where the user asks for it: on the Settings model
  * card, and on the failure message the killed decode leaves behind.
@@ -42,20 +42,20 @@ value class DeviceCapability(
     companion object {
         const val BYTES_PER_GB = 1024L * 1024L * 1024L
 
-        /** The bar ADR-0014 sets, as the user's phone box states it. */
-        const val MINIMUM_NOMINAL_GB = 6
+        /** The bar ADR-0017 sets, as the user's phone box states it. */
+        const val MINIMUM_NOMINAL_GB = 8
 
         /**
          * The bar as `totalMem` actually reports it.
          *
          * `totalMem` is RAM minus what the kernel reserved, so it never reaches the
          * nominal figure: the reference Nothing Phone 2 is an 8 GB device and reports
-         * 7,444,948 kB, or 89%. At that rate a 6 GB device reports ~5.3 GB and a 4 GB
-         * device ~3.6 GB, so comparing against a literal 6 GB would fail every 6 GB phone
-         * on the market. The bar sits midway between those two, where the gap is 1.7 GB
+         * 7,444,948 kB, or 89%. At that rate a 6 GB device reports ~5.3 GB, so comparing
+         * against a literal 8 GB would fail every 8 GB phone on the market, the reference
+         * device included. The bar sits midway between those two, where the gap is 1.8 GB
          * wide and no real device lands.
          */
-        const val MINIMUM_TOTAL_MEM_BYTES = 4_500L * 1024L * 1024L
+        const val MINIMUM_TOTAL_MEM_BYTES = 6_200L * 1024L * 1024L
 
         /**
          * Reads the device's memory once. [ActivityManager.getMemoryInfo] fills a struct

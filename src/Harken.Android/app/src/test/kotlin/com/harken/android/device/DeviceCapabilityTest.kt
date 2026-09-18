@@ -14,15 +14,20 @@ class DeviceCapabilityTest {
         assertTrue(reported(4).isBelowMinimum)
     }
 
+    /**
+     * Below the bar since ADR-0017. A small.en decode peaks at 1.15 GB, which is more than
+     * half of what a 6 GB device has available — the ratio ADR-0014 called low-memory-killer
+     * range when it put 4 GB below the bar at base.en's 610 MB.
+     */
     @Test
-    fun aSixGigabyteDeviceClearsIt() {
-        assertFalse(reported(6).isBelowMinimum)
+    fun aSixGigabyteDeviceIsBelowTheBar() {
+        assertTrue(reported(6).isBelowMinimum)
     }
 
     /**
-     * The device every measurement in ADR-0014 was taken on, at the exact `MemTotal` it
-     * reports. It is an 8 GB phone that never reports 8 GB, which is the whole reason the
-     * bar is not a literal 6.
+     * The device every measurement in ADR-0014 and ADR-0017 was taken on, at the exact
+     * `MemTotal` it reports. It is an 8 GB phone that never reports 8 GB, which is the whole
+     * reason the bar is not a literal 8.
      */
     @Test
     fun theReferenceDeviceClearsIt() {

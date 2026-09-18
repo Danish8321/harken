@@ -119,7 +119,7 @@ class MainActivity : ComponentActivity() {
             // A transcription cannot outlive the process, so anything still marked running
             // died with it. Left alone the session shows "Transcribing" forever and offers
             // the user no way to start it again.
-            // On a device below ADR-0014's bar the honest message is a different one: the
+            // On a device below ADR-0017's bar the honest message is a different one: the
             // decode was very likely killed for memory, and "tap to try again" on its own
             // invites the user to lose the same twenty minutes a second time.
             repository.failInterruptedTranscriptions(

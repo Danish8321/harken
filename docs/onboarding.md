@@ -17,8 +17,8 @@ listens on a port and nothing is uploaded. That was decided in
 - [ ] `sdk.dir` in `src/Harken.Android/local.properties` (gitignored) pointing at your
       Android SDK.
 - [ ] `adb` on `PATH` — `test-full.sh` refuses to run without it.
-- [ ] A physical arm64 phone with 6 GB of RAM or more
-      ([ADR-0014](adr/0014-minimum-supported-device.md)). The build is `arm64-v8a` only,
+- [ ] A physical arm64 phone with 8 GB of RAM or more
+      ([ADR-0017](adr/0017-eight-gigabyte-minimum-after-small-en.md)). The build is `arm64-v8a` only,
       so a stock x86 emulator image cannot install it.
 
 See [`setup.md`](setup.md) §1–§2 for install commands and troubleshooting.

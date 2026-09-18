@@ -57,9 +57,9 @@ Gradle caches it, and it only rebuilds when the vendored C++ changes.
 
 ## 3. A phone
 
-- Physical, arm64, **6 GB of RAM or more**
-  ([ADR-0014](adr/0014-minimum-supported-device.md) — a transcription peaks at ~610 MB
-  PSS held for the whole decode, and a smaller phone gets it killed part-way).
+- Physical, arm64, **8 GB of RAM or more**
+  ([ADR-0017](adr/0017-eight-gigabyte-minimum-after-small-en.md) — a transcription peaks at
+  ~1.15 GB PSS held for the whole decode, and a smaller phone gets it killed part-way).
 - Developer options and USB debugging on
   ([`onboarding.md`](onboarding.md) §3 has the tap-Build-number dance).
 - `adb` on `PATH`. `test-full.sh` exits rather than pretending it ran.
@@ -113,7 +113,7 @@ In order, so a failure points at one thing:
 | `checkDebugAarMetadata` rejects an androidx artifact by name | that release needs `compileSdk` 37. Raising it means AGP 9 first — one job, not a version bump |
 | `test-full.sh` says no device attached | `adb devices` lists it as `unauthorized` (accept the prompt on the phone) or `offline` (replug), not as `device` |
 | Transcription never starts | no model. Settings → Speech model → Download. A failed download names why; it does not fail silently |
-| Transcription is killed part-way | not enough RAM (ADR-0014). Settings warns about this on a phone below the threshold |
+| Transcription is killed part-way | not enough RAM (ADR-0017). Settings warns about this on a phone below the threshold |
 | Transcript is nonsense or repeats a phrase | Whisper hallucinating on silence or noise — the recording is probably near-silent |
 | Recording stops on its own | by design — 5 minutes below the adaptive noise floor, or the 3-hour session cap. Both save what was captured |
 | No Stop button on the notification | notification permission denied (Android 13+). Recording still works; grant it in Settings → Apps → Harken → Notifications |

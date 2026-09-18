@@ -1,6 +1,7 @@
 # ARC-069: Evaluate swapping ggml-base.en.bin for a better Whisper model
 
-Status: open — swap implemented 2026-09-17, awaiting real-device measurement
+Status: done — swapped, measured on real hardware, minimum device raised to 8 GB
+(ADR-0017). Follow-up `small.en-q5_1` tracked at the bottom.
 
 ## 2026-09-17: swap done ahead of monitoring results
 
@@ -30,9 +31,75 @@ Chrome/Photos/keyboard at model load on the 4 GB AVD. Output: 33 segments,
 accurate text, no crash. Retired-model cleanup verified on device
 (`model_retired_discarded`).
 
-**Decision deferred (user, 2026-09-17):** whether to raise ADR-0014's 6 GB bar
-/ `DeviceCapability` (both assume ~610 MB peak) or switch to a quantized
-`small.en-q5_1`. Decide after real-device decode time + peak PSS.
+## 2026-09-17, same evening: measured on the real device
+
+Device `eece2e35` (Nothing Phone 2, AIN065, Android 16, 7,270 MB totalMem),
+debug build, model pushed over USB (phone was on LTE — no 488 MB of the user's
+mobile data spent). Same 120 s AMI fixture, same build as the emulator run.
+
+| | small.en (AIN065) | base.en (AIN065, 2026-09-04) |
+|---|---|---|
+| decodeMs, 118 s span | 127,543 | ~28,300 |
+| realtimeFactor | **1.06** | 0.24 |
+| decodedRealtimeFactor | **1.08** | 0.25 |
+| Peak total PSS | **1.15 GB** | 594–610 MB |
+| Peak native heap | 1.00 GB | 451 MB |
+| Model load | 834 ms | 157–280 ms |
+| PSS after finish | 141 MB | ~195 MB |
+| Segments | 33 | — |
+
+**small.en decodes slower than real time on the target device.** A 3-hour
+recording would take ~3.2 hours to transcribe, against ~43 minutes on base.en
+— the figure ADR-0014 and the perf work of 2026-09-04 were built around.
+The emulator's ARM translation had masked this as a 1.48 RTF that looked like
+a translation artefact; on bare arm64 it is only 1.4x better than that.
+
+Memory pressure is real, not just an emulator artefact: 20 `lowmemorykiller`
+kills during the run on a 7 GB phone (LinkedIn, Play background, two Nothing
+system apps), plus a critical-pressure event the killer chose to ignore.
+
+Nothing about the swap is wrong mechanically — download, verification, retired-
+model sweep and decode all work on both the emulator and the phone. The
+question was only whether this model's cost is acceptable.
+
+## Decided 2026-09-18: keep small.en, raise the bar to 8 GB
+
+User chose accuracy ("Let's go for the best"), then asked for the device bar to
+be decided from the connected phone rather than extrapolated.
+
+Second decode on the same device, `/proc/meminfo` sampled every 3 s across the
+run (51 samples, `scratchpad/sysmem-phone.log`):
+
+| | value |
+|---|---|
+| `realtimeFactor` | 1.22 (`decodedRealtimeFactor` 1.25), 33 segments |
+| `MemAvailable` | 2,645,280 kB → **1,821,128 kB** — 824 MB given up |
+| `SwapFree` | 1,379,460 kB → 1,157,640 kB — 222 MB actually swapped |
+| LMK | 20 `Kill` lines + one ignored critical-pressure event |
+
+That is the reference device, which is *above* the old 6 GB bar, paying for the
+peak with background processes and swap. 1.15 GB is 43% of what this 8 GB phone
+has available; on a 6 GB phone (~1.9 GB available) it is 60% — a worse ratio than
+the one ADR-0014 refused to ship to a 4 GB phone at 610 MB. ADR-0014's own
+closing rule ("a change that raises it materially raises the minimum device with
+it") therefore decides it.
+
+**[ADR-0017](../../docs/adr/0017-eight-gigabyte-minimum-after-small-en.md)**
+supersedes ADR-0014. `MINIMUM_NOMINAL_GB` 6 → 8, `MINIMUM_TOTAL_MEM_BYTES`
+4.5 GB → 6.2 GB (midway between a 6 GB device's ~5.34 GiB report and this one's
+7.10 GiB). Stale ~610 MB / 480 MB claims swept from `AndroidManifest.xml`,
+`TranscriptionService`, `TranscriptionCoordinator`, `OnDeviceTranscriber`,
+`docs/setup.md`, `docs/onboarding.md`.
+
+RTF is a real regression and is *not* fixed by this: transcription is now slower
+than real time and every estimate written against 0.24 is wrong.
+
+## Follow-up: ARC-070 candidate — `small.en-q5_1`
+
+Untested. ~182 MB quantized, plausibly returns memory to roughly base.en levels
+and brings the 6 GB tier back. Worth measuring if the 8 GB bar proves too narrow
+or if RTF > 1 turns out to bite in real use. Same fixture, same device, same
+instrumentation as above — the measurement is now a repeatable recipe.
 
 ## Context
 

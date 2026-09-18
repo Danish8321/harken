@@ -1,7 +1,9 @@
 # ADR-0014: 6 GB of RAM is the minimum supported device
 
 ## Status
-Accepted
+Superseded by [ADR-0017](0017-eight-gigabyte-minimum-after-small-en.md), which raises the
+bar to 8 GB. The reasoning below is unchanged and still correct — ADR-0017 applies it to a
+larger model. Every measurement here is `base.en`, which the app no longer ships.
 
 ## Context
 [ADR-0011](0011-on-device-transcription.md) moved transcription onto the phone, which

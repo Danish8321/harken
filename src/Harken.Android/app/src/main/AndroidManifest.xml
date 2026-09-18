@@ -64,7 +64,7 @@
             android:exported="false" />
 
         <!-- dataSync, not microphone: this one decodes a file that already exists. Without
-             it a transcription ran in a cached process holding ~610 MB and Android
+             it a transcription ran in a cached process holding ~1.15 GB and Android
              reclaimed it mid-decode (ARC-003). -->
         <service
             android:name=".speech.TranscriptionService"
