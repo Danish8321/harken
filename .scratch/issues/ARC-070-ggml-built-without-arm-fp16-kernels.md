@@ -4,8 +4,9 @@
 - **Area:** `src/main/cpp/CMakeLists.txt`, `src/main/cpp/harken_whisper_jni.cpp`
 - **Status:** fixed in `2441ebd` — flag plus runtime guard. The guard's refusal path
   and its user-facing message were the two follow-ups; both are now closed (see
-  **Guard follow-ups, closed** below). What stays open: the repo's perf record was
-  measured before this fix, and ggml's static-init path was never audited.
+  **Guard follow-ups, closed** below), as is the static-init question the guard's
+  placement depended on. What stays open is the multi-variant `dlopen` decision,
+  which is now waiting on `device_unsupported` telemetry rather than on argument.
 
 ## What was wrong
 
@@ -115,12 +116,38 @@ Verified on hardware: `modelLoadMs=605`, zero refusals logged, and the guarded
 build decodes the same fixture in 38,576 ms (`realtimeFactor=0.32`) — the guard
 itself costs nothing measurable.
 
-**Residual risk.** The guard only covers the path through `nativeLoadModel` — if
-any ggml global constructor emits an ARMv8.2 instruction it would run at
-`System.loadLibrary` time, before the guard can speak. That is unlikely (ggml
-builds its f16 tables inside `ggml_init`, not at static-init) but was not
-audited, and it is the one part of this that a test on ARMv8.2 hardware cannot
-reach.
+**Static-init audit, 2026-09-18: the guard's placement holds.** The worry was that
+`nativeLoadModel` is too late — a ggml global constructor emitting an ARMv8.2
+instruction would run at `System.loadLibrary`, before the guard can speak, and no
+test on ARMv8.2 hardware can reach that. Audited on the built library instead:
+
+`.init_array` is 32 bytes — four entries — in both the Debug and RelWithDebInfo
+`arm64-v8a` builds:
+
+| Initializer | What it is |
+|---|---|
+| `init_have_lse_atomics` | compiler-rt; baseline by construction |
+| `__init_cpu_features` | compiler-rt's own feature detection; likewise |
+| `_GLOBAL__sub_I_ggml_threading.cpp` | six instructions, registers one `__cxa_atexit` destructor |
+| `_GLOBAL__sub_I_whisper.cpp` | builds the `asr_tensor` name maps; `memcpy` and libc++ `std::map` |
+
+Then the reachability question, since "the constructor itself is clean" is not the
+same as "nothing it calls is". Disassembling the whole library and walking direct
+calls from those four roots: **129 functions reachable, 109 functions in the
+library contain ARMv8.2-only instructions, and the intersection is empty.** Every
+one of the 109 is a compute kernel — `ggml_vec_dot_*`, `ggml_compute_forward_*` —
+reached from `ggml_graph_compute`, which only runs long after the guard.
+
+Method, reproducible: `llvm-objdump -d` the `.so`, flag `udot`/`sdot`, any
+`f`-mnemonic on a `.8h`/`.4h` arrangement, and any `f`-mnemonic on an `h`
+register; parse `bl` targets into a call graph; BFS from the `.init_array`
+entries resolved via `llvm-readelf -r`.
+
+**What this does not cover.** Direct calls only. Twelve reachable functions contain
+indirect branches (`blr`/`br`) that a static walk cannot follow — all of them
+libunwind, `std::terminate` and `operator new`, none of them ggml, all NDK
+prebuilts compiled at baseline. And it is an audit of today's vendored whisper.cpp
+at `a8d002c`: a future bump has to be re-run, not assumed.
 
 ## Guard follow-ups, closed
 
@@ -177,5 +204,6 @@ invisible in a monitoring log. That event is the evidence the multi-variant
    written, and the most misleading sentence of the set. Its **memory** findings
    are unaffected; only timings were measured against the wrong kernels.
 
-4. **Audit ggml's static-init path.** The one guard gap left, and the only one
-   that can hurt a user: see **Residual risk** above.
+4. ~~**Audit ggml's static-init path.**~~ **Done 2026-09-18** — nothing ARMv8.2
+   runs before the guard, on either build variant. See the static-init audit
+   above. Re-run it on the next whisper.cpp bump.

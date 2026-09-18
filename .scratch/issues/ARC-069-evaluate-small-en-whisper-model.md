@@ -98,6 +98,43 @@ supersedes ADR-0014. `MINIMUM_NOMINAL_GB` 6 → 8, `MINIMUM_TOTAL_MEM_BYTES`
 RTF is a real regression and is *not* fixed by this: transcription is now slower
 than real time and every estimate written against 0.24 is wrong.
 
+## 2026-09-18: the monitoring run this was deferred for produced almost nothing
+
+Read at last, four days after it started. `versionCode=281`, `gitSha=061d8fc`,
+installed 2026-09-14 21:33. The whole durable log is 1,690 bytes — `current.log`
+never rotated once against a 6 MB budget — and it is fifteen lines:
+
+| When | What |
+|---|---|
+| 09-14 21:39 | `device_capability totalMemMb=7270 belowMinimum=false` |
+| 09-14 21:39–21:40 | `model_download_started` → `finished bytes=147964211 elapsedMs=19874`, `model_verified` |
+| 09-14 21:45–21:47 | one recording, `elapsedMs=112114 slowChunks=0 maxChunkWriteMs=2` |
+| 09-14 21:47–21:48 | one transcription, `decodeMs=25759 realtimeFactor=0.23 segments=11 outcome=succeeded` |
+| 09-17 16:12 | app launched, nothing else |
+| 09-18 13:07 | app launched (this retrieval) |
+
+One recording. One transcription. Three launches. **Zero crashes, zero
+`uncaught_exception`, zero native breadcrumbs — which is absence of exposure, not
+evidence of stability.** One session cannot carry a crash-rate claim.
+
+**So the deferral was waiting on data that was never going to arrive**, and the
+swap decision was taken without it on 2026-09-17. That turned out not to matter:
+nothing here argues for or against small.en or the 8 GB bar. But the reason this
+ticket sat is now answered, and "wait for the monitoring build" should not be
+offered again without someone actually using the build.
+
+The one decode corroborates [ARC-070](ARC-070-ggml-built-without-arm-fp16-kernels.md)
+rather than complicating it: `realtimeFactor=0.23` on `base.en` at `gitSha=061d8fc`,
+baseline `armv8-a` kernels, matching the 0.24 the perf record is built on.
+
+Retrieval itself needed a workaround, filed as
+[ARC-071](ARC-071-diagnostics-export-has-no-local-destination.md): the logs are in
+app-private storage and the only way out of the app is `ACTION_SEND` to a cloud or
+messaging service.
+
+One loose thread, unexamined: `silenceThreshold=500` here against `90` in a
+2026-09-18 debug run. Probably derived from `noiseFloor`, not checked.
+
 ## Follow-up: ARC-070 candidate — `small.en-q5_1`
 
 Untested. ~182 MB quantized, plausibly returns memory to roughly base.en levels
