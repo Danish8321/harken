@@ -140,4 +140,4 @@ inferred.
 | [ARC-068](ARC-068-transcribe-took-its-collaborators-per-call.md) | `TranscriptionCoordinator.transcribe` took its collaborators every call | low | fixed |
 | [ARC-069](ARC-069-evaluate-small-en-whisper-model.md) | Evaluate swapping `ggml-base.en.bin` for a better Whisper model | medium | done |
 | [ARC-070](ARC-070-ggml-built-without-arm-fp16-kernels.md) | ggml was compiled for baseline `armv8-a`, disabling its ARM fp16 kernels | high | fixed |
-| [ARC-071](ARC-071-diagnostics-export-has-no-local-destination.md) | Diagnostics "Export logs" can only leave the phone through a third party | medium | open |
+| [ARC-071](ARC-071-diagnostics-export-has-no-local-destination.md) | Diagnostics "Export logs" can only leave the phone through a third party | medium | fixed |

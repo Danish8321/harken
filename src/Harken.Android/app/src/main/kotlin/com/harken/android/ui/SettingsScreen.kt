@@ -331,6 +331,14 @@ private fun DiagnosticsCard(
     c: ProtoColors,
     viewModel: SettingsViewModel,
 ) {
+    // "application/zip" rather than octet-stream so the picker offers a sensible folder and
+    // the saved file opens as an archive afterwards.
+    val saveLogsTo =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+            // Null when the user backed out, same as the folder picker above.
+            uri?.let(viewModel::saveLogs)
+        }
+
     SettingsCard(c) {
         Eyebrow(c, stringResource(R.string.settings_diagnostics_header))
         Text(
@@ -339,7 +347,23 @@ private fun DiagnosticsCard(
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 6.dp),
         )
-        Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.End) {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Save first: it is the one that keeps the logs on the phone, and on a device
+            // with no file manager the share sheet offers only other people's services
+            // (ARC-071).
+            OutlinedButton(
+                onClick = { saveLogsTo.launch(viewModel.suggestedLogFileName()) },
+                shape = PillShape,
+                modifier = Modifier.heightIn(min = 40.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = c.text),
+                border = BorderStroke(1.dp, c.textSecondary),
+            ) {
+                Text(stringResource(R.string.settings_save_logs), style = MaterialTheme.typography.labelMedium)
+            }
             OutlinedButton(
                 onClick = viewModel::exportLogs,
                 shape = PillShape,

@@ -21,11 +21,15 @@ import com.harken.android.export.ExportState
 import com.harken.android.export.ExportStatus
 import com.harken.android.speech.ModelDownloadManager
 import com.harken.android.telemetry.LogExport
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.System,
@@ -39,6 +43,11 @@ data class SettingsUiState(
 )
 
 private const val TAG = "SettingsViewModel"
+
+/** Rebuilt on every export, shared by the share and save paths so they cannot diverge. */
+private const val LOG_ZIP_NAME = "harken-logs.zip"
+
+private val LOG_DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT)
 
 // Every recording is transcribed entirely on-device (ADR-0011): no backend URL to configure,
 // so Settings is theme + model management only.
@@ -105,6 +114,42 @@ class SettingsViewModel(
     fun acknowledgeExport() = ExportStatus.acknowledge()
 
     /**
+     * Writes the same zip to a file the user picked, which is the only way the logs leave
+     * the phone without going through somebody else's service.
+     *
+     * [exportLogs] below was the only route out, and on a phone with no file manager
+     * installed its chooser offers Drive, Gmail, OneDrive and a handful of messaging apps —
+     * so reading a monitoring build's own diagnostics meant uploading them somewhere. The
+     * Diagnostics card says these logs are kept on the phone and ADR-0011 is the reason it
+     * says so (ARC-071). Sharing stays: mailing a log to someone is a real thing to want.
+     * It is just no longer the only door.
+     *
+     * Failure is logged and not shown, which matches [exportLogs] and is the weaker half of
+     * this: the user sees a picker close and nothing happen. Noted in ARC-071.
+     */
+    fun saveLogs(target: Uri) {
+        val app = getApplication<Application>()
+        val sink = (app as HarkenApplication).logSink
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val zip = LogExport.zip(sink, File(app.filesDir, LOG_ZIP_NAME))
+                // The picker already created the document, so this opens an existing empty
+                // file rather than making one.
+                app.contentResolver.openOutputStream(target)?.use { out ->
+                    zip.inputStream().use { it.copyTo(out) }
+                } ?: error("the picker returned a URI that will not open for writing: $target")
+            }.onFailure { Log.e(TAG, "Could not write the log export to $target", it) }
+        }
+    }
+
+    /**
+     * The name the save picker opens with. Dated, because the interesting case is comparing
+     * one monitoring run against another and `harken-logs.zip` twice in a downloads folder
+     * tells you nothing about which is which.
+     */
+    fun suggestedLogFileName(): String = "harken-logs-${LOG_DATE_FORMAT.format(Date())}.zip"
+
+    /**
      * Zips the durable event/crash log (see `Telemetry.attachFileSink`) and opens the share
      * sheet, for the monitoring builds this app is not otherwise wired to upload anything
      * from (ADR-0011: everything stays on the phone unless the user explicitly shares it).
@@ -112,7 +157,7 @@ class SettingsViewModel(
     fun exportLogs() {
         val app = getApplication<Application>()
         val sink = (app as HarkenApplication).logSink
-        val zipFile = File(app.filesDir, "harken-logs.zip")
+        val zipFile = File(app.filesDir, LOG_ZIP_NAME)
         val uri =
             runCatching { LogExport.zip(sink, zipFile) }
                 .mapCatching { FileProvider.getUriForFile(app, "${app.packageName}.files", it) }

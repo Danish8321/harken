@@ -195,7 +195,13 @@
          event/crash log back with no adb needed. -->
     <string name="settings_diagnostics_header">DIAGNOSTICS</string>
     <string name="settings_diagnostics_body">Event and crash logs kept on the phone, for reporting how a build behaves over a few days of real use. No recording content is ever in them.</string>
-    <string name="settings_export_logs">Export logs</string>
+    <!-- Writes the zip to a file the user picks. First of the two, because it is the one
+         that keeps the logs on the phone, which is what the body text above promises. -->
+    <string name="settings_save_logs">Save logs</string>
+    <!-- Was "Export logs" while sharing was the only route out. Next to a Save button that
+         name says nothing about where the file goes; this one does. It is also the chooser
+         title and the mail subject. -->
+    <string name="settings_export_logs">Share logs</string>
     <plurals name="settings_backup_done">
         <item quantity="one">Exported %1$d recording (%2$s).</item>
         <item quantity="other">Exported %1$d recordings (%2$s).</item>

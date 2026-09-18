@@ -2,7 +2,9 @@
 
 - **Severity:** medium
 - **Area:** `ui/SettingsViewModel.kt` (`exportLogs`), `telemetry/LogExport.kt`
-- **Status:** open
+- **Status:** fixed — `ACTION_CREATE_DOCUMENT` "Save logs" added beside the share
+  action, gates green, round-trip driven by hand on the emulator. Not yet
+  repeated on the reference phone.
 
 ## What is wrong
 
@@ -52,6 +54,43 @@ logs never got the same treatment.
 `ACTION_CREATE_DOCUMENT` with `application/zip`, defaulting to a dated name, then
 copy the zip into the returned URI. Keep the share action as well — mailing a log
 to someone is a legitimate thing to want — but stop making it the only door.
+
+## Fixed 2026-09-18
+
+`SettingsViewModel.saveLogs(Uri)` writes the same zip `exportLogs()` builds into a
+URI from `ActivityResultContracts.CreateDocument("application/zip")`, launched
+from a new "Save" button that sits ahead of the share button in the Diagnostics
+card. `suggestedLogFileName()` seeds the picker with `harken-logs-<yyyy-MM-dd>.zip`
+— two monitoring runs saved into the same downloads folder are otherwise
+indistinguishable. The old `"harken-logs.zip"` literal is now `LOG_ZIP_NAME`,
+shared by both paths so they cannot drift apart.
+
+The share action stays, relabelled "Share logs" so the pair reads as two
+destinations rather than one action and a mystery.
+
+**Gates:** `check.sh` OK, `test-fast.sh` OK, `test-full.sh` OK (21 instrumented
+tests, 0 failures, on AVD `Android12` — the result XML was read rather than the
+build's green trusted, since every task reported `UP-TO-DATE`).
+
+**Driven by hand on the emulator**, because no gate covers a picker round-trip.
+Settings → Diagnostics shows "Save logs" beside "Share logs"; the tap opens
+`com.google.android.documentsui/…picker.PickActivity` with
+`harken-logs-2026-09-18.zip` already in the name field; SAVE writes to
+`/sdcard/Download/`. The file read 0 bytes immediately after the tap and 668
+bytes a moment later — the copy is on `Dispatchers.IO`, so a check that races it
+sees an empty file the picker has created but nothing has filled yet. Pulled over
+`adb` and opened: a valid zip, `testzip()` clean, one entry `current.log`, 1,454
+bytes of real `device_capability` / `model_download_*` / `transcribe_*` lines.
+
+That is the exact thing this ticket says is impossible — the logs out of
+app-private storage and onto a PC without a cloud service in the path.
+
+Not covered: the real device (the phone was disconnected; the emulator is
+`sdk_gphone16k_x86_64`), a picker cancellation, and a write that fails.
+
+**Known weakness, deliberate:** a failed write is logged and never shown. The user
+sees the picker close and nothing happen. That matches `exportLogs()`, and both
+deserve a visible failure — not fixed here.
 
 ## How the logs were actually retrieved on 2026-09-18
 
