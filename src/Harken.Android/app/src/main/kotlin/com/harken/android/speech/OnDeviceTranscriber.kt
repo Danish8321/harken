@@ -122,6 +122,10 @@ class OnDeviceTranscriber(
                     // a report of "it transcribed a tenth of my meeting" is unanswerable:
                     // the threshold is read off the recording, so it differs per recording.
                     "silenceThreshold" to SpeechSpans.amplitudeThreshold(windowRms),
+                    // And the floor it was derived from, because the threshold alone cannot
+                    // say whether a clamp bound. At the ceiling the two together separate a
+                    // loud room from a recording whose speech is being thrown away.
+                    "noiseFloor" to SpeechSpans.noiseFloor(windowRms),
                 )
 
                 var decodeMs = 0L

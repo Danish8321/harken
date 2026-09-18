@@ -132,8 +132,37 @@ Retrieval itself needed a workaround, filed as
 app-private storage and the only way out of the app is `ACTION_SEND` to a cloud or
 messaging service.
 
-One loose thread, unexamined: `silenceThreshold=500` here against `90` in a
-2026-09-18 debug run. Probably derived from `noiseFloor`, not checked.
+### The `silenceThreshold` thread, closed
+
+`silenceThreshold=500` here against `90` on the emulator. Not a defect — the two
+recordings are different, and the threshold is read off each:
+`amplitudeThreshold` is `clamp(p10(windowRms) * 3, 60, 500)`.
+
+- **90** is the emulator's AMI ES2002a fixture: a headset mix that sits near
+  digital silence between words, p10 = 30.
+- **500** is `MAX_AMPLITUDE_THRESHOLD`, the ceiling, reached by any recording
+  whose quiet tenth is ≥ 167 — a phone on a desk in a room with a floor to it.
+
+Neither lost audio. The emulator log says so outright (`decodedSeconds=118` of
+`audioSeconds=120`, `spans=1`). The phone's has to be inferred: skipping drives
+`realtimeFactor` below `decodedRealtimeFactor`, and 0.23 against the 0.25 base.en
+measures on that device leaves at most ~8% skipped.
+
+**Having to infer it is the actual finding.** `transcribe_prepared` logged the
+clamped threshold and not the floor behind it, so a `500` could not be told apart
+from a `500`: a loud room the ceiling barely binds, and a recording whose own
+speech is below the ceiling and being discarded wholesale — the exact failure
+`SpeechSpans` documents against the old fixed threshold, invisible in the only
+field that would show it. The recorder's `recording_finished` event has reported
+both sides (`noiseFloor`, `speechAt`) all along.
+
+Fixed: `SpeechSpans.noiseFloor(windowRms)` split out of `amplitudeThreshold`, and
+`transcribe_prepared` now carries `noiseFloor` beside `silenceThreshold`. Two
+unit tests pin the distinction, including the pair that both clamp to 500 from
+floors of 200 and 5000. `check.sh` OK, `test-fast.sh` OK (18 tests in
+`SpeechSpansTest`, 0 failures, confirmed from the result XML).
+
+No behaviour changed — same clamp, same spans, one more field in a log line.
 
 ## Follow-up: ARC-070 candidate — `small.en-q5_1`
 

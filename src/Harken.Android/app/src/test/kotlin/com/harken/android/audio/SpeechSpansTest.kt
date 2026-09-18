@@ -167,6 +167,26 @@ class SpeechSpansTest {
     }
 
     @Test
+    fun `the floor is reported unclamped, so a threshold at its ceiling can be read`() {
+        // Both of these log silenceThreshold=500 and mean opposite things: the first is a
+        // loud room the ceiling barely binds, the second a recording whose own quiet tenth
+        // is above the ceiling, where every ordinary word is being discarded as silence.
+        val loudRoom = IntArray(100) { if (it < 20) 200 else 900 }
+        val speechDiscarded = IntArray(100) { if (it < 20) 5000 else 9000 }
+
+        assertEquals(SpeechSpans.MAX_AMPLITUDE_THRESHOLD, SpeechSpans.amplitudeThreshold(loudRoom))
+        assertEquals(SpeechSpans.MAX_AMPLITUDE_THRESHOLD, SpeechSpans.amplitudeThreshold(speechDiscarded))
+        assertEquals(200, SpeechSpans.noiseFloor(loudRoom))
+        assertEquals(5000, SpeechSpans.noiseFloor(speechDiscarded))
+    }
+
+    @Test
+    fun `a recording with no windows has no floor and falls to the minimum`() {
+        assertEquals(0, SpeechSpans.noiseFloor(IntArray(0)))
+        assertEquals(SpeechSpans.MIN_AMPLITUDE_THRESHOLD, SpeechSpans.amplitudeThreshold(IntArray(0)))
+    }
+
+    @Test
     fun `no span is shorter than a whisper window unless the recording is`() {
         // Two seconds of speech either side of a long gap: neither is worth a window of its
         // own, and both are grown until they are — here far enough to meet and merge.

@@ -102,12 +102,30 @@ object SpeechSpans {
      * Reading the floor off the recording itself recovers 88% of that meeting while
      * leaving every louder recording exactly where it already was.
      */
-    fun amplitudeThreshold(windowRms: IntArray): Int {
-        if (windowRms.isEmpty()) return MIN_AMPLITUDE_THRESHOLD
+    fun amplitudeThreshold(windowRms: IntArray): Int =
+        (noiseFloor(windowRms) * NOISE_FLOOR_FACTOR)
+            .coerceIn(MIN_AMPLITUDE_THRESHOLD, MAX_AMPLITUDE_THRESHOLD)
+
+    /**
+     * What this recording sounds like when nobody is speaking: the
+     * [NOISE_FLOOR_PERCENTILE]th percentile of its window levels.
+     *
+     * Separate from [amplitudeThreshold] so telemetry can report the input as well as the
+     * clamped answer. A logged `silenceThreshold=500` is the ceiling and says nothing about
+     * how hard the ceiling bound — a floor of 167 and a floor of 5000 both produce it, and
+     * only the second means real speech is being discarded. Reading a monitoring log on
+     * 2026-09-18 (ARC-069) needed that distinction and had to infer it from realtimeFactor
+     * instead. The recorder's own event already reports both sides (`noiseFloor`,
+     * `speechAt`); this is the transcriber catching up.
+     *
+     * Empty input has no floor, so it reports zero — [amplitudeThreshold] then clamps to
+     * [MIN_AMPLITUDE_THRESHOLD], which is what it returned for the empty case before.
+     */
+    fun noiseFloor(windowRms: IntArray): Int {
+        if (windowRms.isEmpty()) return 0
         val ordered = windowRms.sortedArray()
         val floorIndex = (ordered.size * NOISE_FLOOR_PERCENTILE / 100).coerceAtMost(ordered.lastIndex)
-        return (ordered[floorIndex] * NOISE_FLOOR_FACTOR)
-            .coerceIn(MIN_AMPLITUDE_THRESHOLD, MAX_AMPLITUDE_THRESHOLD)
+        return ordered[floorIndex]
     }
 
     /**
