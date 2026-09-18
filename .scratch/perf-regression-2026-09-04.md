@@ -1,5 +1,30 @@
 # Instrumented performance regression — Nothing Phone 2, 2026-09-04
 
+> **Every timing in this document predates [ARC-070](issues/ARC-070-ggml-built-without-arm-fp16-kernels.md)
+> and was measured against handicapped kernels. Read it as history, not as a
+> baseline.**
+>
+> ggml was compiled for baseline `armv8-a` here and for the whole of this repo's
+> history until 2026-09-18. That left `__ARM_FEATURE_FP16_VECTOR_ARITHMETIC`
+> undefined, so its f16 kernels converted every value to f32 one element at a
+> time onto four lanes instead of using the eight `float16x8_t` gives — on an fp16
+> model, in the hot loop of every matmul. Supplying
+> `-march=armv8.2-a+fp16+dotprod` made the same decode 3.2x faster on the same
+> device.
+>
+> So every RTF below is a floor on what this hardware can do, not a ceiling, and
+> the *ratios* between fixtures are worth more than the absolute figures. The
+> conclusions drawn from flatness — that decode cost is linear in audio, that
+> `MaxSpanSeconds = 300` sits on a plateau — survive, because a uniform slowdown
+> does not bend a flat line.
+>
+> The **memory** findings are unaffected: compile flags bought time, not bytes.
+> That was checked rather than assumed, twice, on clean installs (ARC-070).
+>
+> Nothing below has been rewritten. Correcting a dated measurement in place would
+> destroy the record of what was actually observed; the annotations say where the
+> numbers no longer mean what they say.
+
 Second run of the day. The [morning run](device-regression-2026-09-04.md) measured
 the app entirely from outside — adb, `dumpsys`, byte counts, wall-clock polling —
 and its numbers therefore only existed while a phone sat on USB with an agent
@@ -11,7 +36,9 @@ each of the two measurement passes, model re-downloaded both times.
 
 Gates: `check.sh` → `== check: OK ==`, `test-fast.sh` → `== test-fast: OK ==`,
 run before each commit. Only `check.sh` and `test-fast.sh` exist in
-`.claude/scripts/`.
+`.claude/scripts/`. (True on 2026-09-04. `test-full.sh` — the on-device
+instrumented gate — and `schema.sh` exist now; a reader who takes this sentence
+as current will conclude the repo has no device gate, which it does.)
 
 ## Headline
 
@@ -176,7 +203,9 @@ save ~110 MB but sever context every twenty seconds. **The constant stands.**
 
 Two things this does establish. RTF is flat at 0.24–0.27 across a 15x range of
 span lengths, so the decode cost is genuinely linear in audio and the earlier
-per-span spread really was the `-O0` build. And the ~580 MB peak PSS is
+per-span spread really was the `-O0` build. (The flatness survives ARC-070 — a
+uniform 3.2x does not bend a flat line — but 0.24–0.27 is not what this hardware
+does; with the correct `-march` it is roughly a third of that.) And the ~580 MB peak PSS is
 unavoidable at any span length, which makes it a device-support question rather
 than a tuning one — open item 7.
 
@@ -235,7 +264,14 @@ assert removal and nothing more. Peak memory on the 427 s decode: native 482 MB,
 PSS 609 MB, against debug's 451 / 594 — the same ceiling, so open item 7 is a
 release problem too, not a debug artefact.
 
-**`0.21–0.25` is now a shipping number, not a debug number.**
+~~**`0.21–0.25` is now a shipping number, not a debug number.**~~
+
+**Withdrawn 2026-09-18 (ARC-070).** The claim this sentence was making — that
+release and debug run near-identical kernels, so a debug measurement can stand in
+for a shipping one — is still true, and is what the table above actually shows.
+The *numbers* are not shipping numbers. Both columns were compiled for baseline
+`armv8-a`; both are ~3.2x slower than the same code with the right `-march`, and
+`base.en` is no longer the model that ships either (ADR-0017).
 
 ### What this measurement could not establish
 
