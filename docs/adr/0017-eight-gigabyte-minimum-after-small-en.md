@@ -25,10 +25,12 @@ the same reference device ADR-0014 used — Nothing Phone 2, AIN065, Android 16,
 > With the correct `-march`, small.en decodes this fixture at 0.33.
 >
 > The **memory** figures survive, and have since been re-measured properly rather than
-> assumed: a ~170 ms sampler puts the post-fix peak at 1,139,193 kB of PSS against the
-> 1,149,650 kB recorded below — 0.9% apart, i.e. unchanged — and its RSS peak agrees with
-> the kernel's own `VmHWM` to within 1.2 MB. The faster kernels bought time, not memory.
-> **The 8 GB bar is confirmed on a measurement that cannot be a sampling artifact.**
+> assumed: a ~170 ms sampler puts the post-fix peak at 1,139,193 and 1,143,886 kB of PSS
+> across two clean-install runs, against the 1,149,650 kB recorded below — under 1% apart,
+> i.e. unchanged — corroborated by the kernel's own `VmHWM` high-water mark at 1,253,932
+> and 1,252,812 kB. The faster kernels bought time, not memory.
+> **The 8 GB bar is confirmed, on a replicated measurement rather than a sampling
+> artifact.**
 
 The peak nearly doubled, and the reference device — which is *above* ADR-0014's bar — did
 not absorb it quietly. During one decode, sampling `/proc/meminfo` every 3 seconds:

@@ -55,9 +55,22 @@ have mattered. Re-measured 2026-09-18 with a ~170 ms on-device sampler reading
 | Peak total PSS | 1,019,526 kB | **1,139,193 kB** |
 | Peak RSS | — | 1,252,732 kB |
 
-The tight sampler's RSS peak lands within 1.2 MB of `VmHWM` (1,253,932 kB), the
-kernel's own high-water mark, which is exact and needs no sampling at all. That
-agreement is what makes these numbers trustworthy where the earlier ones were not.
+Replicated 2026-09-18 on a clean install with the model re-pushed over USB and
+md5-verified against `.scratch/ggml-small.en.bin`:
+
+| | run A | run B | spread |
+|---|---|---|---|
+| Peak PSS | 1,139,193 kB | 1,143,886 kB | 0.41% |
+| `VmHWM` | 1,253,932 kB | 1,252,812 kB | 0.09% |
+| decodeMs | 39,572 | 39,399 | 0.44% |
+| `realtimeFactor` | 0.33 | 0.33 | — |
+
+Cross-check the sampler against `VmHWM`, the kernel's own RSS high-water mark,
+which needs no sampling and cannot be missed. They track to ~0.3% — but they are
+*not* the same counter (`smaps_rollup` Rss and `status` VmRSS are accounted at
+different points), and in run B the sampled figure came out 3.9 MB *above*
+`VmHWM`. So treat `VmHWM` as the floor on the true peak and the sampler as
+confirmation, not as two readings of one number.
 
 So **the 3 s figure of 1,019,526 kB was a sampling artifact** — the decode had
 become 3.2x shorter, giving a fixed-interval poller proportionally fewer chances
