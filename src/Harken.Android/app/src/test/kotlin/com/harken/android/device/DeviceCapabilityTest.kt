@@ -28,6 +28,10 @@ class DeviceCapabilityTest {
      * The device every measurement in ADR-0014 and ADR-0017 was taken on, at the exact
      * `MemTotal` it reports. It is an 8 GB phone that never reports 8 GB, which is the whole
      * reason the bar is not a literal 8.
+     *
+     * Since ADR-0017 it *is* the bar rather than a device comfortably above it, so this
+     * asserts the floor itself is supported. If a future change makes this fail, the app has
+     * stopped supporting its own minimum device.
      */
     @Test
     fun theReferenceDeviceClearsIt() {

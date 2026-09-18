@@ -45,6 +45,13 @@ that unchanged to the measurement above:
 So the same rule that put 4 GB below the bar at 610 MB puts 6 GB below it at 1.15 GB. The
 bar moves with the model, exactly as ADR-0014 said it would.
 
+**The reference device is the bar, not a comfortable example of clearing it.** Every
+measurement here was taken on the minimum supported device, and at the minimum a decode
+still costs 20 background processes and 222 MB of swap. It finishes, correctly, every
+time — but there is no headroom left over, and a reader should not read "8 GB" as "8 GB is
+fine." A supported device is one where transcription completes, not one where nothing else
+notices.
+
 `DeviceCapability.MINIMUM_TOTAL_MEM_BYTES` moves 4.5 GB → **6.2 GB**, still compared
 against reported `totalMem` rather than the nominal figure: the reference 8 GB device
 reports 7.10 GiB (89%) and a 6 GB device reports ~5.34 GiB, so 6.2 GB sits in a 1.8 GB gap
@@ -65,8 +72,13 @@ where no real device lands.
   is not a memory consequence and does not affect the bar, but it is the other half of what
   the swap cost and is tracked in ARC-069.
 - **The 1.15 GB peak is the new regression number**, and ADR-0014's rule still applies to
-  it: raise it materially and the minimum device rises again. There is not another tier
-  above 8 GB worth shipping to, so the next such change has to reduce the peak instead.
+  it: raise it materially and the minimum device rises again. There is no tier above 8 GB
+  worth shipping to — 12 GB is flagship-only — so this is the last time the bar can absorb
+  a peak increase. The next such change has to reduce the peak instead.
+- **The reference device is now the floor, which makes it the right thing to test on.**
+  Measurements taken here are worst-supported-case, not typical-case: anything that fails
+  on `eece2e35` fails for every supported user, and anything that merely gets tight here
+  has no margin anywhere.
 - **`MaxSpanSeconds` stays at 300.** Span length was measured flat past ~150 seconds
   (ADR-0014, Finding 4) and nothing in this swap changes that; the growth is weights and
   compute buffers, not span.
