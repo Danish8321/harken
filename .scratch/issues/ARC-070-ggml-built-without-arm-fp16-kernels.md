@@ -166,9 +166,21 @@ this has to catch, and a hardcoded list would have passed straight through it.
 `_GLOBAL__sub_I_evil.cpp` reaches a `udot` two `bl` hops away, it exits non-zero and names
 the kernel. A gate that has only ever printed OK is not evidence of anything.
 
-It skips itself with a printed reason when the NDK's llvm tools are absent, rather than
-failing the build gate over a toolchain path — a machine can build this app perfectly well
-without them.
+**Corrected the same day.** As first written it skipped itself with a printed reason when
+the SDK, NDK or llvm tools were absent, on the stated grounds that "a machine can build
+this app perfectly well without them." That is false: the app has native code, so a machine
+missing any of the three cannot produce an APK, and `check.sh` dies in `assembleDebug`
+twenty lines before reaching the audit — which is precisely what happened on 2026-09-18
+when the SDK was deleted. Anything that reaches the audit therefore has the toolchain, so a
+skip could only ever mean the script's own path resolution was wrong, and exiting 0 on that
+would green-light a gate that had not run. All three paths now exit 1, each verified to.
+
+The library is also pinned to `RelWithDebInfo` by name. `intermediates/cxx` holds a Debug
+build too, and taking whichever path sorted last picked the shipped one only because "R"
+follows "D"; standalone after a debug-only build it would have audited the debug object and
+printed OK about something other than what ships. Both carry identical flags today —
+`HARKEN_KERNEL_OPTIONS` is set unconditionally, not per variant — so nothing was actually
+mis-audited, but the claim was true by alphabet rather than on purpose.
 
 ## Guard follow-ups, closed
 

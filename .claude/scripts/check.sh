@@ -41,7 +41,7 @@ echo "== check: gradle lint (Harken.Android) =="
 # which is earlier than any Kotlin code can check HWCAP, so a static initialiser that
 # reaches a dotprod or fp16 kernel would SIGILL on an ARMv8.0 phone with the guard never
 # reached. It was audited by hand once; this is that audit as something that runs.
-# Skips itself, loudly, when the NDK's llvm tools are not on this machine.
+# Cheap here: the three assemble steps above have already built the library it reads.
 echo "== check: native static-init audit =="
 "$(dirname "$0")/native-init.sh"
 
