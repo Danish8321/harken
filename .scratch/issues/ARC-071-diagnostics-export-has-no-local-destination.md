@@ -3,8 +3,8 @@
 - **Severity:** medium
 - **Area:** `ui/SettingsViewModel.kt` (`exportLogs`), `telemetry/LogExport.kt`
 - **Status:** fixed — `ACTION_CREATE_DOCUMENT` "Save logs" added beside the share
-  action, gates green, round-trip driven by hand on the emulator. Not yet
-  repeated on the reference phone.
+  action, gates green, round-trip driven by hand on the emulator and repeated on
+  the reference phone (2026-09-19).
 
 ## What is wrong
 
@@ -85,8 +85,26 @@ bytes of real `device_capability` / `model_download_*` / `transcribe_*` lines.
 That is the exact thing this ticket says is impossible — the logs out of
 app-private storage and onto a PC without a cloud service in the path.
 
-Not covered: the real device (the phone was disconnected; the emulator is
-`sdk_gphone16k_x86_64`), a picker cancellation, and a write that fails.
+### Repeated on the reference phone, 2026-09-19
+
+Nothing Phone 2 (`eece2e35`, AIN065), debug build at `a41310f`. Same flow, same
+result: the picker opens pre-filled — `harken-logs-2026-09-19.zip`, the date
+having rolled over since the emulator run, which is the dated name doing its job
+— and SAVE writes a valid zip. Pulled over `adb`: `testzip()` clean, one entry
+`current.log`, carrying a `device_capability` line stamped `gitSha=a41310f`.
+
+The roots drawer on this phone offers *Nothing Phone (2)*, *Downloads* and
+*Drive*. Saved successfully into two of them, including a plain local folder —
+which is the whole point of this ticket, on the device whose share sheet started
+it.
+
+Two false alarms along the way, both mine rather than the app's: a tap at the
+centre of SAVE's reported bounds landed on the gesture-nav strip and went home,
+and a `find /sdcard -name A -o -name B -maxdepth 3` silently missed the file it
+was looking for, because `-maxdepth` after `-o` does not apply the way it reads.
+The save it "proved" had failed had in fact succeeded.
+
+Still not covered: a cancelled picker, and a write that fails.
 
 **Known weakness, deliberate:** a failed write is logged and never shown. The user
 sees the picker close and nothing happen. That matches `exportLogs()`, and both
