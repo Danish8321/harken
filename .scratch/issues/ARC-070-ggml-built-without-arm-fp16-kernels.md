@@ -149,6 +149,27 @@ libunwind, `std::terminate` and `operator new`, none of them ggml, all NDK
 prebuilts compiled at baseline. And it is an audit of today's vendored whisper.cpp
 at `a8d002c`: a future bump has to be re-run, not assumed.
 
+### 2026-09-19: the audit is a gate now, so the bump cannot skip it
+
+"Has to be re-run, not assumed" was the weak part — it named no script, so the next
+whisper.cpp bump would have relied on someone remembering. `.claude/scripts/native-init.sh`
+plus `native_init_audit.py` do the walk above and exit non-zero on a hit, and `check.sh`
+calls them after `lintDebug`. On this build: 4 roots, 4,608 functions disassembled, 109
+ARMv8.2-only, 129 reachable, intersection empty, same 12 indirect-branch functions named.
+
+The roots are read from the ELF — `.init_array`'s bounds from `readelf -S`, the addresses
+from the `R_AARCH64_RELATIVE` relocations filling it — rather than hardcoded as the
+one-off audit's were. A fifth initialiser appearing under a new name is exactly the change
+this has to catch, and a hardcoded list would have passed straight through it.
+
+**The gate was proven to fail, not just to pass.** Fed a synthetic library whose
+`_GLOBAL__sub_I_evil.cpp` reaches a `udot` two `bl` hops away, it exits non-zero and names
+the kernel. A gate that has only ever printed OK is not evidence of anything.
+
+It skips itself with a printed reason when the NDK's llvm tools are absent, rather than
+failing the build gate over a toolchain path — a machine can build this app perfectly well
+without them.
+
 ## Guard follow-ups, closed
 
 **The refusal path is tested, in both directions.** It could not be, as written:

@@ -36,4 +36,13 @@ echo "== check: gradle assembleRelease (Harken.Android) =="
 echo "== check: gradle lint (Harken.Android) =="
 (cd src/Harken.Android && "$GRADLEW" lintDebug)
 
+# ARC-070 left the CPU guard resting on an assumption no gate held: that nothing
+# ARMv8.2-only runs before it. The linker calls .init_array during System.loadLibrary,
+# which is earlier than any Kotlin code can check HWCAP, so a static initialiser that
+# reaches a dotprod or fp16 kernel would SIGILL on an ARMv8.0 phone with the guard never
+# reached. It was audited by hand once; this is that audit as something that runs.
+# Skips itself, loudly, when the NDK's llvm tools are not on this machine.
+echo "== check: native static-init audit =="
+"$(dirname "$0")/native-init.sh"
+
 echo "== check: OK =="
